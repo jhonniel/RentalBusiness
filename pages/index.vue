@@ -30,6 +30,7 @@ useHead({
 
 const { data: catalog } = await useFetch<CatalogListResponse>('/api/products', {
   query: { pageSize: 24 },
+  fatal: false,
 })
 
 const catalogProducts = computed(() => catalog.value?.items ?? [])

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { isUsableSecret, productionReadiness } from '../../utils/env'
 import { resolveSmtpConfig } from '../../utils/smtp'
-import { hasUsableSupabaseConfig } from '../../utils/supabase-config'
+import {
+  hasUsableSupabaseConfig,
+  SUPABASE_MODULE_FALLBACK_KEY,
+  SUPABASE_MODULE_FALLBACK_URL,
+  supabaseModuleKey,
+  supabaseModuleUrl,
+} from '../../utils/supabase-config'
 
 describe('isUsableSecret', () => {
   it('rejects empty and placeholder values', () => {
@@ -48,5 +54,13 @@ describe('hasUsableSupabaseConfig', () => {
   it('requires a real URL and anon key', () => {
     expect(hasUsableSupabaseConfig('https://example.supabase.co', 'anon-key')).toBe(true)
     expect(hasUsableSupabaseConfig('https://placeholder.supabase.co', 'anon-key')).toBe(false)
+  })
+
+  it('gives the Supabase module a rejected fallback so SSR can boot without keys', () => {
+    expect(supabaseModuleUrl('')).toBe(SUPABASE_MODULE_FALLBACK_URL)
+    expect(supabaseModuleKey('')).toBe(SUPABASE_MODULE_FALLBACK_KEY)
+    expect(supabaseModuleUrl('https://example.supabase.co')).toBe('https://example.supabase.co')
+    expect(isUsableSecret(SUPABASE_MODULE_FALLBACK_URL)).toBe(false)
+    expect(isUsableSecret(SUPABASE_MODULE_FALLBACK_KEY)).toBe(false)
   })
 })

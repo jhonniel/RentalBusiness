@@ -50,13 +50,13 @@ function handleClear() {
         <AppLogo />
       </div>
       <main class="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 pb-16 text-center">
-        <p class="text-xs uppercase tracking-[0.2em] text-stone-500">
+        <p class="text-xs uppercase tracking-widest text-stone-500">
           {{ error.statusCode }}
         </p>
-        <h1 class="font-display mt-4 text-3xl text-stone-900 sm:text-4xl">
+        <h1 class="font-display mt-4 text-3xl tracking-normal text-stone-900 sm:text-4xl">
           {{ title }}
         </h1>
-        <p class="mt-4 text-stone-600">
+        <p class="mt-4 tracking-normal text-stone-600">
           {{ description }}
         </p>
         <div class="mt-8 flex justify-center">

@@ -1,4 +1,11 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { supabaseModuleKey, supabaseModuleUrl } from './utils/supabase-config'
+
+const publicSupabaseUrl = process.env.NUXT_PUBLIC_SUPABASE_URL || ''
+const publicSupabaseKey = process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY
+  || process.env.NUXT_PUBLIC_SUPABASE_KEY
+  || ''
+
 export default defineNuxtConfig({
 
   modules: [
@@ -63,10 +70,8 @@ export default defineNuxtConfig({
     cronSecret: process.env.CRON_SECRET || process.env.NUXT_CRON_SECRET || '',
     public: {
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-      supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL || '',
-      supabaseAnonKey: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY
-        || process.env.NUXT_PUBLIC_SUPABASE_KEY
-        || '',
+      supabaseUrl: publicSupabaseUrl,
+      supabaseAnonKey: publicSupabaseKey,
     },
   },
 
@@ -131,9 +136,8 @@ export default defineNuxtConfig({
       secure: process.env.NODE_ENV === 'production',
     },
     types: '~/types/database.types.ts',
-    url: process.env.NUXT_PUBLIC_SUPABASE_URL,
-    key: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY
-      || process.env.NUXT_PUBLIC_SUPABASE_KEY,
+    url: supabaseModuleUrl(publicSupabaseUrl),
+    key: supabaseModuleKey(publicSupabaseKey),
     serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY
       || process.env.NUXT_SUPABASE_SERVICE_ROLE_KEY,
     secretKey: process.env.SUPABASE_SERVICE_ROLE_KEY
