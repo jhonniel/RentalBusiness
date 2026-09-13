@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
 import { createClient, type JwtPayload } from '@supabase/supabase-js'
-import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
+import { serverSupabaseUser } from '#supabase/server'
 import type { PublicProfile } from '../../types/auth'
 import { toPublicProfile } from '../../utils/auth'
 import { findProfileByUserId } from '../repositories/profile.repository'
 import { AppError, ERROR_CODES } from './errors'
-import { getSupabaseAdminClient, isSupabaseConfigured } from './supabase'
+import { getAuthenticatedSupabaseClient, getSupabaseAdminClient, isSupabaseConfigured } from './supabase'
 
 function emailFromClaims(user: JwtPayload): string | null {
   return typeof user.email === 'string' ? user.email : null
@@ -81,9 +81,17 @@ export async function requireUser(event: H3Event): Promise<JwtPayload> {
 
 export async function getCurrentProfile(event: H3Event): Promise<PublicProfile> {
   const user = await requireUser(event)
-  const client = await serverSupabaseClient(event)
-  const row = await findProfileByUserId(client, user.sub)
-    || await findProfileByUserId(getSupabaseAdminClient(), user.sub)
+  const client = await getAuthenticatedSupabaseClient(event)
+  let row = null
+  try {
+    row = await findProfileByUserId(client, user.sub)
+  }
+  catch {
+    row = null
+  }
+  if (!row) {
+    row = await findProfileByUserId(getSupabaseAdminClient(), user.sub)
+  }
 
   if (!row) {
     throw new AppError('Your profile is not available yet.', 404, ERROR_CODES.NOT_FOUND)

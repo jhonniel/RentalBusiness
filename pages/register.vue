@@ -89,11 +89,11 @@ async function onGoogle() {
   errors.value = {}
 
   if (!form.termsAccepted) {
-    errors.value.termsAccepted = 'Open the Terms & Conditions and choose I agree to continue.'
+    errors.value.termsAccepted = 'Agree to the Terms & Conditions to continue.'
   }
 
   if (!form.privacyAcknowledged) {
-    errors.value.privacyAcknowledged = 'Open the Privacy Policy and choose I acknowledge to continue.'
+    errors.value.privacyAcknowledged = 'Acknowledge the Privacy Policy to continue.'
   }
 
   if (errors.value.termsAccepted || errors.value.privacyAcknowledged) {
@@ -206,17 +206,12 @@ async function onGoogle() {
       <AuthPolicyAgreement
         v-model:terms-accepted="form.termsAccepted"
         v-model:privacy-acknowledged="form.privacyAcknowledged"
+        v-model:marketing-opt-in="form.marketingOptIn"
         :terms-error="errors.termsAccepted"
         :privacy-error="errors.privacyAcknowledged"
         :disabled="pending"
         @agreed="onPolicyAgreed"
       />
-      <AuthCheck
-        v-model="form.marketingOptIn"
-        :disabled="pending"
-      >
-        I would like to receive promotions, rental announcements, and special offers from JRY Rentals. Optional.
-      </AuthCheck>
 
       <AuthGoogleButton
         :pending="pending"

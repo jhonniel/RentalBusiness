@@ -7,8 +7,7 @@ import { updateOwnProfile } from '../../repositories/profile.repository'
 import { defineApiHandler } from '../../utils/api'
 import { requireUser } from '../../utils/auth'
 import { assertRateLimit } from '../../utils/rate-limit'
-import { getSupabaseAdminClient } from '../../utils/supabase'
-import { serverSupabaseClient } from '#supabase/server'
+import { getAuthenticatedSupabaseClient, getSupabaseAdminClient } from '../../utils/supabase'
 
 export default defineApiHandler(async (event) => {
   const user = await requireUser(event)
@@ -28,7 +27,7 @@ export default defineApiHandler(async (event) => {
       ? CURRENT_TERMS_VERSION
       : undefined,
   }
-  const client = await serverSupabaseClient(event)
+  const client = await getAuthenticatedSupabaseClient(event)
   const row = await updateOwnProfile(client, user.sub, values).catch(() =>
     updateOwnProfile(getSupabaseAdminClient(), user.sub, values),
   )

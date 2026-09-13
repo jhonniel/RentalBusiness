@@ -103,6 +103,13 @@ export default defineNuxtConfig({
 
   nitro: {
     compressPublicAssets: true,
+    serverAssets: [
+      {
+        baseName: 'legal',
+        dir: 'supabase',
+        pattern: '*-jry-v1.txt',
+      },
+    ],
   },
 
   typescript: {

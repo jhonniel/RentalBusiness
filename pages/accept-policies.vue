@@ -138,17 +138,12 @@ async function onSubmit() {
       <AuthPolicyAgreement
         v-model:terms-accepted="form.termsAccepted"
         v-model:privacy-acknowledged="form.privacyAcknowledged"
+        v-model:marketing-opt-in="form.marketingOptIn"
         :terms-error="errors.termsAccepted"
         :privacy-error="errors.privacyAcknowledged"
         :disabled="pending"
         @agreed="onPolicyAgreed"
       />
-      <AuthCheck
-        v-model="form.marketingOptIn"
-        :disabled="pending"
-      >
-        I would like to receive promotions, rental announcements, and special offers from JRY Rentals. Optional.
-      </AuthCheck>
 
       <UButton
         type="submit"

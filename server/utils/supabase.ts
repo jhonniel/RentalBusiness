@@ -59,3 +59,52 @@ export async function getPublicSupabaseClient(event: H3Event) {
 
   return serverSupabaseClient<Database>(event)
 }
+
+export async function getAuthenticatedSupabaseClient(event: H3Event): Promise<SupabaseClient<Database>> {
+  if (!isSupabaseConfigured()) {
+    throw new AppError(
+      'The application is not ready to process this request.',
+      503,
+      ERROR_CODES.INTERNAL_ERROR,
+    )
+  }
+
+  const cookieClient = await serverSupabaseClient<Database>(event)
+
+  try {
+    const { data } = await cookieClient.auth.getUser()
+    if (data.user?.id) {
+      return cookieClient
+    }
+  }
+  catch {
+    // Cookie session is missing after client-side sign-in. Use the access token.
+  }
+
+  const header = getHeader(event, 'authorization')
+  const token = header?.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : ''
+  if (!token) {
+    return cookieClient
+  }
+
+  const config = useRuntimeConfig()
+  const url = String(config.public.supabaseUrl || process.env.NUXT_PUBLIC_SUPABASE_URL || '')
+  const anonKey = String(
+    config.public.supabaseAnonKey
+    || process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY
+    || process.env.NUXT_PUBLIC_SUPABASE_KEY
+    || '',
+  )
+
+  return createClient<Database>(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  })
+}

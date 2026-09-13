@@ -24,10 +24,10 @@ export const registerSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string().min(1, 'Confirm your password.'),
   termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'Open the Terms & Conditions and choose I agree to create an account.' }),
+    errorMap: () => ({ message: 'Agree to the Terms & Conditions to create an account.' }),
   }),
   privacyAcknowledged: z.literal(true, {
-    errorMap: () => ({ message: 'Open the Privacy Policy and choose I acknowledge to create an account.' }),
+    errorMap: () => ({ message: 'Acknowledge the Privacy Policy to create an account.' }),
   }),
   marketingOptIn: z.boolean().optional().default(false),
 }).strict().refine(data => data.password === data.confirmPassword, {
@@ -41,10 +41,10 @@ export const registerAccountSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'Open the Terms & Conditions and choose I agree to create an account.' }),
+    errorMap: () => ({ message: 'Agree to the Terms & Conditions to create an account.' }),
   }),
   privacyAcknowledged: z.literal(true, {
-    errorMap: () => ({ message: 'Open the Privacy Policy and choose I acknowledge to create an account.' }),
+    errorMap: () => ({ message: 'Acknowledge the Privacy Policy to create an account.' }),
   }),
   marketingOptIn: z.boolean().optional().default(false),
 }).strict()
@@ -74,10 +74,10 @@ export const acceptPoliciesSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required.').max(80),
   lastName: z.string().trim().min(1, 'Last name is required.').max(80),
   termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'Open the Terms & Conditions and choose I agree to continue.' }),
+    errorMap: () => ({ message: 'Agree to the Terms & Conditions to continue.' }),
   }),
   privacyAcknowledged: z.literal(true, {
-    errorMap: () => ({ message: 'Open the Privacy Policy and choose I acknowledge to continue.' }),
+    errorMap: () => ({ message: 'Acknowledge the Privacy Policy to continue.' }),
   }),
   marketingOptIn: z.boolean().optional().default(false),
 }).strict()

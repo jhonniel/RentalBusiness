@@ -54,6 +54,8 @@ Replace placeholder Supabase values before using authentication. Apply every fil
 
 `vercel.json` sets security headers and one daily cron path (`/api/cron/daily`). Vercel auto-detects Nuxt 3.
 
+Terms and Privacy text live in `supabase/terms-jry-v1.txt` and `supabase/privacy-jry-v1.txt`. Nitro bundles those files as server assets so `/api/terms/current` and `/api/privacy/current` work on Vercel. Do not read them from `process.cwd()` at runtime.
+
 Add every required variable in **Project → Settings → Environment Variables** for Production and Preview, then redeploy. `GET /api/health` reports `ready: false` until Supabase, service-role, cron, webhook, and SMTP values are present. Missing `NUXT_PUBLIC_SUPABASE_URL` / `NUXT_PUBLIC_SUPABASE_KEY` makes `@nuxtjs/supabase` throw on every SSR refresh (`Your project's URL and Key are required`). The app now boots with a rejected placeholder so the storefront still renders; catalog and sign-in stay unavailable until the real keys are set.
 
 ## Supabase

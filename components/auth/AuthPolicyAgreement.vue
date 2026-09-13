@@ -4,6 +4,7 @@ import type { PublicTerms } from '~/types/terms'
 
 const termsAccepted = defineModel<boolean>('termsAccepted', { required: true })
 const privacyAcknowledged = defineModel<boolean>('privacyAcknowledged', { required: true })
+const marketingOptIn = defineModel<boolean>('marketingOptIn')
 
 defineProps<{
   termsError?: string
@@ -30,47 +31,65 @@ function agreePrivacy() {
   privacyAcknowledged.value = true
   emit('agreed', 'privacy')
 }
+
+function openTerms(event: Event) {
+  event.preventDefault()
+  event.stopPropagation()
+  termsOpen.value = true
+}
+
+function openPrivacy(event: Event) {
+  event.preventDefault()
+  event.stopPropagation()
+  privacyOpen.value = true
+}
+
+watch(termsAccepted, (value) => {
+  if (value) {
+    emit('agreed', 'terms')
+  }
+})
+
+watch(privacyAcknowledged, (value) => {
+  if (value) {
+    emit('agreed', 'privacy')
+  }
+})
 </script>
 
 <template>
-  <div>
-    <p class="text-sm leading-6 text-[#4a5a54]">
-      The
+  <div class="space-y-3 tracking-normal">
+    <AuthCheck
+      v-model="termsAccepted"
+      :error="termsError"
+      :disabled="disabled"
+    >
+      I agree to the
       <button
         type="button"
-        class="inline appearance-none border-0 bg-transparent p-0 font-medium text-[#12201a] underline-offset-4 hover:underline"
-        :class="termsError ? 'text-red-800 underline' : ''"
-        @click="termsOpen = true"
-      >Terms & Conditions</button>
-      <span
-        v-if="termsAccepted"
-        class="ml-1 text-xs font-medium text-emerald-800"
-      >(agreed)</span>
-      govern the website and rental service. The
+        class="inline appearance-none border-0 bg-transparent p-0 font-medium text-[#12201a] underline underline-offset-4"
+        @click="openTerms"
+      >Terms & Conditions</button>.
+    </AuthCheck>
+    <AuthCheck
+      v-model="privacyAcknowledged"
+      :error="privacyError"
+      :disabled="disabled"
+    >
+      I acknowledge the
       <button
         type="button"
-        class="inline appearance-none border-0 bg-transparent p-0 font-medium text-[#12201a] underline-offset-4 hover:underline"
-        :class="privacyError ? 'text-red-800 underline' : ''"
-        @click="privacyOpen = true"
-      >Privacy Policy</button>
-      <span
-        v-if="privacyAcknowledged"
-        class="ml-1 text-xs font-medium text-emerald-800"
-      >(agreed)</span>
-      explains how we process personal information. Marketing is optional.
-    </p>
-    <p
-      v-if="termsError"
-      class="mt-1.5 text-xs text-red-700"
+        class="inline appearance-none border-0 bg-transparent p-0 font-medium text-[#12201a] underline underline-offset-4"
+        @click="openPrivacy"
+      >Privacy Policy</button>.
+    </AuthCheck>
+    <AuthCheck
+      v-if="marketingOptIn !== undefined"
+      v-model="marketingOptIn"
+      :disabled="disabled"
     >
-      {{ termsError }}
-    </p>
-    <p
-      v-if="privacyError"
-      class="mt-1.5 text-xs text-red-700"
-    >
-      {{ privacyError }}
-    </p>
+      I would like to receive promotions, rental announcements, and special offers from JRY Rentals. Optional.
+    </AuthCheck>
 
     <AuthPolicyModal
       v-model:open="termsOpen"
