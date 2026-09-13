@@ -83,14 +83,14 @@ const displayValue = computed(() => model.value ? formatBookingDate(model.value)
 </script>
 
 <template>
-  <label class="block">
-    <span class="mb-2 block text-xs font-medium tracking-wide text-[#5b6b64] uppercase">
+  <label class="block font-[system-ui,sans-serif] tracking-normal">
+    <span class="mb-2 block text-xs font-medium text-[#5b6b64]">
       {{ label }}
     </span>
     <UPopover :disabled="disabled">
       <button
         type="button"
-        class="flex h-12 w-full items-center gap-3 rounded-xl border border-[#12201a]/12 bg-white px-3.5 text-left text-sm text-[#12201a] transition-colors hover:border-[#12201a]/28 disabled:cursor-not-allowed disabled:opacity-60"
+        class="flex h-12 w-full items-center gap-3 rounded-xl border border-[#12201a]/12 bg-white px-3.5 text-left text-sm tracking-normal text-[#12201a] transition-colors hover:border-[#12201a]/28 disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="disabled"
       >
         <UIcon
