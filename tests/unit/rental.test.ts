@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { isRentalCode, toPublicRental } from '../../utils/rental'
+import { canSubmitRentalRequest, customerRentalNextLabel, customerRentalNextPath, isRentalCode, toPublicRental } from '../../utils/rental'
 import { createRentalSchema, rentalQuoteQuerySchema } from '../../utils/rental-validation'
 
 describe('rental validation', () => {
@@ -12,7 +12,7 @@ describe('rental validation', () => {
       quantity: 1,
       firstName: 'Ana',
       lastName: 'Reyes',
-    })).toMatchObject({ status: 'pending' })
+    })).toMatchObject({ status: 'draft' })
 
     expect(createRentalSchema.safeParse({
       productSlug: 'sony-a7-iv',
@@ -90,5 +90,43 @@ describe('customer rental transitions', () => {
     expect(canTransitionRentalStatus('pending', 'cancelled')).toBe(true)
     expect(canTransitionRentalStatus('awaiting_payment', 'cancelled')).toBe(true)
     expect(canTransitionRentalStatus('active', 'cancelled')).toBe(false)
+  })
+
+  it('lets customers submit a draft only after waiver and identity are on file', () => {
+    expect(canTransitionRentalStatus('draft', 'pending')).toBe(true)
+    expect(canSubmitRentalRequest({
+      status: 'draft',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe(true)
+    expect(canSubmitRentalRequest({
+      status: 'draft',
+      waiver: null,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe(false)
+    expect(canSubmitRentalRequest({
+      status: 'pending',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe(false)
+  })
+
+  it('points customers at the next unfinished rental step', () => {
+    expect(customerRentalNextLabel({
+      status: 'draft',
+      waiver: null,
+      identity: null,
+    })).toBe('Sign the waiver')
+    expect(customerRentalNextPath({
+      code: 'LUM-20260913-00001',
+      status: 'draft',
+      waiver: null,
+      identity: null,
+    })).toBe('/rentals/LUM-20260913-00001/waiver')
+    expect(customerRentalNextLabel({
+      status: 'pending',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe('Pay now')
   })
 })

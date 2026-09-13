@@ -17,11 +17,8 @@ The Renter’s full name, email address, mobile number, booking / rental ID, ren
 2. RENTAL EQUIPMENT
 The Renter agrees to use and return the equipment listed in their booking, including quantities and the condition recorded for that order.
 
-Equipment may include, but is not limited to:
-- Starlink Mini
-- DJI Mini 3
-- DJI Osmo 360
-- Accessories and related rental equipment
+Equipment on this rental:
+{{RENTAL_EQUIPMENT}}
 
 The exact equipment included in the Renter’s booking will be recorded in the rental order.
 

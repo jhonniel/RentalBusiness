@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstWaiverAcceptance, isSignatureDataUrl, toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
+import { firstWaiverAcceptance, isSignatureDataUrl, renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
 import { acceptWaiverSchema, publishWaiverSchema } from '../../utils/waiver-validation'
 
 function signatureData(length = 2600) {
@@ -86,5 +86,27 @@ describe('waiver mapper', () => {
       is_current: true,
       published_at: '2026-09-13T00:00:00.000Z',
     })).not.toHaveProperty('id')
+  })
+
+  it('shows only the products on the rental in the equipment list', () => {
+    const items = [{ quantity: 1, product: { name: 'DJI Air 3' } }]
+
+    expect(renderWaiverBody(
+      'Equipment on this rental:\n{{RENTAL_EQUIPMENT}}\n\nKeep the kit secure.',
+      items,
+    )).toContain('- DJI Air 3 × 1')
+    expect(renderWaiverBody(
+      'Equipment on this rental:\n{{RENTAL_EQUIPMENT}}\n\nKeep the kit secure.',
+      items,
+    )).not.toContain('Starlink Mini')
+
+    const published = renderWaiverBody(
+      'Equipment may include, but is not limited to:\n- Starlink Mini\n- DJI Mini 3\n- DJI Osmo 360\n- Accessories and related rental equipment\n\n3. RESPONSIBILITY',
+      items,
+    )
+    expect(published).toContain('Equipment on this rental:')
+    expect(published).toContain('- DJI Air 3 × 1')
+    expect(published).not.toContain('Starlink Mini')
+    expect(published).not.toContain('DJI Osmo 360')
   })
 })

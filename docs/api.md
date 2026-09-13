@@ -162,14 +162,15 @@ Authenticated. Customers read and create only their own rows. Totals come from `
 | Method | Path | Notes |
 | --- | --- | --- |
 | POST | `/api/rentals/quote` | Server quote + availability |
-| POST | `/api/rentals` | Create `draft` or `pending` (default pending) |
+| POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Dates must still have free stock after occupying (`pending` and later) rentals. |
 | GET | `/api/rentals` | Own rentals, optional status, pagination |
 | GET | `/api/rentals/[id]` | By `uuid` or `code` |
+| POST | `/api/rentals/[id]/submit` | Own `draft` with a signed waiver and identity documents. Becomes `pending`, occupies inventory, and emails `contactmejry@gmail.com`. |
 | POST | `/api/rentals/[id]/cancel` | Own `draft` or `pending` only |
-| POST | `/api/rentals/[id]/identity` | Multipart `governmentId` and `selfie` (JPG/PNG/WebP, 5 MB). Owner of a `draft`/`pending` rental only. |
+| POST | `/api/rentals/[id]/identity` | Multipart `governmentId` and `selfie` (JPG/PNG/WebP, 5 MB). Owner of a `draft`/`pending` rental with a signed waiver. |
 
-**Create body:** product uuid/slug, dates, quantity, firstName, lastName, phone?, notes?, status?  
-**Rate limit:** 20 creates / minute / user; 12 identity uploads / minute / user
+**Create body:** product uuid/slug, dates, quantity, firstName, lastName, phone?, notes?, status? (`draft` default)  
+**Rate limit:** 20 creates / minute / user; 20 submits / minute / user; 12 identity uploads / minute / user
 
 Rental payloads include `waiver` when the customer has signed (`uuid`, `signerName`, `signerEmail`, `signerPhone`, `acceptedAt`, `privacyPolicyVersion`, `termsVersion`, bound version). They include `identity.submittedAt` after ID documents are uploaded. They never include `id`, `ip_address`, `signature_data`, or storage paths.
 
@@ -184,7 +185,7 @@ Current terms are public. Acceptance requires a signed-in owner of a `draft` or 
 | GET | `/api/admin/waivers` | All versions |
 | POST | `/api/admin/waivers` | Publish a new current version |
 
-**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents before checkout.  
+**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents, then submits the draft request before checkout.  
 **Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 admin publishes / minute / admin
 
 ### Privacy Policy
@@ -210,7 +211,7 @@ Rental payloads include `payments` (`uuid`, amount, currency, provider, status, 
 
 ### Payments
 
-Server-created intents. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver and submitted identity documents are required. Status changes only from a verified webhook or a server-side provider retrieve.
+Customers see active bank and QR methods from `GET /api/payment-methods` and send the rental total there. Server-created intents remain available for a future live adapter. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver, submitted identity documents, and a submitted (`pending` or `awaiting_payment`) request are required. Status changes only from a verified webhook or a server-side provider retrieve.
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -241,7 +242,7 @@ Admins configure GCash, Maya, bank transfer, or similar methods and upload a QR 
 **Method body:** name, optional code, accountName, accountNumber, instructions, sortOrder, isActive. Extra fields such as `id` are rejected.  
 **Rate limit:** 40 admin writes / minute / admin; 80 customer reads / minute / user
 
-These methods do not confirm payment. Checkout still uses the provider webhook or sandbox complete.
+Customers send the rental total to these bank or QR details. The methods do not confirm payment. Status still changes only from a verified webhook or a server-side provider retrieve.
 
 Rental payloads include `receipts` (`uuid`, `receiptNumber`, `issuedAt`, snapshot). Snapshots never include internal ids.
 

@@ -3,6 +3,7 @@ import type { RentalListResponse } from '~/types/rental'
 import { formatBusinessDate } from '~/utils/datetime'
 
 definePageMeta({
+  layout: 'account',
   middleware: 'auth',
 })
 
@@ -20,10 +21,8 @@ const remote = useRemoteState(error, pending, hasData)
 </script>
 
 <template>
-  <section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-    <AccountNav />
-
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+  <section class="mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       My rentals
     </h1>
     <p class="mt-2 max-w-2xl text-stone-600">

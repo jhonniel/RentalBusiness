@@ -3,9 +3,11 @@ import type { PublicRental } from '~/types/rental'
 import type { PublicWaiverAcceptance, PublicWaiverVersion } from '~/types/waiver'
 import { fieldErrors } from '~/utils/auth-validation'
 import { formatBusinessDate } from '~/utils/datetime'
+import { renderWaiverBody } from '~/utils/waiver'
 import { acceptWaiverSchema } from '~/utils/waiver-validation'
 
 definePageMeta({
+  layout: 'account',
   middleware: 'auth',
 })
 
@@ -96,6 +98,11 @@ const unavailable = computed(() =>
 
 const alreadySigned = computed(() => Boolean(rental.value?.waiver))
 const canSign = computed(() => ['draft', 'pending'].includes(rental.value?.status ?? '') && !alreadySigned.value)
+const waiverBody = computed(() =>
+  currentWaiver.value
+    ? renderWaiverBody(currentWaiver.value.body, rental.value?.items ?? [])
+    : '',
+)
 
 async function onSubmit() {
   formError.value = ''
@@ -148,10 +155,8 @@ async function onSubmit() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-    <AccountNav />
-
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-3xl">
+  <section class="mx-auto max-w-3xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <h1 class="text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-3xl">
       Equipment Rental Agreement & Liability Waiver
     </h1>
     <p class="mt-2 text-stone-600">
@@ -270,7 +275,7 @@ async function onSubmit() {
         </h2>
         <div class="mt-4 max-h-[32rem] overflow-y-auto rounded-xl border border-stone-100 bg-stone-50 p-4">
           <p class="whitespace-pre-wrap text-sm leading-6 text-stone-700">
-            {{ currentWaiver.body }}
+            {{ waiverBody }}
           </p>
         </div>
       </section>

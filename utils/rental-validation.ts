@@ -27,7 +27,7 @@ export const createRentalSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required.').max(80),
   lastName: z.string().trim().min(1, 'Last name is required.').max(80),
   phone: z.string().trim().max(30).optional().or(z.literal('')),
-  status: z.enum(['draft', 'pending']).default('pending'),
+  status: z.enum(['draft', 'pending']).default('draft'),
 }).strict().refine(data => Boolean(data.productUuid || data.productSlug), {
   message: 'Choose a product.',
   path: ['productUuid'],

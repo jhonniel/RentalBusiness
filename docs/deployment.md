@@ -76,7 +76,20 @@ Enable the Google provider in Supabase Authentication. Create an OAuth client in
 - Authorized JavaScript origins: `http://localhost:3000` and `{NUXT_PUBLIC_SITE_URL}`
 - Authorized redirect URIs: `https://<project-ref>.supabase.co/auth/v1/callback`
 
-Paste the Google Client ID and Client Secret into the Supabase Google provider. Do not put those secrets in Nuxt or the browser. The app only calls `signInWithOAuth({ provider: 'google' })` with the public site URL as `redirectTo`.
+Paste the Google Client ID and Client Secret into the Supabase Google provider. Do not put those secrets in Nuxt or the browser. The app sends users to Google, then back to `/confirm` on the current origin.
+
+Google sign-in also needs these dashboard values or the button will fail even when the app is correct:
+
+1. Supabase → Authentication → Providers → Google: enabled, with the Google Client ID and Client Secret.
+2. Supabase → Authentication → URL Configuration → Redirect URLs:
+   - `http://localhost:3000/confirm`
+   - `https://jryrentals.vercel.app/confirm`
+   - any custom domain `/confirm`
+3. Google Cloud OAuth client (Web application):
+   - Authorized JavaScript origins: `http://localhost:3000` and `https://jryrentals.vercel.app`
+   - Authorized redirect URI: `https://msmlarhbkhtkuripjpvl.supabase.co/auth/v1/callback`
+
+`/confirm` is client-only so the Google PKCE code is exchanged in the browser, not during SSR.
 
 Apply migrations with the Supabase CLI or SQL editor against the matching project. Do not edit production schemas by hand. Do not seed production.
 
@@ -94,7 +107,7 @@ Password-reset mail is still sent by Supabase Auth. In the Supabase dashboard, s
 
 The webhook URL is `{NUXT_PUBLIC_SITE_URL}/api/payments/webhook`. Send `x-lumen-payment-signature: sha256=<hmac-hex>` over the raw JSON body.
 
-Phase 8 uses the `sandbox` provider by default (`PAYMENT_PROVIDER=sandbox`). Hosted checkout is `/payments/sandbox`. Set `PAYMENT_WEBHOOK_SECRET` before calling the webhook. `PAYMENT_PROVIDER_KEY` is reserved for a future live adapter.
+Customers pay by sending the rental total to the active bank or QR methods published in Admin → Payments. Those details come from `/api/payment-methods`. Do not send customers to `/payments/sandbox`. Set `PAYMENT_WEBHOOK_SECRET` before calling the webhook. `PAYMENT_PROVIDER` and `PAYMENT_PROVIDER_KEY` stay available for a future live adapter.
 
 ## Cron
 

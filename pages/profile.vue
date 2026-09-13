@@ -5,6 +5,7 @@ import { CURRENT_TERMS_VERSION } from '~/utils/terms'
 import { formatBusinessDateTime } from '~/utils/datetime'
 
 definePageMeta({
+  layout: 'account',
   middleware: 'auth',
 })
 
@@ -81,17 +82,15 @@ async function onSubmit() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-    <AccountNav />
-
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+  <section class="mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       Profile
     </h1>
     <p class="mt-2 max-w-2xl text-stone-600">
-      Email comes from your signed-in account. Role cannot be changed here.
+        Email comes from your signed-in account.
     </p>
 
-    <div class="mt-8 max-w-xl rounded-xl border border-stone-200 bg-white p-6">
+    <div class="mt-8 max-w-xl rounded-xl border border-stone-200 bg-white p-4 sm:p-6">
       <dl class="grid gap-3 text-sm">
         <div class="flex justify-between gap-4">
           <dt class="shrink-0 text-stone-500">
@@ -99,14 +98,6 @@ async function onSubmit() {
           </dt>
           <dd class="min-w-0 break-all text-right text-stone-900">
             {{ profile?.email || '—' }}
-          </dd>
-        </div>
-        <div class="flex justify-between gap-4">
-          <dt class="text-stone-500">
-            Role
-          </dt>
-          <dd class="capitalize text-stone-900">
-            {{ profile?.role || 'customer' }}
           </dd>
         </div>
       </dl>

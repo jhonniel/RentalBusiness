@@ -152,6 +152,22 @@ describe('overlap-aware booking totals', () => {
     )).toBe(1)
   })
 
+  it('marks days unavailable when a pending request already fills the only unit', () => {
+    expect(unavailableDates({
+      stock: {
+        quantity: 1,
+        damagedQuantity: 0,
+        maintenanceQuantity: 0,
+        lostQuantity: 0,
+      },
+      bookings: [booking({ status: 'pending', quantity: 1, startsOn: '2026-09-13', endsOn: '2026-09-13' })],
+      productUuid: camera,
+      requestedQuantity: 1,
+      from: '2026-09-12',
+      to: '2026-09-14',
+    })).toEqual(['2026-09-13'])
+  })
+
   it('lists calendar days that cannot fulfill the requested quantity', () => {
     expect(unavailableDates({
       stock: {

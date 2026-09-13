@@ -14,7 +14,7 @@ Currency is **PHP**. Business timezone is **Asia/Manila**. Public pages and APIs
 
 ## What the system does
 
-The storefront is the customer path: pick gear, lock dates, sign a waiver, upload identity documents, and pay. The admin console is the operations path: approve rentals, manage stock, record sales and expenses, and keep an audit trail.
+The storefront is the customer path: pick gear, lock dates, sign a waiver, upload identity documents, send the request, and pay. The admin console is the operations path: approve rentals, manage stock, record sales and expenses, and keep an audit trail.
 
 Booking rules (pricing, availability, payment status) live on the server. Pages and components do not invent those rules.
 
@@ -27,8 +27,8 @@ Booking rules (pricing, availability, payment status) live on the server. Pages 
 - Account registration, email confirmation, password reset, and Google sign-in
 - Rental request with customer details
 - Versioned liability waiver with a digital signature
-- Government ID and selfie-with-ID upload before payment
-- Checkout with admin-configured QR payment methods (sandbox provider by default)
+- Government ID and selfie-with-ID upload before the request is sent
+- Pay by sending the rental total to admin-uploaded bank or QR methods
 - Customer dashboard, rental history, receipts, and notifications
 - Public About, Privacy Policy, and Terms pages
 

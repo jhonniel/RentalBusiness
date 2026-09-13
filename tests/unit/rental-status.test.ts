@@ -21,6 +21,8 @@ describe('rental status transitions', () => {
 
 describe('inventory occupancy', () => {
   it('reserves stock for open rentals and releases completed ones', () => {
+    expect(rentalOccupiesInventory('draft')).toBe(false)
+    expect(rentalOccupiesInventory('pending')).toBe(true)
     expect(rentalOccupiesInventory('approved')).toBe(true)
     expect(rentalOccupiesInventory('active')).toBe(true)
     expect(rentalOccupiesInventory('cancelled')).toBe(false)

@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import type { PaymentCheckout, PublicPaymentMethod } from '~/types/payment'
+import type { PublicPaymentMethod } from '~/types/payment'
 import type { PublicRental } from '~/types/rental'
 
 definePageMeta({
+  layout: 'account',
   middleware: 'auth',
 })
 
 const route = useRoute()
+const toast = useToast()
 const { formatMoney } = useCurrency()
+const { authHeaders } = useAuth()
 const identifier = computed(() => String(route.params.id))
-const pending = ref(false)
-const formError = ref('')
+const submitting = ref(false)
 
-const { data: rental, error } = await useFetch<PublicRental>(
+const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/rentals/${identifier.value}`,
 )
 const { data: paymentMethods } = await useFetch<PublicPaymentMethod[]>('/api/payment-methods')
@@ -30,64 +32,77 @@ useSiteMeta({
 })
 
 const latestPayment = computed(() => rental.value?.payments[0] ?? null)
+const canSubmit = computed(() =>
+  rental.value?.status === 'draft'
+  && Boolean(rental.value?.waiver)
+  && Boolean(rental.value?.identity),
+)
 const canPay = computed(() =>
   Boolean(rental.value?.waiver)
   && Boolean(rental.value?.identity)
   && ['pending', 'awaiting_payment'].includes(rental.value?.status ?? ''),
 )
 
-async function startCheckout() {
+async function submitRequest() {
   if (!rental.value) {
     return
   }
 
-  formError.value = ''
-  pending.value = true
+  submitting.value = true
   try {
-    const checkout = await $fetch<PaymentCheckout>('/api/payments/create', {
+    await $fetch(`/api/rentals/${rental.value.uuid}/submit`, {
       method: 'POST',
-      body: {
-        rentalUuid: rental.value.uuid,
-        rentalCode: rental.value.code,
-      },
+      headers: authHeaders(),
     })
-    await navigateTo(checkout.checkoutUrl, { external: checkout.checkoutUrl.startsWith('http') })
+    toast.add({ title: 'Request submitted', color: 'success' })
+    await refresh()
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
       ? (error as { data?: { message?: string } }).data
       : null
-    formError.value = payload?.message || 'We could not start that payment.'
+    toast.add({
+      title: payload?.message || 'We could not submit that request.',
+      color: 'error',
+    })
   }
   finally {
-    pending.value = false
+    submitting.value = false
+  }
+}
+
+async function copyValue(value: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(value)
+    toast.add({ title: `${label} copied`, color: 'success' })
+  }
+  catch {
+    toast.add({ title: `Could not copy ${label.toLowerCase()}.`, color: 'error' })
   }
 }
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-    <AccountNav />
-
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-3xl">
+  <section class="mx-auto max-w-3xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <h1 class="text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-3xl">
       Pay for this rental
     </h1>
     <p class="mt-2 text-stone-600">
-      The amount is taken from the server quote. Payment status is confirmed by the provider, not by this page.
+      Send the amount due to one of the shop accounts below. Use the bank details or QR code uploaded by the operator.
     </p>
 
     <CatalogNotice
       v-if="error?.statusCode === 503"
       class="mt-8"
       title="Payments are not connected"
-      description="Add live Supabase credentials and a service-role key to start checkout."
+      description="Add live Supabase credentials to load this request."
     />
 
     <CatalogNotice
       v-else-if="rental && !rental.waiver"
       class="mt-8"
       title="Sign the waiver first"
-      description="A signed waiver is required before checkout."
+      description="A signed waiver is required before payment."
     >
       <UButton :to="`/rentals/${rental.code}/waiver`">
         Sign waiver
@@ -98,10 +113,24 @@ async function startCheckout() {
       v-else-if="rental && !rental.identity"
       class="mt-8"
       title="Upload identity documents first"
-      description="A government ID and a selfie holding that ID are required before checkout."
+      description="A government ID and a selfie holding that ID are required before payment."
     >
       <UButton :to="`/rentals/${rental.code}/verify`">
         Upload ID
+      </UButton>
+    </CatalogNotice>
+
+    <CatalogNotice
+      v-else-if="rental && canSubmit"
+      class="mt-8"
+      title="Submit this request first"
+      description="Send the request to the shop. The bank and QR details appear after that."
+    >
+      <UButton
+        :loading="submitting"
+        @click="submitRequest"
+      >
+        Submit request
       </UButton>
     </CatalogNotice>
 
@@ -120,11 +149,6 @@ async function startCheckout() {
       v-else-if="rental && canPay"
       class="mt-8 space-y-6"
     >
-      <AuthAlert
-        v-if="formError"
-        :description="formError"
-      />
-
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
         <p class="text-xs uppercase tracking-wider text-lumen-700">
           {{ rental.code }}
@@ -146,16 +170,22 @@ async function startCheckout() {
         </p>
       </section>
 
+      <CatalogNotice
+        v-if="!paymentMethods?.length"
+        title="No payment method is ready"
+        description="The operator has not published a bank account or QR code yet. Check back shortly or contact the shop."
+      />
+
       <section
-        v-if="paymentMethods?.length"
+        v-else
         class="space-y-4"
       >
         <div>
           <h2 class="text-lg font-medium text-stone-900">
-            Pay with QR
+            Send payment here
           </h2>
           <p class="mt-1 text-sm text-stone-600">
-            Scan a method below, send the amount due, then keep your reference number.
+            Transfer the amount due to a method below, then keep your reference number.
           </p>
         </div>
         <ul class="grid gap-4 sm:grid-cols-2">
@@ -183,12 +213,22 @@ async function startCheckout() {
             >
               {{ method.accountName }}
             </p>
-            <p
+            <div
               v-if="method.accountNumber"
-              class="text-sm text-stone-900"
+              class="mt-1 flex items-center justify-between gap-3"
             >
-              {{ method.accountNumber }}
-            </p>
+              <p class="text-sm font-medium text-stone-900">
+                {{ method.accountNumber }}
+              </p>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                @click="copyValue(method.accountNumber!, method.name)"
+              >
+                Copy
+              </UButton>
+            </div>
             <p
               v-if="method.instructions"
               class="mt-2 whitespace-pre-wrap text-sm text-stone-600"
@@ -199,23 +239,14 @@ async function startCheckout() {
         </ul>
       </section>
 
-      <div class="flex flex-wrap gap-2">
-        <UButton
-          class="w-full sm:w-auto"
-          :loading="pending"
-          @click="startCheckout"
-        >
-          Continue to payment
-        </UButton>
-        <UButton
-          :to="`/rentals/${rental.code}`"
-          color="neutral"
-          variant="outline"
-          class="w-full sm:w-auto"
-        >
-          Back
-        </UButton>
-      </div>
+      <UButton
+        :to="`/rentals/${rental.code}`"
+        color="neutral"
+        variant="outline"
+        class="w-full sm:w-auto"
+      >
+        Back
+      </UButton>
     </div>
   </section>
 </template>

@@ -2,17 +2,21 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { CreateRentalInput, RentalQuoteQuery } from '../../utils/rental-validation'
-import type { RentalQuote } from '../../types/rental'
+import type { PublicRental, RentalQuote } from '../../types/rental'
+import { RENTAL_REQUEST_NOTIFY_EMAIL } from '../../utils/constants'
 import { evaluateAvailability } from '../../utils/availability'
+import { EMAIL_TEMPLATES } from '../../utils/email'
+import { rentalSubmittedStaffEmail } from '../../utils/email-templates'
 import { inclusiveRentalDays, quoteRentalLine } from '../../utils/pricing'
 import { isRentalCode, toPublicRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
+import { logger } from '../utils/logger'
 import { getBookedQuantity } from '../repositories/availability.repository'
 import { findProductBySlug, findProductByUuid } from '../repositories/product.repository'
-import { updateOwnProfile } from '../repositories/profile.repository'
+import { findProfileById, updateOwnProfile } from '../repositories/profile.repository'
 import {
   deleteRentalById,
   findRentalByCode,
@@ -26,8 +30,58 @@ import {
 } from '../repositories/rental.repository'
 import { cancelOpenPaymentsByRentalId, findPaidPaymentByRentalId } from '../repositories/payment.repository'
 import { getSupabaseAdminClient } from '../utils/supabase'
+import { sendTemplatedEmail } from './email.service'
 
 type Client = SupabaseClient<Database>
+
+function siteOrigin() {
+  const config = useRuntimeConfig()
+  return String(config.public.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+}
+
+async function customerEmail(admin: Client, userId: string) {
+  const { data, error } = await admin.auth.admin.getUserById(userId)
+  if (error || !data.user?.email) {
+    return null
+  }
+  return data.user.email
+}
+
+async function notifyStaffOfSubmittedRental(rental: PublicRental) {
+  const admin = getSupabaseAdminClient()
+  const identity = await findRentalIdentity(admin, rental.uuid)
+  const profile = identity ? await findProfileById(admin, identity.customer_id) : null
+  const email = profile ? await customerEmail(admin, profile.user_id) : null
+  const customerName = [rental.customer?.firstName, rental.customer?.lastName].filter(Boolean).join(' ')
+    || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+    || 'Customer'
+
+  const message = rentalSubmittedStaffEmail({
+    rentalCode: rental.code,
+    customerName,
+    customerEmail: email || 'Not on file',
+    customerPhone: rental.customer?.phone || profile?.phone || '',
+    startsOn: rental.startsOn,
+    endsOn: rental.endsOn,
+    items: rental.items.map(item => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      lineTotal: item.lineTotal,
+    })),
+    totalAmount: rental.totalAmount,
+    depositAmount: rental.depositAmount,
+    notes: rental.notes,
+    adminUrl: `${siteOrigin()}/admin/rentals/${rental.code}`,
+  })
+
+  await sendTemplatedEmail(admin, {
+    to: RENTAL_REQUEST_NOTIFY_EMAIL,
+    template: EMAIL_TEMPLATES.RENTAL_SUBMITTED,
+    entityKey: rental.uuid,
+    subject: message.subject,
+    html: message.html,
+  })
+}
 
 async function loadActiveProduct(client: Client, query: { productUuid?: string, productSlug?: string }) {
   const identifier = query.productUuid || query.productSlug || ''
@@ -98,9 +152,17 @@ export async function createRental(
 ) {
   const quote = await buildQuote(client, input)
 
-  if (input.status === 'pending' && !quote.canFulfill) {
+  if (!quote.canFulfill) {
     throw new AppError(
-      'That quantity is not available for the selected dates.',
+      'Those dates are not available. Another request already holds that kit.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  if (input.status === 'pending') {
+    throw new AppError(
+      'Sign the waiver and upload identity documents before submitting this request.',
       409,
       ERROR_CODES.CONFLICT,
     )
@@ -134,16 +196,12 @@ export async function createRental(
       line_total: quote.lineTotal,
     })
 
-    if (input.status === 'pending') {
-      await updateRentalStatus(client, created.uuid, 'pending')
-    }
-
     await insertRentalStatusHistory(client, {
       rentalId: created.id,
       fromStatus: null,
-      toStatus: input.status,
+      toStatus: 'draft',
       changedBy: profile.profileId,
-      note: input.status === 'pending' ? 'Customer submitted a rental request.' : 'Customer saved a draft.',
+      note: 'Customer started a rental request.',
     })
   }
   catch (error) {
@@ -195,6 +253,77 @@ export async function getOwnRental(client: Client, identifier: string) {
   }
 
   return toPublicRental(row)
+}
+
+export async function submitOwnRental(event: H3Event, client: Client, profileId: number, identifier: string) {
+  const rental = await getOwnRental(client, identifier)
+
+  if (rental.status !== 'draft' || !canTransitionRentalStatus(rental.status, 'pending')) {
+    throw new AppError('That rental cannot be submitted.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  if (!rental.waiver) {
+    throw new AppError('Sign the rental waiver before submitting this request.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  if (!rental.identity) {
+    throw new AppError('Upload a government ID and selfie before submitting this request.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const item = rental.items[0]
+  if (!item) {
+    throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const quote = await buildQuote(client, {
+    productUuid: item.product.uuid,
+    startsOn: rental.startsOn,
+    endsOn: rental.endsOn,
+    quantity: item.quantity,
+  })
+
+  if (!quote.canFulfill) {
+    throw new AppError(
+      'That quantity is not available for the selected dates.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const row = await updateRentalStatus(client, rental.uuid, 'pending')
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: 'pending',
+    changedBy: profileId,
+    note: 'Customer submitted a rental request.',
+  })
+
+  const next = toPublicRental(row)
+  await recordAudit(event, client, {
+    action: 'rental.submit',
+    entity: 'rental_requests',
+    entityId: next.uuid,
+    previous: { status: rental.status },
+    next: { code: next.code, status: next.status },
+  })
+
+  try {
+    await notifyStaffOfSubmittedRental(next)
+  }
+  catch (error) {
+    logger.warn('Staff rental-request email was not sent', {
+      rentalCode: next.code,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    })
+  }
+
+  return next
 }
 
 export async function cancelOwnRental(event: H3Event, client: Client, profileId: number, identifier: string) {

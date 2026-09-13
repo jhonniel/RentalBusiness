@@ -1,5 +1,5 @@
 import type { PublicProfile } from '~/types/auth'
-import { AUTH_NEXT_STORAGE_KEY, accountHomePath, extractAuthErrorMessage, mapAuthError, rememberPendingPolicies, resolvePostLoginPath } from '~/utils/auth'
+import { AUTH_NEXT_STORAGE_KEY, accountHomePath, extractAuthErrorMessage, mapAuthError, oauthConfirmUrl, rememberPendingPolicies, resolvePostLoginPath } from '~/utils/auth'
 import { hasUsableSupabaseConfig } from '~/utils/supabase-config'
 
 export function useAuth() {
@@ -83,11 +83,11 @@ export function useAuth() {
       }
     }
 
-    const origin = String(config.public.siteUrl || 'http://localhost:3000')
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${origin.replace(/\/$/, '')}/confirm`,
+        redirectTo: oauthConfirmUrl(String(config.public.siteUrl || '')),
+        skipBrowserRedirect: false,
         queryParams: {
           prompt: 'select_account',
         },
@@ -96,6 +96,10 @@ export function useAuth() {
 
     if (error) {
       throw error
+    }
+
+    if (import.meta.client && data.url) {
+      window.location.assign(data.url)
     }
   }
 

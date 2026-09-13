@@ -91,7 +91,7 @@ export default defineNuxtConfig({
     '/rentals/**': { headers: { 'cache-control': 'private, no-store' } },
     '/receipts/**': { headers: { 'cache-control': 'private, no-store' } },
     '/payments/**': { headers: { 'cache-control': 'private, no-store' } },
-    '/confirm': { headers: { 'cache-control': 'private, no-store' } },
+    '/confirm': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
     '/accept-policies': { headers: { 'cache-control': 'private, no-store' } },
     '/reset-password': { ssr: false },
   },

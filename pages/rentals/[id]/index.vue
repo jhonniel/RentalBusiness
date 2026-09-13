@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
 import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
+import { canSubmitRentalRequest } from '~/utils/rental'
 
 definePageMeta({
+  layout: 'account',
   middleware: 'auth',
 })
 
 const route = useRoute()
 const toast = useToast()
 const { formatMoney } = useCurrency()
+const { authHeaders } = useAuth()
 const identifier = computed(() => String(route.params.id))
 const cancelling = ref(false)
+const submitting = ref(false)
 
 const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/rentals/${identifier.value}`,
@@ -35,6 +39,7 @@ const canUploadIdentity = computed(() =>
   && Boolean(rental.value?.waiver)
   && !rental.value?.identity,
 )
+const canSubmit = computed(() => rental.value ? canSubmitRentalRequest(rental.value) : false)
 const canPay = computed(() =>
   Boolean(rental.value?.waiver)
   && Boolean(rental.value?.identity)
@@ -42,6 +47,34 @@ const canPay = computed(() =>
 )
 const latestPayment = computed(() => rental.value?.payments[0] ?? null)
 const latestReceipt = computed(() => rental.value?.receipts[0] ?? null)
+
+async function submitRental() {
+  if (!rental.value) {
+    return
+  }
+
+  submitting.value = true
+  try {
+    await $fetch(`/api/rentals/${rental.value.uuid}/submit`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    toast.add({ title: 'Request submitted', color: 'success' })
+    await navigateTo(`/rentals/${rental.value.code}/pay`)
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not submit that request.',
+      color: 'error',
+    })
+  }
+  finally {
+    submitting.value = false
+  }
+}
 
 async function cancelRental() {
   if (!rental.value) {
@@ -70,19 +103,16 @@ async function cancelRental() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-    <AccountNav />
-
+  <section class="mx-auto max-w-3xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
     <CatalogNotice
       v-if="error?.statusCode === 503"
-      class="mt-8"
       title="Rentals are not connected"
       description="Add live Supabase credentials to load this request."
     />
 
     <div
       v-else-if="rental"
-      class="mt-8 space-y-6"
+      class="space-y-6"
     >
       <div>
         <p class="text-xs uppercase tracking-wider text-lumen-700">
@@ -223,27 +253,39 @@ async function cancelRental() {
         Notes: {{ rental.notes }}
       </p>
 
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <UButton
+          v-if="canSubmit"
+          class="w-full justify-center sm:w-auto"
+          :loading="submitting"
+          @click="submitRental"
+        >
+          Submit request
+        </UButton>
         <UButton
           v-if="latestReceipt"
+          class="w-full justify-center sm:w-auto"
           :to="`/receipts/${latestReceipt.receiptNumber}`"
         >
           View receipt
         </UButton>
         <UButton
           v-if="canPay"
+          class="w-full justify-center sm:w-auto"
           :to="`/rentals/${rental.code}/pay`"
         >
           Pay now
         </UButton>
         <UButton
           v-if="canUploadIdentity"
+          class="w-full justify-center sm:w-auto"
           :to="`/rentals/${rental.code}/verify`"
         >
           Upload ID
         </UButton>
         <UButton
           v-if="canSignWaiver"
+          class="w-full justify-center sm:w-auto"
           :to="`/rentals/${rental.code}/waiver`"
         >
           Sign waiver
@@ -252,6 +294,7 @@ async function cancelRental() {
           v-if="canCancel"
           color="error"
           variant="outline"
+          class="w-full justify-center sm:w-auto"
           :loading="cancelling"
           @click="cancelRental"
         >
@@ -261,6 +304,7 @@ async function cancelRental() {
           to="/my-rentals"
           color="neutral"
           variant="outline"
+          class="w-full justify-center sm:w-auto"
         >
           All rentals
         </UButton>

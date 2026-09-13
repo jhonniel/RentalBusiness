@@ -22,11 +22,18 @@ const canLoad = computed(() => Boolean(props.productUuid || props.productSlug))
 const { data: calendar, execute: loadCalendar } = await useFetch<AvailabilityCalendar>(
   '/api/availability/calendar',
   {
-    query: computed(() => ({
-      productUuid: props.productUuid,
-      productSlug: props.productSlug,
-      quantity: props.quantity ?? 1,
-    })),
+    query: computed(() => {
+      const query: Record<string, string | number> = {
+        quantity: props.quantity ?? 1,
+      }
+      if (props.productUuid) {
+        query.productUuid = props.productUuid
+      }
+      if (props.productSlug) {
+        query.productSlug = props.productSlug
+      }
+      return query
+    }),
     immediate: false,
   },
 )

@@ -3,6 +3,7 @@ import type { NotificationListResponse, PublicNotification } from '~/types/notif
 import { formatBusinessDateTime } from '~/utils/datetime'
 
 definePageMeta({
+  layout: 'account',
   middleware: 'auth',
 })
 
@@ -12,6 +13,7 @@ useSiteMeta({
 })
 
 const { data, error, pending, refresh } = await useFetch<NotificationListResponse>('/api/notifications', {
+  key: 'account-notifications',
   query: { pageSize: 20 },
 })
 
@@ -34,10 +36,8 @@ async function markRead(item: PublicNotification) {
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-    <AccountNav />
-
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+  <section class="mx-auto max-w-3xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       Notifications
     </h1>
     <p class="mt-2 text-stone-600">

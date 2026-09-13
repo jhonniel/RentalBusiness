@@ -80,21 +80,6 @@ function onSubmit() {
           <span class="tracking-normal">Check availability</span>
         </UButton>
       </div>
-
-      <ul class="mt-4 hidden flex-wrap gap-x-5 gap-y-2 border-t border-[#12201a]/8 pt-4 text-xs tracking-normal text-[#5b6b64] lg:flex">
-        <li class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-shield-check" class="size-3.5" />
-          Secure booking
-        </li>
-        <li class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-zap" class="size-3.5" />
-          Instant confirmation
-        </li>
-        <li class="flex items-center gap-1.5">
-          <UIcon name="i-lucide-headphones" class="size-3.5" />
-          Customer support
-        </li>
-      </ul>
     </form>
   </section>
 </template>

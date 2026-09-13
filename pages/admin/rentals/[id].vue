@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
 import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
+import { renderWaiverBody } from '~/utils/waiver'
 
 definePageMeta({
   layout: 'admin',
@@ -16,6 +17,13 @@ const approving = ref(false)
 const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/admin/rentals/${identifier.value}`,
 )
+const waiverSnapshot = computed(() => {
+  if (!rental.value?.waiver) {
+    return ''
+  }
+
+  return renderWaiverBody(rental.value.waiver.version.body, rental.value.items)
+})
 
 if (error.value?.statusCode === 404) {
   throw createError({
@@ -190,7 +198,7 @@ async function approve() {
               View agreement snapshot
             </summary>
             <p class="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs leading-5 text-stone-700">
-              {{ rental.waiver.version.body }}
+              {{ waiverSnapshot }}
             </p>
           </details>
         </template>

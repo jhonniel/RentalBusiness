@@ -87,3 +87,29 @@ export function firstWaiverAcceptance(
   const row = Array.isArray(value) ? value[0] : value
   return row ? toPublicWaiverAcceptance(row) : null
 }
+
+export function waiverEquipmentLines(
+  items: Array<{ quantity: number, product: { name: string } }>,
+): string {
+  if (!items.length) {
+    return '- None listed on this rental.'
+  }
+
+  return items.map(item => `- ${item.product.name} × ${item.quantity}`).join('\n')
+}
+
+export function renderWaiverBody(
+  body: string,
+  items: Array<{ quantity: number, product: { name: string } }>,
+): string {
+  const list = waiverEquipmentLines(items)
+
+  if (body.includes('{{RENTAL_EQUIPMENT}}')) {
+    return body.replaceAll('{{RENTAL_EQUIPMENT}}', list)
+  }
+
+  return body.replace(
+    /Equipment may include, but is not limited to:\r?\n(?:- .+\r?\n)+/,
+    `Equipment on this rental:\n${list}\n`,
+  )
+}

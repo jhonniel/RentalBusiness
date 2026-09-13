@@ -17,6 +17,11 @@ const pending = ref(false)
 const formError = ref('')
 const result = ref<AvailabilityResponse | null>(null)
 
+watch([startsOn, endsOn], () => {
+  result.value = null
+  formError.value = ''
+})
+
 const rentQuery = computed(() => ({
   product: props.productSlug,
   startsOn: startsOn.value,
@@ -33,21 +38,48 @@ const rentTo = computed(() => {
   return { path: '/rentals/new', query: rentQuery.value }
 })
 
+async function loadAvailability() {
+  return $fetch<AvailabilityResponse>('/api/availability', {
+    query: {
+      productUuid: props.productUuid,
+      productSlug: props.productSlug,
+      startsOn: startsOn.value,
+      endsOn: endsOn.value,
+      quantity: 1,
+    },
+  })
+}
+
 async function onSubmit() {
   formError.value = ''
   result.value = null
   pending.value = true
 
   try {
-    result.value = await $fetch<AvailabilityResponse>('/api/availability', {
-      query: {
-        productUuid: props.productUuid,
-        productSlug: props.productSlug,
-        startsOn: startsOn.value,
-        endsOn: endsOn.value,
-        quantity: 1,
-      },
-    })
+    result.value = await loadAvailability()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    formError.value = payload?.message || 'We could not check those dates.'
+  }
+  finally {
+    pending.value = false
+  }
+}
+
+async function goRent() {
+  formError.value = ''
+  pending.value = true
+
+  try {
+    result.value = await loadAvailability()
+    if (!result.value.canFulfill) {
+      formError.value = 'Those dates are not available. Another request already holds that kit.'
+      return
+    }
+    await navigateTo(rentTo.value)
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
@@ -127,9 +159,10 @@ async function onSubmit() {
         Check dates
       </UButton>
       <UButton
-        :to="rentTo"
         color="neutral"
         class="w-full justify-center rounded-full bg-[#12201a] tracking-normal text-white hover:bg-[#1b2d26] sm:w-auto"
+        :disabled="Boolean(result && !result.canFulfill)"
+        @click="goRent"
       >
         {{ isAuthenticated ? 'Rent now' : 'Sign in to rent' }}
       </UButton>

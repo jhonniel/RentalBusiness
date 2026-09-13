@@ -4,6 +4,14 @@ import { formatMoney } from './currency'
 import { formatBusinessDate } from './datetime'
 import { escapeHtml } from './email'
 
+function publicOrigin() {
+  return String(process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+}
+
+function emailLogoUrl() {
+  return `${publicOrigin()}/logo-on-dark.png`
+}
+
 function layout(title: string, body: string) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -18,8 +26,8 @@ function layout(title: string, body: string) {
       <td align="center">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7e5e4;border-radius:16px;overflow:hidden;">
           <tr>
-            <td style="background:#111318;color:#ffffff;padding:20px 24px;font-family:ui-sans-serif,system-ui,sans-serif;font-size:22px;font-weight:600;">
-              ${escapeHtml(APP_NAME)}
+            <td style="background:#0f1c17;padding:20px 24px;">
+              <img src="${escapeHtml(emailLogoUrl())}" alt="${escapeHtml(APP_NAME)}" width="160" height="76" style="display:block;border:0;height:40px;width:auto;">
             </td>
           </tr>
           <tr>
@@ -118,6 +126,49 @@ export function rentalReminderEmail(input: {
 
   return {
     subject: `${APP_NAME} ${heading}`,
+    html,
+  }
+}
+
+export function rentalSubmittedStaffEmail(input: {
+  rentalCode: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  startsOn: string
+  endsOn: string
+  items: { name: string, quantity: number, lineTotal: number }[]
+  totalAmount: number
+  depositAmount: number
+  notes: string | null
+  adminUrl: string
+}) {
+  const items = input.items.map(item => `
+    <tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;">${escapeHtml(item.name)} × ${item.quantity}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;text-align:right;">${escapeHtml(formatMoney(item.lineTotal))}</td>
+    </tr>
+  `).join('')
+
+  const html = layout(`New rental request ${input.rentalCode}`, `
+    <p style="margin:0 0 16px;font-size:16px;">A customer submitted a rental request.</p>
+    <p style="margin:0 0 8px;color:#57534e;line-height:1.6;">
+      <strong>${escapeHtml(input.rentalCode)}</strong><br>
+      ${escapeHtml(input.customerName)} · ${escapeHtml(input.customerEmail)}
+      ${input.customerPhone ? ` · ${escapeHtml(input.customerPhone)}` : ''}
+    </p>
+    <p style="margin:0 0 16px;color:#57534e;line-height:1.6;">
+      ${escapeHtml(formatBusinessDate(input.startsOn))} – ${escapeHtml(formatBusinessDate(input.endsOn))}
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>
+    <p style="margin:16px 0 0;font-weight:600;">Rental total ${escapeHtml(formatMoney(input.totalAmount))}</p>
+    <p style="margin:8px 0 0;color:#57534e;font-size:14px;">Deposit hold ${escapeHtml(formatMoney(input.depositAmount))}</p>
+    ${input.notes ? `<p style="margin:16px 0 0;color:#57534e;font-size:14px;">Notes: ${escapeHtml(input.notes)}</p>` : ''}
+    <p style="margin:24px 0 0;"><a href="${escapeHtml(input.adminUrl)}" style="color:#325348;">Open this request</a></p>
+  `)
+
+  return {
+    subject: `${APP_NAME} new rental request ${input.rentalCode}`,
     html,
   }
 }

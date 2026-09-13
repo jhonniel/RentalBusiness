@@ -62,6 +62,10 @@ export async function submitRentalIdentity(
     throw new AppError('Identity documents can only be uploaded before payment.', 409, ERROR_CODES.CONFLICT)
   }
 
+  if (!rental.waiver) {
+    throw new AppError('Sign the rental waiver before uploading identity documents.', 409, ERROR_CODES.CONFLICT)
+  }
+
   const governmentId = assertIdentityImage(files.governmentId, 'government ID')
   const selfie = assertIdentityImage(files.selfie, 'selfie holding your ID')
   const identity = await findRentalIdentity(client, rental.uuid)

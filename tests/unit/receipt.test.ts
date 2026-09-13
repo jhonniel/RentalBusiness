@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
-import { receiptIssuedEmail, signupConfirmationEmail } from '../../utils/email-templates'
+import { receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail } from '../../utils/email-templates'
 import { isReceiptNumber, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
@@ -93,8 +93,29 @@ describe('email templates', () => {
     })
     expect(confirm.subject).toContain('Confirm your')
     expect(confirm.html).toContain('Confirm my account')
+    expect(confirm.html).toContain('/logo-on-dark.png')
+    expect(confirm.html).toContain('alt="JRY Rentals"')
     expect(confirm.html).toContain('&lt;script&gt;')
     expect(confirm.html).not.toContain('<script>alert(1)</script>')
     expect(confirm.html).toContain('token_hash=abc')
+
+    const staff = rentalSubmittedStaffEmail({
+      rentalCode: 'LUM-20260913-00001',
+      customerName: '<script>alert(1)</script>',
+      customerEmail: 'guest@example.com',
+      customerPhone: '09171234567',
+      startsOn: '2026-09-13',
+      endsOn: '2026-09-14',
+      items: [{ name: 'DJI Air 3', quantity: 1, lineTotal: 2800 }],
+      totalAmount: 2800,
+      depositAmount: 15000,
+      notes: 'Pickup at 9am',
+      adminUrl: 'http://localhost:3000/admin/rentals/LUM-20260913-00001',
+    })
+    expect(staff.subject).toContain('LUM-20260913-00001')
+    expect(staff.html).toContain('guest@example.com')
+    expect(staff.html).toContain('&lt;script&gt;')
+    expect(staff.html).not.toContain('<script>alert(1)</script>')
+    expect(staff.html).toContain('/admin/rentals/LUM-20260913-00001')
   })
 })

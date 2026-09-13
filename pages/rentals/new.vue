@@ -6,11 +6,12 @@ import { calendarDateInZone } from '~/utils/datetime'
 import { createRentalSchema } from '~/utils/rental-validation'
 
 definePageMeta({
+  layout: 'account',
   middleware: 'auth',
 })
 
 const route = useRoute()
-const { profile } = useAuth()
+const { profile, authHeaders } = useAuth()
 const { formatMoney } = useCurrency()
 const toast = useToast()
 const today = calendarDateInZone()
@@ -62,6 +63,7 @@ async function refreshQuote() {
   try {
     quote.value = await $fetch<RentalQuote>('/api/rentals/quote', {
       method: 'POST',
+      headers: authHeaders(),
       body: {
         productSlug: form.productSlug,
         startsOn: form.startsOn,
@@ -96,7 +98,7 @@ async function onSubmit() {
 
   const parsed = createRentalSchema.safeParse({
     ...form,
-    status: 'pending',
+    status: 'draft',
   })
 
   if (!parsed.success) {
@@ -109,16 +111,17 @@ async function onSubmit() {
   try {
     const rental = await $fetch<PublicRental>('/api/rentals', {
       method: 'POST',
+      headers: authHeaders(),
       body: parsed.data,
     })
-    toast.add({ title: 'Request submitted', color: 'success' })
+    toast.add({ title: 'Continue to the waiver', color: 'success' })
     await navigateTo(`/rentals/${rental.code}/waiver`)
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
       ? (error as { data?: { message?: string } }).data
       : null
-    formError.value = payload?.message || 'We could not submit that rental request.'
+    formError.value = payload?.message || 'We could not save those rental details.'
   }
   finally {
     pending.value = false
@@ -127,14 +130,12 @@ async function onSubmit() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-    <AccountNav />
-
-    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+  <section class="mx-auto max-w-3xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       Request a rental
     </h1>
     <p class="mt-2 text-stone-600">
-      Confirm dates and your contact details. You will sign the current waiver and upload a government ID after this request.
+      Confirm dates and your contact details. You will sign the waiver and upload a government ID before this request is sent.
     </p>
 
     <CatalogNotice
@@ -279,12 +280,13 @@ async function onSubmit() {
       </section>
 
       <UButton
-        type="submit"
+        type="button"
         class="w-full sm:w-auto"
         :loading="pending || quoting"
         :disabled="!quote?.canFulfill"
+        @click="onSubmit"
       >
-        Submit request
+        Continue to waiver
       </UButton>
     </form>
   </section>

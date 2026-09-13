@@ -10,6 +10,7 @@ import {
 import {
   authCallbackOtpType,
   buildAuthConfirmUrl,
+  oauthConfirmUrl,
   extractAuthErrorMessage,
   mapAuthError,
   namesFromUserMetadata,
@@ -107,6 +108,7 @@ describe('auth helpers', () => {
     expect(authCallbackOtpType('unknown')).toBe('signup')
     expect(buildAuthConfirmUrl('http://localhost:3000', 'token-1', 'signup'))
       .toBe('http://localhost:3000/confirm?token_hash=token-1&type=signup')
+    expect(oauthConfirmUrl('https://jryrentals.vercel.app')).toMatch(/\/confirm$/)
     expect(extractAuthErrorMessage({
       data: { message: 'An account with this email already exists.' },
     })).toBe('An account with this email already exists.')

@@ -22,6 +22,13 @@ export function buildAuthConfirmUrl(siteUrl: string, tokenHash: string, type: Au
   return url.toString()
 }
 
+export function oauthConfirmUrl(siteUrl?: string) {
+  const origin = (typeof window !== 'undefined' ? window.location.origin : '')
+    || String(siteUrl || '').replace(/\/$/, '')
+    || 'http://localhost:3000'
+  return `${origin.replace(/\/$/, '')}/confirm`
+}
+
 export function rememberPendingPolicies(policies: {
   termsAccepted: boolean
   privacyAcknowledged: boolean

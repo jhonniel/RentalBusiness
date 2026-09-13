@@ -109,3 +109,39 @@ export function toPublicRental(row: RentalRow): PublicRental {
 export function isRentalCode(value: string): boolean {
   return /^LUM-\d{8}-\d+$/.test(value)
 }
+
+export function canSubmitRentalRequest(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>) {
+  return rental.status === 'draft' && Boolean(rental.waiver) && Boolean(rental.identity)
+}
+
+export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>) {
+  if (rental.status === 'draft' && !rental.waiver) {
+    return 'Sign the waiver'
+  }
+  if (rental.status === 'draft' && !rental.identity) {
+    return 'Upload ID'
+  }
+  if (canSubmitRentalRequest(rental)) {
+    return 'Submit request'
+  }
+  if (rental.status === 'pending' || rental.status === 'awaiting_payment') {
+    return 'Pay now'
+  }
+  return null
+}
+
+export function customerRentalNextPath(rental: Pick<PublicRental, 'code' | 'status' | 'waiver' | 'identity'>) {
+  if (rental.status === 'draft' && !rental.waiver) {
+    return `/rentals/${rental.code}/waiver`
+  }
+  if (rental.status === 'draft' && !rental.identity) {
+    return `/rentals/${rental.code}/verify`
+  }
+  if (canSubmitRentalRequest(rental)) {
+    return `/rentals/${rental.code}`
+  }
+  if (rental.status === 'pending' || rental.status === 'awaiting_payment') {
+    return `/rentals/${rental.code}/pay`
+  }
+  return `/rentals/${rental.code}`
+}

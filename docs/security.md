@@ -173,7 +173,9 @@ Phase 17 additions:
 - `rental_identity_verifications` is forced RLS; customers insert/update only their own open rentals
 - Government ID and selfie files live in `private-documents` under `{auth.uid()}/rentals/{rentalUuid}/`
 - Public APIs never return storage paths. Admins receive short-lived signed URLs
-- Payment create requires a signed waiver and submitted identity documents
+- Payment create requires a signed waiver, submitted identity documents, and a submitted (`pending` or `awaiting_payment`) request
+- Customers create rentals as `draft` only. `POST /api/rentals/[id]/submit` moves a draft to `pending` after the waiver and identity documents are on file
+- Identity upload requires a signed waiver on that rental
 - Waiver email and phone are copied from the server-loaded profile
 
 Phase 16 additions:
@@ -188,12 +190,14 @@ Customers may:
 
 - Read and update allowed fields on their own profile
 - Read their own rentals, payments, receipts, waivers, notifications, and active payment methods
-- Create rental requests for themselves
+- Create draft rental requests for themselves
+- Submit their own draft after a signed waiver and identity documents
+- Cancel their own open requests
 
 Customers must not:
 
 - Read other users, rentals, or payments
-- Modify payments or rental status
+- Modify payments or skip rental statuses
 - Read expenses, analytics, audit logs, or settings writes
 
 Admins may access operations data through policies that check `profiles.role = 'admin'`. After that server check, catalog writes (product info and prices) use the service-role client so the save still works when the browser session cookie is missing. Privileged jobs use the service-role client on the server only. Customers never write catalog prices.
@@ -202,7 +206,7 @@ Admins may access operations data through policies that check `profiles.role = '
 
 - Payment status is accepted only from the provider webhook or a server-side verification call.
 - Webhook signatures are verified (`x-lumen-payment-signature`) in `server/utils/payment-signature.ts` before any state change.
-- The payment module is provider-agnostic. Phase 8 ships a `sandbox` adapter selected by `PAYMENT_PROVIDER` (default `sandbox`).
+- Customers pay by sending the rental total to admin-uploaded bank or QR methods. The payment module stays provider-agnostic for a future live adapter. Status still changes only from a verified webhook or a server-side retrieve.
 - `PAYMENT_PROVIDER_KEY` and `PAYMENT_WEBHOOK_SECRET` stay on the server.
 - Admin payment methods and QR uploads require `requireAdmin`. Customers may read only active methods. QR files live in the public `payment-qr-images` bucket. These methods never confirm payment status.
 

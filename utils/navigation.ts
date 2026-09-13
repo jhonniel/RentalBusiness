@@ -16,7 +16,6 @@ export const publicNavItems: NavItem[] = [
 export const customerNavItems: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: 'i-lucide-layout-dashboard', enabled: true },
   { label: 'My rentals', to: '/my-rentals', icon: 'i-lucide-clipboard-list', enabled: true },
-  { label: 'Notifications', to: '/notifications', icon: 'i-lucide-bell', enabled: true },
   { label: 'Profile', to: '/profile', icon: 'i-lucide-user', enabled: true },
 ]
 
