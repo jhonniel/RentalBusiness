@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-
 export const EMAIL_TEMPLATES = {
   RECEIPT_ISSUED: 'receipt.issued',
   RENTAL_REMINDER_PICKUP: 'rental.reminder.pickup',
@@ -8,10 +6,6 @@ export const EMAIL_TEMPLATES = {
 } as const
 
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[keyof typeof EMAIL_TEMPLATES]
-
-export function emailPayloadHash(template: string, entityKey: string): string {
-  return createHash('sha256').update(`${template}:${entityKey}`).digest('hex')
-}
 
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {

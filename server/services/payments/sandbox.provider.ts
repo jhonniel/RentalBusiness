@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { AppError, ERROR_CODES } from '../../utils/errors'
-import { verifyPaymentSignature } from '../../../utils/payment'
+import { verifyPaymentSignature } from '../../utils/payment-signature'
 import { parseWithSchema } from '../../../utils/validation'
 import { paymentWebhookSchema } from '../../../utils/payment-validation'
 import type { CreatePaymentIntentInput, PaymentIntent, PaymentProvider, PaymentProviderEvent } from './provider'

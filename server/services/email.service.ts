@@ -1,7 +1,8 @@
 import nodemailer from 'nodemailer'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import { emailPayloadHash, type EmailTemplate } from '../../utils/email'
+import type { EmailTemplate } from '../../utils/email'
+import { emailPayloadHash } from '../utils/email-hash'
 import { isSmtpConfigured, resolveSmtpConfig, type SmtpConfig } from '../../utils/smtp'
 import { logger } from '../utils/logger'
 import {

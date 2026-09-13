@@ -52,7 +52,7 @@ Replace placeholder Supabase values before using authentication. Apply every fil
 4. Add environment variables for preview and production.
 5. Deploy.
 
-`vercel.json` declares the Nuxt framework and one daily cron path (`/api/cron/daily`).
+`vercel.json` sets security headers and one daily cron path (`/api/cron/daily`). Vercel auto-detects Nuxt 3.
 
 ## Supabase
 

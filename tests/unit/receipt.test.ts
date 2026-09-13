@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { emailPayloadHash, escapeHtml } from '../../utils/email'
+import { emailPayloadHash } from '../../server/utils/email-hash'
+import { escapeHtml } from '../../utils/email'
 import { receiptIssuedEmail, signupConfirmationEmail } from '../../utils/email-templates'
 import { isReceiptNumber, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'

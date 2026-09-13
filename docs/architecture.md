@@ -35,7 +35,7 @@ server/middleware/     Request context
 server/plugins/        Nitro hooks
 server/services/       Business logic
 server/repositories/   Data access
-server/utils/          Server-only helpers
+server/utils/          Server-only helpers (HMAC, cron secret match, email hashes)
 supabase/              Migrations and seeds
 tests/                 Automated tests
 types/                 Shared TypeScript contracts
@@ -49,7 +49,7 @@ Protected business operations follow:
 `Route / API handler → Service or Action → Repository → Supabase / PostgreSQL`
 
 - Controllers stay thin and coordinate validation, auth, and responses.
-- Services own business rules (availability, pricing, rental transitions, waiver acceptance, payments, receipts, analytics, expenses, scheduled jobs, reports). KPI math lives in `utils/analytics.ts`. Recurring dates live in `utils/expense.ts`. Cron due-date rules live in `utils/cron.ts`. Report totals and CSV live in `utils/report.ts`. Payment, receipt, and cron writes use the service-role client because customers cannot insert those rows.
+- Services own business rules (availability, pricing, rental transitions, waiver acceptance, payments, receipts, analytics, expenses, scheduled jobs, reports). KPI math lives in `utils/analytics.ts`. Recurring dates live in `utils/expense.ts`. Cron due-date rules live in `utils/cron.ts`. Report totals and CSV live in `utils/report.ts`. Payment HMAC, cron secret matching, and email payload hashes live in `server/utils` so Node `crypto` never enters the browser bundle. Payment, receipt, and cron writes use the service-role client because customers cannot insert those rows.
 - Repositories own queries. They never expose internal primary keys in public payloads.
 - Vue components do not call Supabase service-role APIs or contain pricing/availability rules.
 

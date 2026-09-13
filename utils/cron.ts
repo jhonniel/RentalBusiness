@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto'
 import type { RecurringExpenseStatus, RentalStatus } from './constants'
 import { addCalendarDays } from './expense'
 
@@ -17,20 +16,6 @@ export function extractCronSecret(
   }
 
   return ''
-}
-
-export function cronSecretMatches(expected: string, provided: string): boolean {
-  if (!expected || !provided) {
-    return false
-  }
-
-  const left = Buffer.from(expected)
-  const right = Buffer.from(provided)
-  if (left.length !== right.length) {
-    return false
-  }
-
-  return timingSafeEqual(left, right)
 }
 
 export function reminderOn(today: string, daysAhead = 1): string {

@@ -201,7 +201,7 @@ Admins may access operations data through policies that check `profiles.role = '
 ## Payments
 
 - Payment status is accepted only from the provider webhook or a server-side verification call.
-- Webhook signatures are verified (`x-lumen-payment-signature`) before any state change.
+- Webhook signatures are verified (`x-lumen-payment-signature`) in `server/utils/payment-signature.ts` before any state change.
 - The payment module is provider-agnostic. Phase 8 ships a `sandbox` adapter selected by `PAYMENT_PROVIDER` (default `sandbox`).
 - `PAYMENT_PROVIDER_KEY` and `PAYMENT_WEBHOOK_SECRET` stay on the server.
 - Admin payment methods and QR uploads require `requireAdmin`. Customers may read only active methods. QR files live in the public `payment-qr-images` bucket. These methods never confirm payment status.
@@ -210,7 +210,7 @@ Admins may access operations data through policies that check `profiles.role = '
 
 - Cron routes reject requests that do not present `CRON_SECRET` (`Authorization: Bearer` or `x-cron-secret`)
 - Vercel schedules only `/api/cron/daily` so Hobby stays within the two-cron limit
-- Compare uses a length-checked timing-safe match; query-string secrets are not accepted
+- Compare uses a length-checked timing-safe match in `server/utils/cron-secret.ts`; query-string secrets are not accepted
 - Recurring expense posting is idempotent on `(recurring_expense_id, occurs_on)`
 - Reminder emails are idempotent on `(template, payload_hash)`
 - Overdue detection only moves `active` → `overdue` and writes status history plus a customer notification

@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
-import { cronSecretMatches, extractCronSecret } from '../../utils/cron'
+import { extractCronSecret } from '../../utils/cron'
+import { cronSecretMatches } from './cron-secret'
 import { isUsableSecret } from '../../utils/env'
 import { AppError, ERROR_CODES } from './errors'
 
