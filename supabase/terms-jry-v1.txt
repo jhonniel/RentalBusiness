@@ -1,0 +1,379 @@
+JRY RENTALS
+TERMS & CONDITIONS
+
+Version: JRY-TC-v1.0
+Effective Date: September 13, 2026
+Last Updated: September 13, 2026
+
+Welcome to JRY Rentals.
+
+These Terms & Conditions (“Terms”) govern your access to and use of the JRY Rentals website, rental platform, equipment rental services, booking services, and related services.
+
+By creating an account, making a booking, paying for a rental, or using equipment rented from JRY Rentals, you agree to these Terms.
+
+If you do not agree with these Terms, please do not use the JRY Rentals services.
+
+1. ABOUT JRY RENTALS
+JRY Rentals provides equipment rental services that may include Starlink Mini, DJI Mini 3, DJI Osmo 360, cameras, drones, connectivity equipment, accessories, and other equipment made available through the JRY Rentals platform.
+
+JRY Rentals may add, remove, replace, or modify available equipment and services from time to time.
+
+2. ELIGIBILITY
+To rent equipment from JRY Rentals, you must:
+- Provide accurate information
+- Be legally capable of entering into a rental agreement
+- Provide any information reasonably required for verification
+- Agree to these Terms
+- Agree to the applicable Rental Agreement & Liability Waiver
+- Complete any required payment or security-deposit requirements
+
+JRY Rentals may refuse or cancel a rental request where there is a legitimate reason to do so, including suspected fraud, inability to verify required information, equipment unavailability, or failure to meet rental requirements.
+
+3. CUSTOMER ACCOUNT
+Some features require you to create a JRY Rentals account.
+
+You are responsible for:
+- Keeping your login credentials confidential
+- Providing accurate account information
+- Keeping your information updated
+- Preventing unauthorized access to your account
+- Not allowing another person to use your account
+
+You must notify JRY Rentals promptly if you believe your account has been compromised.
+
+JRY Rentals is not responsible for unauthorized activity resulting from your failure to protect your account credentials, except where applicable law provides otherwise.
+
+4. EQUIPMENT LISTINGS
+Information displayed on the website may include equipment name, product description, photographs, specifications, rental price, availability, included accessories, rental requirements, deposit requirements, and other applicable conditions.
+
+We make reasonable efforts to keep listings accurate.
+
+Equipment specifications, photographs, accessories, pricing, and availability may change.
+
+The actual equipment supplied may differ slightly from photographs due to equipment revisions, replacement units, accessories, or inventory changes.
+
+5. AVAILABILITY
+Equipment availability shown on the website is subject to confirmation.
+
+Selecting equipment and dates does not by itself confirm a rental.
+
+A booking becomes confirmed only after JRY Rentals has completed the applicable booking requirements and the system or JRY Rentals has issued a booking confirmation.
+
+JRY Rentals may decline a booking if the equipment becomes unavailable due to a previous rental extension, equipment damage, maintenance, technical issues, incorrect availability information, or other circumstances affecting availability.
+
+If JRY Rentals cannot fulfill a confirmed booking, JRY Rentals will provide an appropriate remedy based on the circumstances, which may include rescheduling, replacement equipment where available, credit, refund, or another reasonable arrangement.
+
+6. RENTAL PERIOD
+Each booking will have a specified rental start date and rental return date.
+
+The Renter must return the equipment by the agreed return time.
+
+The rental period may begin when equipment is handed to the Renter, delivered to the Renter, or another agreed handover condition occurs.
+
+The applicable booking details determine the official rental period.
+
+7. RENTAL PRICES
+Rental prices are displayed during the booking process.
+
+Depending on the booking, the total amount may include a base rental fee, delivery fee, pickup fee, security deposit, extension fee, late fee, applicable taxes, payment processing charges where applicable, damage or replacement charges, and other clearly disclosed charges.
+
+The applicable total is presented before the booking is finalized.
+
+JRY Rentals may update rental prices for future bookings.
+
+A price change will not retroactively modify the agreed rental price of a confirmed booking, except where an adjustment is required by law or agreed by the parties.
+
+Default currency is Philippine Peso (PHP).
+
+8. PAYMENT
+Customers must complete the required payment before equipment is released, unless JRY Rentals has expressly approved another arrangement.
+
+Available payment methods may include online bank payment, e-wallet, QR payment, cash, and other methods displayed by JRY Rentals.
+
+Payment status may remain pending until JRY Rentals or its payment provider confirms the transaction.
+
+Customers must not submit false payment confirmations or fraudulent transaction information.
+
+9. PAYMENT VERIFICATION
+JRY Rentals may verify payment information before releasing equipment.
+
+If a payment cannot be verified, the booking may remain pending or may be cancelled according to the applicable booking policy.
+
+JRY Rentals may request reasonable transaction information necessary to verify a payment.
+
+Customers should not send complete card numbers, passwords, PINs, OTPs, or other confidential authentication credentials to JRY Rentals through ordinary communication channels.
+
+10. SECURITY DEPOSIT
+JRY Rentals may require a security deposit for selected equipment or bookings.
+
+The applicable deposit amount is displayed during booking.
+
+A refundable deposit is authorized at checkout and released after inspection, subject to legitimate deductions.
+
+A security deposit may be applied to charges resulting from equipment damage, lost equipment, theft, missing accessories, excessive cleaning, late return, or other agreed rental obligations.
+
+JRY Rentals will provide an explanation of charges deducted from a deposit.
+
+Any remaining refundable amount will be returned according to the applicable deposit policy.
+
+11. EQUIPMENT HANDOVER
+Before equipment is released, JRY Rentals may record equipment condition, serial number, included accessories, photographs, videos, an equipment checklist, and renter acknowledgment.
+
+The Renter should inspect the equipment immediately upon receiving it.
+
+Any visible pre-existing damage should be reported before use.
+
+12. RENTER'S RESPONSIBILITIES
+The Renter agrees to:
+- Use equipment carefully
+- Follow manufacturer instructions
+- Follow applicable laws and regulations
+- Keep equipment secure
+- Prevent unauthorized use
+- Return equipment on time
+- Return all accessories
+- Report damage or malfunction promptly
+- Report loss or theft immediately
+- Use equipment only for lawful purposes
+
+The Renter must not intentionally misuse or damage equipment.
+
+13. DAMAGE, LOSS, AND THEFT
+The Renter may be financially responsible for loss, theft, or damage caused by negligence, misuse, unauthorized use, improper transportation, improper storage, failure to follow instructions, intentional damage, water or environmental exposure caused by improper use, loss of equipment, or theft while the equipment is under the Renter’s responsibility.
+
+Charges will be based on the reasonable cost of repair, replacement, or other applicable loss.
+
+Normal wear and tear will not ordinarily be treated as chargeable damage.
+
+14. PROHIBITED USE
+JRY Rentals equipment must not be used:
+- For illegal activities
+- To intentionally cause harm
+- In a reckless manner
+- In a way that violates applicable laws
+- In a way that creates unreasonable danger to people or property
+- By an unauthorized person
+- For activities outside the equipment’s intended purpose
+
+JRY Rentals may terminate a rental where there is a serious violation of these requirements.
+
+15. DRONE RENTALS
+For drone rentals, the Renter is responsible for operating the drone safely and lawfully.
+
+The Renter must determine whether flying is permitted at the intended location and must comply with applicable Philippine aviation, privacy, safety, and other laws.
+
+The Renter should also comply with applicable requirements of relevant government authorities and manufacturer safety instructions.
+
+JRY Rentals does not guarantee that a customer’s intended location is suitable or legally permitted for drone operation.
+
+The Renter is responsible for consequences arising from unauthorized, reckless, or unlawful drone operation.
+
+16. STARLINK RENTALS
+For Starlink Mini rentals, the Renter understands that internet performance can depend on location, satellite availability, obstructions, weather, network conditions, service configuration, service-area limitations, and other factors outside JRY Rentals’ control.
+
+JRY Rentals does not guarantee a specific internet speed, latency, uptime, or uninterrupted connectivity.
+
+The Renter is responsible for using the service and equipment in accordance with applicable service terms and instructions.
+
+17. CAMERA RENTALS
+For cameras such as the DJI Osmo 360, the Renter is responsible for proper handling, safe transportation, proper mounting, protection from impact, protection from water or environmental exposure where applicable, and returning all accessories.
+
+The Renter is also responsible for ensuring that photographs, videos, audio recordings, or other content captured using the equipment comply with applicable laws.
+
+18. DATA STORED ON RENTED EQUIPMENT
+The Renter is responsible for removing personal files and other private information from rented equipment before returning it.
+
+Where technically possible, JRY Rentals may perform an equipment reset or data-clearing process after return.
+
+Renters should not rely solely on JRY Rentals to remove their personal data.
+
+The Renter should back up and remove their own files before returning equipment.
+
+JRY Rentals will handle any personal information found on returned equipment according to the JRY Rentals Privacy Policy and applicable privacy requirements.
+
+19. RETURN OF EQUIPMENT
+The Renter must return all equipment and accessories by the agreed deadline.
+
+Returned equipment may be inspected for physical damage, missing accessories, missing equipment, signs of misuse, water or environmental damage, and other abnormal conditions.
+
+JRY Rentals may document the condition of returned equipment.
+
+20. LATE RETURNS
+Equipment returned after the agreed return time may incur additional charges.
+
+Late returns are charged per day using the product late fee shown on the booking, after a two-hour grace period unless a different rule is displayed for that rental.
+
+If a late return affects another confirmed customer’s booking, JRY Rentals may take reasonable steps to recover the equipment and address resulting costs, subject to applicable law.
+
+21. EXTENDING A RENTAL
+A renter may request an extension before the original return deadline.
+
+Extensions are subject to equipment availability.
+
+An extension is not confirmed until JRY Rentals approves it and the applicable additional rental amount has been paid or otherwise arranged.
+
+The Renter should not assume that keeping the equipment beyond the return time automatically constitutes an approved extension.
+
+22. CANCELLATION BY THE RENTER
+Customers may cancel a booking according to this cancellation policy and any additional terms shown during checkout for that rental.
+
+JRY Rentals cancellation policy:
+- Cancellation more than 48 hours before the rental start date may be refunded minus applicable processing fees.
+- Cancellation within 48 hours of the rental start date, and no-shows, are subject to the booking terms shown at checkout and may not be fully refundable.
+- Rescheduling may be offered where equipment remains available and JRY Rentals agrees.
+
+The specific amounts for a booking are those displayed during checkout for that rental.
+
+23. CANCELLATION BY JRY RENTALS
+JRY Rentals may cancel or decline a booking when reasonably necessary, including because of equipment damage, equipment unavailability, maintenance, safety concerns, fraud or suspected fraudulent activity, failed payment, failure to meet rental requirements, incorrect booking information, or circumstances beyond reasonable control.
+
+Where JRY Rentals cancels a confirmed booking for reasons attributable to JRY Rentals, the customer will receive an appropriate remedy in accordance with the applicable booking terms and law.
+
+24. EQUIPMENT FAILURE
+Equipment may occasionally malfunction despite reasonable maintenance and inspection.
+
+If equipment fails during a rental and the failure was not caused by the Renter, the Renter should contact JRY Rentals immediately.
+
+Depending on circumstances and availability, JRY Rentals may provide troubleshooting assistance, replacement equipment, alternative equipment, a rental adjustment, rescheduling, a refund or credit, or another reasonable remedy.
+
+JRY Rentals does not guarantee uninterrupted operation of rental equipment.
+
+25. MAINTENANCE
+JRY Rentals may temporarily remove equipment from availability for inspection, maintenance, repair, cleaning, firmware or software updates, safety checks, or replacement of components.
+
+Equipment undergoing maintenance will not normally be available for booking.
+
+26. DELIVERY AND PICKUP
+Where delivery, meetup, or pickup services are available, the applicable fee, area, schedule, waiting time, and handover requirements will be presented during the booking process.
+
+Delivery times may be affected by traffic, weather, transportation issues, and other circumstances outside JRY Rentals’ reasonable control.
+
+27. CUSTOMER RESPONSIBILITY DURING DELIVERY
+The Renter must ensure that someone authorized is available to receive the equipment, the delivery location is accurate, the equipment can be safely handed over, and required verification can be completed.
+
+Failure to receive equipment due to incorrect information or unavailability may result in additional delivery or rescheduling charges where clearly disclosed and permitted by law.
+
+28. RENTAL WAIVER
+Equipment rentals require the Renter to accept a separate JRY Rentals Equipment Rental Agreement & Liability Waiver.
+
+The Renter must accept the applicable waiver before the equipment can be released.
+
+The waiver forms part of the rental transaction and is stored as its own versioned document.
+
+29. PRIVACY
+JRY Rentals collects and processes personal information according to the JRY Rentals Privacy Policy.
+
+The Privacy Policy explains information collected, purposes of processing, data sharing, data retention, security, customer rights, and privacy requests.
+
+By using the platform, customers acknowledge the applicable Privacy Policy.
+
+30. INTELLECTUAL PROPERTY
+The JRY Rentals website, including its logo, branding, website design, text, graphics, software, layout, and original content, is owned by or licensed to JRY Rentals and may be protected by applicable intellectual-property laws.
+
+You may not reproduce, modify, distribute, sell, or commercially exploit JRY Rentals content without permission.
+
+31. USER CONTENT
+If you upload or submit content through the JRY Rentals platform, you represent that you have the necessary rights to submit that content.
+
+You must not upload content that violates the law, infringes another person’s rights, contains malicious software, is fraudulent, contains unauthorized personal information, or violates applicable platform rules.
+
+JRY Rentals may remove content where reasonably necessary to protect the platform, users, or comply with law.
+
+32. WEBSITE AVAILABILITY
+JRY Rentals will make reasonable efforts to keep the platform operational.
+
+Temporary interruptions may occur because of maintenance, software updates, hosting problems, network failures, security incidents, third-party service outages, natural disasters, or other circumstances outside reasonable control.
+
+JRY Rentals does not guarantee uninterrupted website availability.
+
+33. THIRD-PARTY SERVICES
+JRY Rentals may integrate third-party services, including providers for payments, email, authentication, cloud infrastructure, and communication.
+
+These currently include Supabase, Vercel, Google Gmail SMTP, and payment channels shown in the rental platform.
+
+Third-party services may have separate terms and privacy policies.
+
+JRY Rentals is not responsible for services outside its reasonable control.
+
+34. FRAUD AND ABUSE
+JRY Rentals may investigate activity that appears fraudulent, abusive, or unauthorized.
+
+Examples include fake payment confirmations, stolen payment methods, false identity information, account manipulation, booking abuse, chargeback abuse, attempted theft, and unauthorized equipment use.
+
+JRY Rentals may suspend or terminate accounts where reasonably necessary and may cooperate with appropriate authorities where required or permitted by law.
+
+35. SUSPENSION OR TERMINATION
+JRY Rentals may suspend or terminate access to an account where the user violates these Terms, fails to pay amounts due, misuses equipment, provides materially false information, engages in fraud, creates a security risk, or uses the service unlawfully.
+
+Termination does not eliminate obligations that arose before termination.
+
+36. LIMITATION OF LIABILITY
+To the extent permitted by applicable law, JRY Rentals will not be responsible for indirect, incidental, special, or consequential losses arising from a rental or use of the website where such liability may lawfully be excluded.
+
+Nothing in these Terms is intended to exclude or limit liability that cannot legally be excluded or limited under Philippine law.
+
+JRY Rentals’ obligations concerning equipment failure, refunds, cancellations, consumer rights, and other matters remain subject to applicable law and the specific terms of the customer’s booking.
+
+37. NO WAIVER OF LEGAL RIGHTS
+Nothing in these Terms is intended to remove or restrict rights that customers have under mandatory applicable law.
+
+The Philippine Consumer Act (Republic Act No. 7394) establishes consumer-protection policies, including protection against deceptive, unfair, and unconscionable practices, and provides mechanisms for consumer redress.
+
+38. FORCE MAJEURE
+JRY Rentals will not be responsible for failure or delay caused by circumstances reasonably beyond its control, including natural disasters, severe weather, government restrictions, transportation disruptions, major network outages, power outages, fire, flood, earthquake, war, civil disturbance, or other extraordinary circumstances.
+
+Where reasonably possible, JRY Rentals will work with the customer to reschedule, replace, refund, or otherwise resolve the affected booking.
+
+39. DISPUTES AND COMPLAINTS
+If you have a concern regarding a rental, please contact JRY Rentals first so that we can attempt to resolve the issue.
+
+JRY Rentals Customer Support
+Email: jryrentals@gmail.com
+Address: Davao City, Philippines
+
+JRY Rentals will handle complaints in accordance with applicable law and its customer-support procedures.
+
+Nothing in these Terms prevents a consumer from exercising rights or remedies available under applicable Philippine law, including through the Department of Trade and Industry where appropriate.
+
+40. GOVERNING LAW
+These Terms shall be governed by the applicable laws of the Republic of the Philippines.
+
+Mandatory rights and protections under Philippine law will continue to apply.
+
+41. SEVERABILITY
+If any provision of these Terms is determined to be invalid, illegal, or unenforceable, the remaining provisions will continue to the extent permitted by law.
+
+42. NO TRANSFER BY CUSTOMER
+The Renter may not transfer, assign, or sub-rent their booking or rented equipment to another person without the prior approval of JRY Rentals.
+
+43. CHANGES TO THESE TERMS
+JRY Rentals may update these Terms from time to time because of new services, new equipment, changes to rental policies, technology changes, legal or regulatory requirements, or operational changes.
+
+The updated version will be published on the JRY Rentals website.
+
+For an existing confirmed rental, the version presented and accepted for that booking is retained as part of the booking record and is not replaced by a later version.
+
+44. ELECTRONIC ACCEPTANCE
+Electronic acceptance of these Terms may constitute acceptance of the Terms where permitted by applicable law.
+
+JRY Rentals may record customer name, account ID, booking ID, Terms version, date and time accepted, IP address, user agent or device information, and other relevant acceptance metadata.
+
+The purpose is to maintain an accurate record of the customer’s acceptance.
+
+45. ENTIRE AGREEMENT
+The complete rental transaction may consist of:
+1. JRY Rentals Terms & Conditions
+2. JRY Rentals Privacy Policy
+3. JRY Rentals Equipment Rental Agreement & Liability Waiver
+4. Booking details
+5. Pricing
+6. Cancellation policy
+7. Equipment condition report
+8. Applicable deposit policy
+9. Other terms specifically presented during the booking
+
+Together, these documents form the applicable agreement between JRY Rentals and the Renter, subject to applicable law.
+
+If a booking-specific term clearly conflicts with a general term in these Terms, the booking-specific term controls to the extent clearly stated.
+
+This version is stored with the customer’s acceptance and will not be altered after they accept it.

@@ -1,0 +1,327 @@
+JRY RENTALS
+PRIVACY POLICY
+
+Version: JRY-PRIVACY-v1.0
+Effective Date: September 13, 2026
+Last Updated: September 13, 2026
+
+JRY Rentals (“JRY Rentals,” “we,” “us,” or “our”) respects your privacy and is committed to protecting your personal information.
+
+This Privacy Policy explains how we collect, use, store, disclose, protect, and otherwise process personal information when you use the JRY Rentals website, rental platform, customer account, booking services, and related services.
+
+JRY Rentals processes personal information in accordance with Republic Act No. 10173, or the Data Privacy Act of 2012, its Implementing Rules and Regulations, and applicable issuances of the National Privacy Commission (“NPC”).
+
+By using our website or rental services, you acknowledge that you have read this Privacy Policy.
+
+1. WHO WE ARE
+JRY Rentals is an equipment rental business providing rental services for equipment that may include Starlink Mini, DJI Mini 3, DJI Osmo 360, cameras, drones, connectivity equipment, and other rental equipment and accessories.
+
+For privacy-related matters, JRY Rentals acts as the Personal Information Controller (PIC) for personal information that it determines the purposes and means of processing.
+
+Contact Information
+Business Name: JRY Rentals
+Website: the JRY Rentals website and rental platform
+Email: jryrentals@gmail.com
+Business Address: Davao City, Philippines
+
+Data Protection Officer / Privacy Contact
+Name: JRY Rentals Privacy Team
+Email: jryrentals@gmail.com
+
+2. PERSONAL INFORMATION WE COLLECT
+Depending on how you interact with JRY Rentals, we may collect information such as:
+
+A. Account Information
+If you create an account, we may collect:
+- Full name
+- Email address
+- Mobile number
+- Account information
+- Password-related authentication information
+- Account preferences
+- Privacy-policy version accepted
+- Marketing preference
+
+We do not store your password in plain text. Authentication credentials are handled by our identity provider.
+
+B. Rental and Booking Information
+When you rent equipment, we may collect:
+- Booking ID
+- Equipment rented
+- Rental dates
+- Pickup and return information
+- Rental location
+- Rental duration
+- Rental status
+- Equipment condition information
+- Equipment serial number associated with the rental
+- Rental history
+- Payment status
+- Deposit information
+- Damage or incident records
+- Signed rental agreement / waiver version and acceptance record
+
+C. Contact Information
+We may collect:
+- Name
+- Email
+- Telephone or mobile number
+- Delivery or pickup address, where necessary
+- Communication history with JRY Rentals
+
+D. Identity Verification Information
+Where reasonably necessary to verify a renter or prevent fraud, JRY Rentals may request additional information necessary to confirm identity or eligibility to rent.
+
+JRY Rentals will only request information that is reasonably necessary for the applicable purpose.
+
+If identity documents are collected, they will be retained only as long as needed for verification, fraud prevention, or legal requirements, and stored with restricted access.
+
+3. PAYMENT INFORMATION
+When you make a payment, payment information may be processed through our payment methods or payment provider.
+
+Depending on the payment method, this may include:
+- Payment reference number
+- Transaction ID
+- Payment amount
+- Payment date
+- Payment status
+- Payment method
+- Limited transaction information
+
+Where you pay by QR or bank transfer using details shown in the rental platform, JRY Rentals receives confirmation and reference information, not your complete card credentials.
+
+JRY Rentals does not intend to store complete credit or debit card numbers unless there is a specific lawful and secure business requirement to do so.
+
+Payment providers may process information according to their own privacy policies and terms.
+
+4. INFORMATION WE COLLECT AUTOMATICALLY
+When you access our website, certain technical information may be automatically collected. This may include:
+- IP address
+- Browser type
+- Device type
+- Operating system
+- Date and time of access
+- Pages visited
+- Referring website
+- General usage information
+- Login activity
+- Security and authentication logs
+- Waiver or agreement acceptance metadata, such as IP address and user agent, when you sign
+
+This information may be used for website operation, security, troubleshooting, and fraud prevention.
+
+5. COOKIES AND SIMILAR TECHNOLOGIES
+JRY Rentals uses cookies and similar technologies that are needed to operate the website.
+
+Essential cookies and storage are used for:
+- Login
+- Authentication
+- Session continuity
+- Security
+- Booking functionality
+
+We do not currently use advertising or marketing cookies.
+
+If analytics or marketing technologies are enabled later, JRY Rentals will update this Policy and, where required by applicable law, provide appropriate controls for non-essential cookies.
+
+6. WHY WE COLLECT YOUR INFORMATION
+JRY Rentals may process personal information for the following purposes:
+
+Rental Services
+To create and manage bookings, process rental requests, confirm availability, manage equipment, arrange pickup or delivery, process returns, manage extensions, track equipment, and communicate with renters.
+
+Payments
+To process payments, confirm transactions, manage deposits, issue receipts, reconcile transactions, handle refunds, and detect suspicious transactions.
+
+Customer Accounts
+To create accounts, authenticate users, manage account information, display booking history, and provide customer support.
+
+Equipment Protection
+To record equipment condition, document damage, investigate missing equipment, manage lost or stolen equipment, and maintain rental records.
+
+Communications
+To send booking confirmations, rental reminders, notices about changes, responses to inquiries, and customer support messages.
+
+Security
+To detect unauthorized access, prevent fraud, protect the website, investigate security incidents, and maintain audit logs.
+
+Legal and Regulatory Requirements
+To comply with applicable laws, respond to lawful requests, establish, exercise, or defend legal claims, and maintain appropriate business records.
+
+7. LEGAL BASIS FOR PROCESSING
+JRY Rentals will process personal information only where there is an appropriate lawful basis. Depending on the activity, this may include:
+
+A. Contractual Necessity
+Processing may be necessary to provide the rental service you requested. For example, we need your name, contact information, rental dates, and booking details to process your equipment rental.
+
+B. Consent
+Where consent is required, JRY Rentals will request your consent in an appropriate manner. Consent should be freely given, specific, informed, and appropriately recorded. Optional marketing communications are requested separately from the Privacy Policy acknowledgment and from the rental waiver.
+
+C. Legal Obligation
+We may process information when required by law.
+
+D. Legitimate Interests
+Where legally applicable, JRY Rentals may process information for legitimate business purposes such as security, fraud prevention, equipment protection, business administration, and service improvement. Such processing remains subject to applicable privacy principles and data-subject rights.
+
+8. INFORMATION SHARING
+JRY Rentals does not sell your personal information.
+
+We may disclose or make personal information available to appropriate parties where necessary and lawful. These may include:
+
+Payment Providers
+For processing payments and transactions.
+
+Hosting and Technology Providers
+For website hosting, database services, cloud storage, authentication, email delivery, and security.
+
+Delivery or Logistics Providers
+Where delivery or collection of rental equipment is requested.
+
+Service Providers
+Companies that provide services necessary to operate JRY Rentals.
+
+Legal and Government Authorities
+Where disclosure is required or permitted by applicable law.
+
+JRY Rentals will take reasonable measures to ensure that third parties handling personal information on our behalf provide appropriate safeguards.
+
+9. INTERNATIONAL DATA TRANSFERS
+Some technology or service providers used by JRY Rentals may process or store information outside the Philippines.
+
+Where personal information is transferred to another jurisdiction, JRY Rentals will take reasonable measures to ensure that appropriate privacy and security safeguards are maintained in accordance with applicable law.
+
+10. DATA SECURITY
+JRY Rentals takes reasonable organizational, physical, and technical measures to protect personal information against unauthorized access, unauthorized disclosure, loss, destruction, alteration, misuse, and unauthorized processing.
+
+Security measures may include access controls, authentication, role-based permissions, encryption where appropriate, secure database configurations, audit logs, backup procedures, security monitoring, restricted employee access, and secure software development practices.
+
+No internet-based system can guarantee absolute security.
+
+11. EMPLOYEE AND ADMINISTRATOR ACCESS
+Access to customer information within JRY Rentals is limited according to business requirements.
+
+Administrator: system administration access where necessary.
+Staff and rental personnel: booking and equipment information needed to complete assigned responsibilities.
+Customer: access to their own account and booking information.
+
+12. DATA RETENTION
+JRY Rentals will retain personal information only for as long as reasonably necessary for the purposes for which it was collected, including providing rental services, maintaining booking records, accounting, customer support, fraud prevention, equipment protection, resolving disputes, establishing or defending legal claims, and complying with legal obligations.
+
+Signed rental agreements, waiver acceptances, and privacy-policy acknowledgments are retained with the related booking or account record for rental, accounting, dispute-resolution, and legal purposes.
+
+When information is no longer required, JRY Rentals will take reasonable steps to securely delete, destroy, anonymize, or otherwise dispose of it, subject to applicable legal and business requirements.
+
+13. YOUR RIGHTS AS A DATA SUBJECT
+Under the Data Privacy Act, you may have rights including:
+
+Right to Be Informed
+You have the right to know whether your personal information is being processed and to receive information about that processing.
+
+Right to Access
+You may request access to personal information that JRY Rentals processes about you.
+
+Right to Correct
+You may request correction of inaccurate or incomplete personal information.
+
+Right to Object
+You may object to certain processing where applicable.
+
+Right to Erasure or Blocking
+You may request deletion, blocking, or removal of personal information where legally applicable.
+
+Right to Data Portability
+Where applicable, you may request your personal information in an appropriate electronic format.
+
+Right to File a Complaint
+You may lodge a complaint concerning the processing of your personal information with the National Privacy Commission.
+
+Right to Damages
+You may have a right to seek compensation where provided by applicable law.
+
+14. HOW TO EXERCISE YOUR RIGHTS
+To request access, correction, deletion, objection, or other privacy-related assistance, contact:
+
+JRY Rentals Privacy Team
+Email: jryrentals@gmail.com
+Subject: Privacy Request – [Type of Request]
+
+Your request should provide enough information for JRY Rentals to understand and verify the request.
+
+We may need to verify your identity before processing certain requests to protect your information from unauthorized access.
+
+15. WITHDRAWING CONSENT
+Where processing is based on consent, you may withdraw your consent, subject to applicable law.
+
+Withdrawal of consent does not necessarily affect processing that was already completed lawfully, necessary to perform a contract, required by law, or otherwise permitted under applicable law.
+
+The withdrawal of consent may also affect our ability to provide certain services where the information is necessary to provide those services.
+
+16. DIRECT MARKETING
+JRY Rentals may send promotional communications only if permitted by law and where you have opted in.
+
+Marketing communications may include new rental equipment, promotions, discounts, rental announcements, and special offers.
+
+You may unsubscribe from marketing communications at any time through your account profile or by contacting JRY Rentals.
+
+Opting out of marketing will not prevent us from sending important service-related communications, such as booking confirmations, payment notifications, security notices, or rental reminders.
+
+17. CHILDREN'S PRIVACY
+JRY Rentals' rental services are intended for individuals who are legally able to enter into rental transactions.
+
+We do not knowingly collect unnecessary personal information from children.
+
+If you believe that a child has provided personal information to JRY Rentals without appropriate authorization, please contact us so that we can assess and take appropriate action.
+
+18. DATA BREACHES AND SECURITY INCIDENTS
+If JRY Rentals experiences a personal data breach or security incident, we will assess and respond according to applicable laws, regulations, and NPC requirements.
+
+Where notification is legally required, affected parties and/or the National Privacy Commission will be notified within the applicable timeframe.
+
+19. THIRD-PARTY WEBSITES
+Our website may contain links to third-party websites or services.
+
+JRY Rentals is not responsible for the privacy practices of websites that we do not control.
+
+We recommend reviewing the privacy policy of any third-party website you visit.
+
+20. THIRD-PARTY SERVICES
+JRY Rentals uses third-party technology providers to operate the rental platform. These currently include:
+
+- Supabase, for authentication, database, and file storage
+- Vercel, for website hosting
+- Google (Gmail SMTP), for transactional email delivery
+- Payment channels shown in the rental platform, such as QR or bank-transfer methods configured by JRY Rentals
+
+These providers may process personal information according to their own terms and privacy policies, and some may store or process information outside the Philippines.
+
+21. AUTOMATED PROCESSING
+JRY Rentals may use automated systems for functions such as booking availability, rental reminders, fraud or security monitoring, notifications, account management, and operational analytics.
+
+These systems support operations and do not, by themselves, make legal or similarly significant decisions about you without human involvement where such involvement is required.
+
+22. ACCURACY OF INFORMATION
+We ask customers to provide accurate and up-to-date information.
+
+You may contact JRY Rentals or update your account profile if information associated with your account or booking is inaccurate or incomplete.
+
+23. CHANGES TO THIS PRIVACY POLICY
+JRY Rentals may update this Privacy Policy when necessary, including because of new services, changes to our technology or business processes, changes to applicable laws, changes to third-party service providers, or privacy or security improvements.
+
+When significant changes are made, JRY Rentals will provide an appropriate notice.
+
+The latest version will always be published on the JRY Rentals website. Previous versions remain associated with accounts and bookings that accepted them.
+
+Last Updated: September 13, 2026
+Agreement version: JRY-PRIVACY-v1.0
+
+24. CONTACT US
+For questions, concerns, requests, or complaints relating to privacy:
+
+JRY Rentals
+Privacy Email: jryrentals@gmail.com
+General Email: jryrentals@gmail.com
+Address: Davao City, Philippines
+Data Protection Officer / Privacy Contact: JRY Rentals Privacy Team
+
+25. COMPLAINTS TO THE NATIONAL PRIVACY COMMISSION
+If you believe that your personal information has been processed improperly or that your privacy rights have been violated, you may contact the National Privacy Commission of the Philippines or file a complaint through its available channels at https://privacy.gov.ph.

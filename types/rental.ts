@@ -1,0 +1,69 @@
+import type { PublicPayment } from '~/types/payment'
+import type { PublicReceipt } from '~/types/receipt'
+import type { PublicWaiverAcceptance } from '~/types/waiver'
+import type { RentalStatus } from '~/utils/constants'
+
+export interface PublicRentalItem {
+  uuid: string
+  quantity: number
+  dailyPrice: number
+  lineTotal: number
+  product: {
+    uuid: string
+    slug: string
+    name: string
+    sku: string
+  }
+}
+
+export interface PublicRental {
+  uuid: string
+  code: string
+  status: RentalStatus
+  startsOn: string
+  endsOn: string
+  subtotal: number
+  depositAmount: number
+  discountAmount: number
+  taxAmount: number
+  totalAmount: number
+  notes: string | null
+  items: PublicRentalItem[]
+  waiver: PublicWaiverAcceptance | null
+  payments: PublicPayment[]
+  receipts: PublicReceipt[]
+  customer: {
+    uuid: string
+    firstName: string
+    lastName: string
+    phone: string | null
+  } | null
+  createdAt: string
+}
+
+export interface RentalListResponse {
+  items: PublicRental[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface RentalQuote {
+  product: {
+    uuid: string
+    slug: string
+    name: string
+    sku: string
+  }
+  startsOn: string
+  endsOn: string
+  days: number
+  quantity: number
+  dailyPrice: number
+  lineTotal: number
+  depositAmount: number
+  subtotal: number
+  totalAmount: number
+  available: number
+  canFulfill: boolean
+}

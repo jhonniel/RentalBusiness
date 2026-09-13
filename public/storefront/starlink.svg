@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Starlink Mini">
+  <rect width="800" height="600" fill="#f3f6f2"/>
+  <ellipse cx="400" cy="470" rx="160" ry="18" fill="#d7ddd4"/>
+  <rect x="372" y="338" width="56" height="92" rx="6" fill="#1a1f1c"/>
+  <rect x="318" y="424" width="164" height="16" rx="4" fill="#111411"/>
+  <rect x="236" y="148" width="328" height="208" rx="22" fill="#ffffff"/>
+  <rect x="236" y="148" width="328" height="208" rx="22" fill="none" stroke="#e4e8e1" stroke-width="2"/>
+  <path d="M388 236h24v8h-8v24h-8v-24h-8z" fill="#c9cfc8"/>
+</svg>

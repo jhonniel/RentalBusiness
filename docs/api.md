@@ -1,0 +1,349 @@
+# API
+
+All application APIs live under `/api`. Handlers validate input with Zod and authorize on the server. Public identifiers are `uuid` or `code`.
+
+**Current phase:** health through reports, public discovery, admin payment methods, and production readiness flags.
+
+## Conventions
+
+| Topic | Rule |
+| --- | --- |
+| Methods | GET read, POST create, PATCH update, DELETE only when explicitly designed |
+| Auth | Session from Supabase cookies; never trust a role field from the client |
+| Errors | `{ message, code }` — no stack traces or SQL |
+| Dates | ISO-8601 request values; business rules in `Asia/Manila` |
+| Money | Decimal amounts in PHP unless a future currency setting says otherwise |
+| Idempotency | Required for payments, cron, and receipt issuance |
+
+## Implemented
+
+### `GET /api/health`
+
+Liveness check used by local development and future uptime monitors.
+
+**Response**
+
+```json
+{
+  "status": "ok",
+  "phase": 16,
+  "timezone": "Asia/Manila",
+  "currency": "PHP",
+  "supabaseConfigured": false,
+  "serviceRoleConfigured": false,
+  "cronConfigured": false,
+  "webhookConfigured": false,
+  "resendConfigured": false,
+  "ready": false,
+  "timestamp": "2026-09-13T00:00:00.000Z",
+  "requestId": "…"
+}
+```
+
+`status` is liveness (`ok` when the process can answer). The boolean flags never include secret values. `ready` is true only when Supabase anon config, the service-role key, `CRON_SECRET`, `PAYMENT_WEBHOOK_SECRET`, and Gmail SMTP (`SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`) are all non-empty and not placeholders. `resendConfigured` remains the health field name and is true when SMTP is configured.
+
+### `POST /api/auth/register`
+
+Creates an unconfirmed customer account and emails a confirmation link through Gmail SMTP. The handler uses the service-role `generateLink` API so Supabase Auth does not send its own message. The response never includes tokens, hashes, or the confirmation URL.
+
+**Auth:** public  
+**Body:** `{ firstName, lastName, email, password, termsAccepted: true, privacyAcknowledged: true, marketingOptIn? }`  
+**Rate limit:** 8 requests / 15 minutes / IP
+
+```json
+{
+  "email": "ana@example.com",
+  "requiresConfirmation": true
+}
+```
+
+### `POST /api/auth/resend-confirmation`
+
+Sends another branded confirmation email through Gmail SMTP. The response is always `{ "sent": true }` so callers cannot probe whether an email is registered.
+
+**Auth:** public  
+**Body:** `{ email }`  
+**Rate limit:** 8 requests / 15 minutes / IP, 5 / 15 minutes / email
+
+### `GET /api/auth/me`
+
+Returns the signed-in user's public profile. Role is read from `profiles`, not from the request.
+
+**Auth:** required
+
+```json
+{
+  "uuid": "…",
+  "role": "customer",
+  "firstName": "Ana",
+  "lastName": "Reyes",
+  "phone": null,
+  "email": "ana@example.com",
+  "emailVerified": false
+}
+```
+
+### `PATCH /api/auth/profile`
+
+Updates allowed profile fields. `role` is rejected by schema and by the database.
+
+**Auth:** required  
+**Body:** `{ firstName, lastName, phone? }`  
+**Rate limit:** 20 requests / minute / user
+
+### Admin catalog
+
+All catalog write routes require an admin session. Mutations are limited to 40 requests / minute / admin profile. Responses use `uuid`, `sku`, and `assetCode` — never database primary keys.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/admin/categories` | All categories |
+| POST | `/api/admin/categories` | Create category |
+| PATCH | `/api/admin/categories/[uuid]` | Update category |
+| GET | `/api/admin/products` | Search, status, category, pagination |
+| POST | `/api/admin/products` | Create product |
+| GET | `/api/admin/products/[uuid]` | Product with images |
+| PATCH | `/api/admin/products/[uuid]` | Update product |
+| POST | `/api/admin/products/[uuid]/archive` | Set status to `archived` |
+| POST | `/api/admin/products/[uuid]/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP, 5 MB). Extra photos appear under the main image on the product page. |
+| DELETE | `/api/admin/images/[uuid]` | Remove image and storage object |
+| GET | `/api/admin/inventory` | Serialized assets |
+| POST | `/api/admin/products/[uuid]/assets` | Create asset |
+| PATCH | `/api/admin/assets/[uuid]` | Update asset |
+
+**Product body:** name, sku, categoryUuid, prices, deposit, quantities, status (`draft` / `active` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. Extra fields such as `id` are rejected.
+
+### Public catalog
+
+Unauthenticated. Uses the anon Supabase client so RLS only returns active categories and products. Responses never include database primary keys or reserved/rented/damaged counters.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/categories` | Active categories |
+| GET | `/api/products` | Search, `categorySlug` or `categoryUuid`, `featured`, pagination |
+| GET | `/api/products/[id]` | Active product by `uuid` or `slug` |
+
+**Rate limit:** 80 requests / minute / IP
+
+### `GET /api/availability`
+
+Overlap-aware stock for one active product. Booked quantity comes from occupying rentals whose dates inclusively overlap the requested range. Capacity subtracts damaged, maintenance, and lost units.
+
+**Query:** `productUuid` or `productSlug`, `startsOn`, `endsOn`, `quantity` (default 1)  
+**Rate limit:** 80 requests / minute / IP
+
+```json
+{
+  "product": { "uuid": "…", "slug": "sony-a7-iv", "name": "Sony A7 IV", "sku": "CAM-A7IV-001" },
+  "startsOn": "2026-09-11",
+  "endsOn": "2026-09-13",
+  "capacity": 5,
+  "booked": 3,
+  "available": 2,
+  "requested": 3,
+  "canFulfill": false
+}
+```
+
+### `GET /api/availability/calendar`
+
+Returns `unavailableDates` for one active product. A day is listed when remaining stock cannot fulfill the requested quantity. Date pickers use this list so booked days cannot be selected.
+
+**Query:** `productUuid` or `productSlug`, `quantity` (default 1), optional `from` / `to` (default today through 180 days, max 366)  
+**Rate limit:** 80 requests / minute / IP
+
+The payload includes product `uuid` / `slug` / `name` / `sku` and the date list only. It never includes rental or customer identifiers.
+
+### Customer rentals
+
+Authenticated. Customers read and create only their own rows. Totals come from `utils/pricing.ts`. Pending requests occupy inventory.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/api/rentals/quote` | Server quote + availability |
+| POST | `/api/rentals` | Create `draft` or `pending` (default pending) |
+| GET | `/api/rentals` | Own rentals, optional status, pagination |
+| GET | `/api/rentals/[id]` | By `uuid` or `code` |
+| POST | `/api/rentals/[id]/cancel` | Own `draft` or `pending` only |
+
+**Create body:** product uuid/slug, dates, quantity, firstName, lastName, phone?, notes?, status?  
+**Rate limit:** 20 creates / minute / user
+
+Rental payloads include `waiver` when the customer has signed (`uuid`, `signerName`, `acceptedAt`, `privacyPolicyVersion`, `termsVersion`, bound version). They never include `id`, `ip_address`, or `signature_data`.
+
+### Waivers
+
+Current terms are public. Acceptance requires a signed-in owner of a `draft` or `pending` rental. IP and user agent are stored on the server and written to the audit log.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/waivers/current` | Current published version |
+| POST | `/api/waivers/accept` | Bind current version to a rental |
+| GET | `/api/admin/waivers` | All versions |
+| POST | `/api/admin/waivers` | Publish a new current version |
+
+**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit; those flags are UI-only and are not stored as separate columns. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile.  
+**Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 admin publishes / minute / admin
+
+### Privacy Policy
+
+The published policy is versioned (`JRY-PRIVACY-v1.0`) and public at `/privacy`. Registration requires a Privacy Policy acknowledgment that is stored separately from Terms acceptance, optional marketing consent, and the rental waiver.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/privacy/current` | Current version, dates, and body |
+
+Account-level fields: `privacyPolicyVersion`, `privacyAcceptedAt`, `termsVersion`, `termsAcceptedAt`, `marketingOptIn` on `GET /api/auth/me` and `PATCH /api/auth/profile`. Clients cannot send role.  
+**Rate limit:** 80 reads / minute / IP
+
+### Terms & Conditions
+
+The published Terms are versioned (`JRY-TC-v1.0`) and public at `/terms`. They govern the website and rental service and stay separate from the waiver and Privacy Policy.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/terms/current` | Current version, dates, and body |
+
+Rental payloads include `payments` (`uuid`, amount, currency, provider, status, method, paidAt, checkoutUrl). They never include `id` or `provider_transaction_id`.
+
+### Payments
+
+Server-created intents. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver is required. Status changes only from a verified webhook or a server-side provider retrieve.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/api/payments/create` | Create or reuse an open intent |
+| GET | `/api/payments/[id]` | Owner only |
+| POST | `/api/payments/[id]/verify` | Provider retrieve, then apply |
+| POST | `/api/payments/webhook` | HMAC `x-lumen-payment-signature` |
+| POST | `/api/payments/sandbox/complete` | Sandbox checkout only |
+
+**Create body:** rental uuid or code  
+**Webhook body:** `{ provider, providerTransactionId, status, paymentMethod?, paidAt? }`  
+**Signature:** `sha256=` + hex HMAC-SHA256 of the raw body with `PAYMENT_WEBHOOK_SECRET`  
+**Rate limit:** 20 creates or verifies / minute / user; 60 webhooks / minute / IP
+
+### Payment methods
+
+Admins configure GCash, Maya, bank transfer, or similar methods and upload a QR image. Signed-in customers read only active methods. Images are stored in the public `payment-qr-images` bucket. Responses use `uuid` and `code` — never database primary keys.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/admin/payment-methods` | All methods |
+| POST | `/api/admin/payment-methods` | Create method |
+| PATCH | `/api/admin/payment-methods/[uuid]` | Update method |
+| POST | `/api/admin/payment-methods/[uuid]/qr` | Multipart `file` (JPG/PNG/WebP, 5 MB) |
+| DELETE | `/api/admin/payment-methods/[uuid]/qr` | Remove QR image and storage object |
+| GET | `/api/payment-methods` | Active methods for signed-in customers |
+
+**Method body:** name, optional code, accountName, accountNumber, instructions, sortOrder, isActive. Extra fields such as `id` are rejected.  
+**Rate limit:** 40 admin writes / minute / admin; 80 customer reads / minute / user
+
+These methods do not confirm payment. Checkout still uses the provider webhook or sandbox complete.
+
+Rental payloads include `receipts` (`uuid`, `receiptNumber`, `issuedAt`, snapshot). Snapshots never include internal ids.
+
+### Receipts and email
+
+Receipts are issued by the server when a payment is confirmed. Customers may read their own rows. Email sends use Gmail SMTP and are recorded in `email_logs` with a payload hash so the same confirmation or reminder is not sent twice.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/receipts/[id]` | By `uuid` or `RCP-` number |
+| POST | `/api/admin/rentals/remind` | Admin pickup or return reminder |
+
+**Remind body:** rental uuid or code, `type`: `pickup` \| `return`  
+**Rate limit:** 20 reminder sends / minute / admin
+
+Print view: `/receipts/[number]` (signed-in owner, blank layout).
+
+### Admin operations
+
+Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `code` only.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products |
+| GET | `/api/admin/rentals` | All rentals, search code, status, pagination |
+| GET | `/api/admin/rentals/[id]` | By uuid or code |
+| POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, audited |
+| GET | `/api/admin/customers` | Customer profiles and rental counts |
+| GET | `/api/notifications` | Signed-in recipient |
+| POST | `/api/notifications/[id]/read` | Mark own notification read |
+
+Approve is allowed only after payment is `paid`. The customer receives an in-app notification. Sales KPIs sum paid payment amounts in `Asia/Manila`. Inventory value is `quantity × replacement_value` for non-archived products.
+
+### Expenses
+
+Admin session required. Categories are the fixed list in `EXPENSE_CATEGORIES`. Responses use `uuid` only. Rows are voided, not deleted.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/admin/expenses` | Search, category, status, pagination |
+| POST | `/api/admin/expenses` | Create one-time expense |
+| GET | `/api/admin/expenses/[id]` | By uuid |
+| PATCH | `/api/admin/expenses/[id]` | Update pending or paid |
+| POST | `/api/admin/expenses/[id]/void` | Soft-void, audited |
+| GET | `/api/admin/recurring-expenses` | Templates |
+| POST | `/api/admin/recurring-expenses` | Create template |
+| GET | `/api/admin/recurring-expenses/[id]` | Includes recent occurrences |
+| PATCH | `/api/admin/recurring-expenses/[id]` | Update unless ended |
+| POST | `/api/admin/recurring-expenses/[id]/pause` | `active` → `paused` |
+| POST | `/api/admin/recurring-expenses/[id]/resume` | `paused` → `active` |
+| POST | `/api/admin/recurring-expenses/[id]/end` | Ends the template |
+| GET | `/api/admin/recurring-expenses/[id]/occurrences` | Posted dates |
+| POST | `/api/admin/recurring-expenses/[id]/occurrences` | Post next due date |
+
+`POST .../occurrences` creates a pending expense for `next_occurrence_on`, stores an occurrence (`unique(recurring_expense_id, occurs_on)`), and advances the next date. Repeating that date is idempotent. The nightly cron job uses the same poster and can catch up missed days.
+
+**Rate limit:** 40 mutations / minute / admin
+
+### Cron
+
+No user session. Present `Authorization: Bearer $CRON_SECRET` or `x-cron-secret`. Vercel Cron sends the Bearer header. Jobs use the service-role client, are idempotent, and return counts only.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET/POST | `/api/cron/recurring-expenses` | Post due recurring expenses |
+| GET/POST | `/api/cron/reminders` | Pickup and return emails for tomorrow in Asia/Manila |
+| GET/POST | `/api/cron/overdue` | `active` → `overdue` when `ends_on` is before today |
+
+Schedule in `vercel.json`: `0 16 * * *` (midnight Asia/Manila). Reminder emails reuse `(template, payload_hash)`. Occurrences reuse `(recurring_expense_id, occurs_on)`. Overdue only transitions `active` rentals.
+
+### Reports
+
+Admin session required. Dates are inclusive in `Asia/Manila`. Default range is the current month through today. Maximum range is 366 days. Responses use `uuid` / `code` only.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/admin/reports/[type]` | `sales`, `expenses`, `profit`, `rentals`, `inventory`, `utilization` |
+
+**Query:** `startsOn`, `endsOn`, `format` (`json` default, `csv`)  
+**Rate limit:** 20 CSV exports / minute / admin
+
+Sales sum paid payments. Expense totals skip `void`. Profit is sales minus those expenses. Rentals are rows whose dates overlap the range. Inventory is a live stock snapshot. Utilization is booked unit-days ÷ rentable capacity unit-days for occupying rentals. CSV exports are audited.
+
+### Discovery
+
+Public, unauthenticated. These are Nitro routes, not `/api` handlers.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/robots.txt` | Allows public catalog; disallows account, auth, admin, and `/api` paths. `Sitemap` uses `NUXT_PUBLIC_SITE_URL`. |
+| GET | `/sitemap.xml` | Home, `/products`, `/about`, `/privacy`, `/terms`. When Supabase is configured, also includes the first page of active product slugs. |
+
+## Planned endpoints
+
+None. Phase 16 is the last documented build phase.
+
+## Authorization checklist (every protected route)
+
+1. Require an authenticated session.
+2. Load the profile role from the database, not from the request body.
+3. Enforce ownership for customer resources.
+4. Rely on RLS as a second line of defense.
+5. Write an audit log for admin mutations.
+
+## Cron
+
+Vercel Cron will call `/api/cron/*` with a shared secret header. Jobs must be idempotent and logged. See [deployment.md](./deployment.md).

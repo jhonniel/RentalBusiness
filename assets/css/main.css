@@ -1,0 +1,203 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Geist", ui-sans-serif, system-ui, sans-serif;
+
+  --color-lumen-50: #f4f7fb;
+  --color-lumen-100: #e6eef8;
+  --color-lumen-200: #c5d6ee;
+  --color-lumen-300: #8eafdc;
+  --color-lumen-400: #4f86c8;
+  --color-lumen-500: #1d5fad;
+  --color-lumen-600: #0b5fff;
+  --color-lumen-700: #0a3f7a;
+  --color-lumen-800: #1a1d23;
+  --color-lumen-900: #111318;
+  --color-lumen-950: #0a0b0d;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background-color: #fff;
+  }
+
+  body,
+  #__nuxt,
+  #__nuxt > div {
+    background-color: #fff;
+  }
+
+  body {
+    @apply text-[#12201a] antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-lumen-700);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .page-enter-active,
+  .page-leave-active,
+  .page-enter-from,
+  .page-leave-to {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.saas-shell {
+  background: #fff;
+}
+
+.storefront-shell {
+  background: #fff;
+}
+
+.storefront-hero {
+  background: #fff;
+}
+
+.storefront-card {
+  border: 1px solid rgb(18 32 26 / 6%);
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(18 32 26 / 4%);
+}
+
+.storefront-chip {
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.saas-card {
+  border: 1px solid rgb(15 23 42 / 8%);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 4%),
+    0 12px 32px rgb(15 23 42 / 5%);
+}
+
+.saas-window {
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid rgb(15 23 42 / 8%);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 4%),
+    0 24px 48px rgb(15 23 42 / 8%);
+}
+
+.auth-control {
+  display: flex;
+  height: 3rem;
+  width: 100%;
+  align-items: center;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(18 32 26 / 12%);
+  background: #fff;
+}
+
+.auth-control:hover {
+  border-color: rgb(18 32 26 / 22%);
+}
+
+.auth-control:focus-within {
+  border-color: #12201a;
+  box-shadow: 0 0 0 3px rgb(18 32 26 / 12%);
+}
+
+.auth-control-error {
+  border-color: #b42318;
+}
+
+.auth-control-field {
+  height: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  padding: 0 0.75rem;
+  font-size: 0.9375rem;
+  color: #12201a;
+}
+
+.auth-control-field::placeholder {
+  color: #8a9690;
+}
+
+.auth-control-field:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.auth-control-field:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.auth-check {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgb(18 32 26 / 22%);
+  accent-color: #12201a;
+}
+
+.saas-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgb(15 23 42 / 8%);
+  background: #fff;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #475569;
+}

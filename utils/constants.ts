@@ -1,0 +1,113 @@
+export const APP_NAME = 'JRY Rentals'
+export const APP_TAGLINE = 'Premium gear for your next adventure.'
+export const APP_DESCRIPTION = 'Rent cameras, drones, and Starlink in Davao City. Book online with JRY Rentals.'
+
+export const BUSINESS_TIMEZONE = 'Asia/Manila'
+export const BUSINESS_CURRENCY = 'PHP'
+export const BUSINESS_LOCALE = 'en-PH'
+export const BUSINESS_EMAIL = 'jryrentals@gmail.com'
+export const BUSINESS_CITY = 'Davao City'
+export const BUSINESS_COUNTRY = 'PH'
+export const BUSINESS_ADDRESS = 'Davao City, Philippines'
+export const FACEBOOK_URL = 'https://www.facebook.com/jryrentals/'
+
+export const CURRENT_PHASE = 16
+
+export const USER_ROLES = ['admin', 'customer'] as const
+export type UserRole = (typeof USER_ROLES)[number]
+
+export const RENTAL_STATUSES = [
+  'draft',
+  'pending',
+  'awaiting_payment',
+  'paid',
+  'approved',
+  'ready_for_pickup',
+  'active',
+  'returned',
+  'completed',
+  'cancelled',
+  'rejected',
+  'overdue',
+] as const
+export type RentalStatus = (typeof RENTAL_STATUSES)[number]
+
+export const PAYMENT_STATUSES = [
+  'pending',
+  'processing',
+  'paid',
+  'failed',
+  'refunded',
+  'partially_refunded',
+  'cancelled',
+] as const
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
+
+export const PRODUCT_STATUSES = ['draft', 'active', 'hidden', 'archived'] as const
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
+
+export const EQUIPMENT_STATUSES = [
+  'available',
+  'reserved',
+  'rented',
+  'maintenance',
+  'damaged',
+  'lost',
+  'retired',
+] as const
+export type EquipmentStatus = (typeof EQUIPMENT_STATUSES)[number]
+
+export const INVENTORY_OCCUPYING_RENTAL_STATUSES = [
+  'pending',
+  'awaiting_payment',
+  'paid',
+  'approved',
+  'ready_for_pickup',
+  'active',
+  'overdue',
+] as const
+
+export const EXPENSE_STATUSES = ['pending', 'paid', 'void'] as const
+export type ExpenseStatus = (typeof EXPENSE_STATUSES)[number]
+
+export const RECURRING_EXPENSE_STATUSES = ['active', 'paused', 'ended'] as const
+export type RecurringExpenseStatus = (typeof RECURRING_EXPENSE_STATUSES)[number]
+
+export const EXPENSE_CATEGORIES = [
+  'internet',
+  'electricity',
+  'maintenance',
+  'repairs',
+  'software',
+  'subscription',
+  'marketing',
+  'transportation',
+  'staff',
+  'insurance',
+  'equipment',
+  'office',
+  'other',
+] as const
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
+
+export const EXPENSE_FREQUENCIES = [
+  'daily',
+  'weekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+  'custom',
+] as const
+export type ExpenseFrequency = (typeof EXPENSE_FREQUENCIES)[number]
+
+export const PRODUCT_CATEGORIES = [
+  'starlink',
+  'cameras',
+  'drones',
+  'lenses',
+  'accessories',
+  'lighting',
+  'audio',
+  'other',
+] as const
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number]

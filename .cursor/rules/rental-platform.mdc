@@ -1,0 +1,16 @@
+---
+description: JRY Rentals platform conventions for Nuxt 3 + Supabase
+alwaysApply: true
+---
+
+# JRY Rentals platform
+
+- Stack is Nuxt 3, Vue 3, TypeScript, Nuxt UI, Tailwind, and Supabase. Do not introduce React.
+- Follow Controller → Service/Action → Repository → Supabase. Keep pages and components free of pricing, availability, and payment rules.
+- Public APIs and URLs use `uuid` or `code` only. Never expose database primary keys.
+- Never send service-role keys, SMTP passwords, payment secrets, or cron secrets to the browser.
+- Authorize on the server and with RLS. Do not trust role values from the client.
+- Default currency is PHP. Default timezone is Asia/Manila. Store timestamps in UTC.
+- Preserve existing business rules unless the request changes them.
+- Implement one documented phase at a time. Keep the app runnable after every phase.
+- Update `/docs` when architecture, schema, API, or security changes.

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="JRY Rentals">
+  <rect width="1200" height="630" fill="#111318"/>
+  <rect x="72" y="72" width="1056" height="486" rx="16" fill="#1a1d23"/>
+  <text x="120" y="300" fill="#ffffff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="92" font-weight="700">JRY Rentals</text>
+  <text x="120" y="380" fill="#8eafdc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="32">Cameras, drones, and Starlink in Davao City</text>
+  <rect x="1080" y="120" width="28" height="28" fill="#0B5FFF"/>
+</svg>

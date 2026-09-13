@@ -1,0 +1,108 @@
+import type { PublicRental, PublicRentalItem } from '~/types/rental'
+import type { RentalStatus } from './constants'
+import { firstPayments, type PaymentRow } from './payment'
+import { firstReceipts, type ReceiptRow } from './receipt'
+import { firstWaiverAcceptance, type WaiverAcceptanceRow } from './waiver'
+
+interface ProductRef {
+  uuid: string
+  slug: string
+  name: string
+  sku: string
+}
+
+interface ItemRow {
+  uuid: string
+  quantity: number
+  daily_price: number
+  line_total: number
+  products: ProductRef | ProductRef[] | null
+}
+
+interface RentalRow {
+  uuid: string
+  code: string
+  status: RentalStatus
+  starts_on: string
+  ends_on: string
+  subtotal: number
+  deposit_amount: number
+  discount_amount: number
+  tax_amount: number
+  total_amount: number
+  notes: string | null
+  created_at: string
+  rental_items: ItemRow[] | null
+  waiver_acceptances?: WaiverAcceptanceRow | WaiverAcceptanceRow[] | null
+  payment_transactions?: PaymentRow | PaymentRow[] | null
+  receipts?: ReceiptRow | ReceiptRow[] | null
+  profiles?: {
+    uuid: string
+    first_name: string
+    last_name: string
+    phone: string | null
+  } | {
+    uuid: string
+    first_name: string
+    last_name: string
+    phone: string | null
+  }[] | null
+}
+
+function toPublicCustomer(value: RentalRow['profiles']) {
+  const row = Array.isArray(value) ? value[0] : value
+  if (!row) {
+    return null
+  }
+
+  return {
+    uuid: row.uuid,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    phone: row.phone,
+  }
+}
+
+function asProduct(value: ItemRow['products']): ProductRef {
+  const row = Array.isArray(value) ? value[0] : value
+  if (!row) {
+    throw new Error('Rental item is missing a product.')
+  }
+  return row
+}
+
+export function toPublicRentalItem(row: ItemRow): PublicRentalItem {
+  return {
+    uuid: row.uuid,
+    quantity: row.quantity,
+    dailyPrice: Number(row.daily_price),
+    lineTotal: Number(row.line_total),
+    product: asProduct(row.products),
+  }
+}
+
+export function toPublicRental(row: RentalRow): PublicRental {
+  return {
+    uuid: row.uuid,
+    code: row.code,
+    status: row.status,
+    startsOn: row.starts_on,
+    endsOn: row.ends_on,
+    subtotal: Number(row.subtotal),
+    depositAmount: Number(row.deposit_amount),
+    discountAmount: Number(row.discount_amount),
+    taxAmount: Number(row.tax_amount),
+    totalAmount: Number(row.total_amount),
+    notes: row.notes,
+    items: (row.rental_items ?? []).map(toPublicRentalItem),
+    waiver: firstWaiverAcceptance(row.waiver_acceptances),
+    payments: firstPayments(row.payment_transactions),
+    receipts: firstReceipts(row.receipts),
+    customer: toPublicCustomer(row.profiles),
+    createdAt: row.created_at,
+  }
+}
+
+export function isRentalCode(value: string): boolean {
+  return /^LUM-\d{8}-\d+$/.test(value)
+}
