@@ -256,6 +256,71 @@ export async function findImageByUuid(client: Client, uuid: string) {
   return data
 }
 
+export async function countRentalItemsForProduct(client: Client, productId: number) {
+  const { count, error } = await client
+    .from('rental_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('product_id', productId)
+
+  if (error) {
+    throw new AppError('We could not check rental history.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return count ?? 0
+}
+
+export async function listAssetIdsForProduct(client: Client, productId: number) {
+  const { data, error } = await client
+    .from('equipment_assets')
+    .select('id')
+    .eq('product_id', productId)
+
+  if (error) {
+    throw new AppError('We could not load product assets.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return (data ?? []).map(row => row.id)
+}
+
+export async function countAssetAssignments(client: Client, assetIds: number[]) {
+  if (!assetIds.length) {
+    return 0
+  }
+
+  const { count, error } = await client
+    .from('rental_asset_assignments')
+    .select('id', { count: 'exact', head: true })
+    .in('equipment_asset_id', assetIds)
+
+  if (error) {
+    throw new AppError('We could not check asset history.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return count ?? 0
+}
+
+export async function deleteAssetsByProductId(client: Client, productId: number) {
+  const { error } = await client
+    .from('equipment_assets')
+    .delete()
+    .eq('product_id', productId)
+
+  if (error) {
+    throw new AppError('We could not remove product assets.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+}
+
+export async function deleteProductByUuid(client: Client, uuid: string) {
+  const { error } = await client
+    .from('products')
+    .delete()
+    .eq('uuid', uuid)
+
+  if (error) {
+    throw new AppError('We could not delete that product.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+}
+
 export async function deleteImageByUuid(client: Client, uuid: string) {
   const { error } = await client
     .from('product_images')

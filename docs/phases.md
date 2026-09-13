@@ -106,6 +106,12 @@ Admin-configurable payment methods with QR image upload. Customers see active me
 
 Current published Privacy Policy is `JRY-PRIVACY-v1.0` (RA 10173-oriented). Current Terms & Conditions are `JRY-TC-v1.0`. Registration and Google finish-setup open Terms and Privacy in a modal; agreement is recorded only from I agree in that modal. Public `/terms` and `/privacy` pages stay for footer and SEO. Profile and waiver keep Terms, privacy acknowledgment, marketing opt-in, and the rental waiver as separate records.
 
+Wait for: `Proceed to Phase 17`
+
+## Phase 17 — Rental identity proof (completed)
+
+Customers sign the waiver with name, email, and phone filled from their account. They then upload a government ID and a selfie holding that ID before payment. Files stay in `private-documents`. Admins review signed URLs on the rental. Payment is blocked until both the waiver and identity documents are present.
+
 ## Phase report template
 
 After each phase:

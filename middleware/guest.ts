@@ -16,5 +16,5 @@ export default defineNuxtRouteMiddleware(async () => {
     return navigateTo('/accept-policies')
   }
 
-  return navigateTo(redirectAfterLogin())
+  return navigateTo(redirectAfterLogin(undefined, profile.value?.role))
 })

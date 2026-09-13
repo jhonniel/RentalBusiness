@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '../../types/database.types'
 import type { CategoryInput, EquipmentInput, ProductInput } from '../../utils/product-validation'
-import { toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
+import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
 import { isUuid, normalizeSku, slugify } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
@@ -12,13 +12,18 @@ import {
   updateCategory,
 } from '../repositories/category.repository'
 import {
+  countAssetAssignments,
+  countRentalItemsForProduct,
+  deleteAssetsByProductId,
   deleteImageByUuid,
+  deleteProductByUuid,
   findCategoryIdBySlug,
   findCategoryIdByUuid,
   findImageByUuid,
   findProductBySlug,
   findProductByUuid,
   findProductIdByUuid,
+  listAssetIdsForProduct,
   listImagesByProductIds,
   insertProduct,
   insertProductImage,
@@ -169,7 +174,7 @@ export async function saveProduct(event: H3Event, client: Client, input: Product
   }
 
   const existing = await listProducts(client, { from: 0, to: 499 })
-  const slug = uniqueSlug(input.slug || input.name, existing.rows.filter(row => row.uuid !== uuid).map(row => row.slug))
+  const slug = uniqueSlug(input.name, existing.rows.filter(row => row.uuid !== uuid).map(row => row.slug))
   const values = toProductWrite(input, category.id, slug)
 
   const previous = uuid ? await findProductByUuid(client, uuid) : null
@@ -208,6 +213,48 @@ export async function archiveProduct(event: H3Event, client: Client, uuid: strin
   })
 
   return product
+}
+
+export async function deleteProduct(event: H3Event, client: Client, uuid: string) {
+  const identity = await findProductIdByUuid(client, uuid)
+  if (!identity) {
+    throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const previous = await findProductByUuid(client, uuid)
+  const assetIds = await listAssetIdsForProduct(client, identity.id)
+  const [rentalItems, assignments] = await Promise.all([
+    countRentalItemsForProduct(client, identity.id),
+    countAssetAssignments(client, assetIds),
+  ])
+
+  if (!canDeleteProduct({ rentalItems, assignments })) {
+    throw new AppError(
+      'This product is on rental history and cannot be deleted. Archive it to hide it from the catalog.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const images = await listProductImages(client, identity.id)
+  const paths = images.map(image => image.storage_path).filter(Boolean)
+  if (paths.length) {
+    await client.storage.from('product-images').remove(paths)
+  }
+
+  await deleteAssetsByProductId(client, identity.id)
+  await deleteProductByUuid(client, uuid)
+
+  await recordAudit(event, client, {
+    action: 'product.delete',
+    entity: 'products',
+    entityId: uuid,
+    previous: previous
+      ? { uuid: previous.uuid, name: previous.name, sku: previous.sku, status: previous.status }
+      : { uuid },
+  })
+
+  return { deleted: true, uuid }
 }
 
 export async function addProductImage(

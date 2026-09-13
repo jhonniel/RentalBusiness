@@ -52,7 +52,7 @@ Replace placeholder Supabase values before using authentication. Apply every fil
 4. Add environment variables for preview and production.
 5. Deploy.
 
-`vercel.json` declares the Nuxt framework and three daily cron paths.
+`vercel.json` declares the Nuxt framework and one daily cron path (`/api/cron/daily`).
 
 ## Supabase
 
@@ -94,11 +94,11 @@ Phase 8 uses the `sandbox` provider by default (`PAYMENT_PROVIDER=sandbox`). Hos
 
 ## Cron
 
-`vercel.json` schedules these paths at `0 16 * * *` (midnight `Asia/Manila`, UTC+8):
+`vercel.json` schedules one path at `0 16 * * *` (midnight `Asia/Manila`, UTC+8):
 
-- `/api/cron/recurring-expenses`
-- `/api/cron/reminders`
-- `/api/cron/overdue`
+- `/api/cron/daily` — recurring expenses, pickup/return reminders, then overdue detection
+
+The three individual `/api/cron/*` paths stay available for manual runs. A Hobby project can register at most two cron jobs; three separate daily entries made the production deploy fail before a build started.
 
 Vercel sends `Authorization: Bearer $CRON_SECRET`. Local or manual runs may use the same header or `x-cron-secret`. Missing or placeholder secrets return 503. Wrong secrets return 401. Jobs are idempotent and use the service-role client.
 

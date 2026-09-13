@@ -1,7 +1,11 @@
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { RentalStatus } from '../../utils/constants'
+import type { AdminCalendar } from '../../types/calendar'
+import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
+import { BUSINESS_TIMEZONE } from '../../utils/constants'
+import { monthBounds, monthKey } from '../../utils/calendar'
+import { calendarDateInZone } from '../../utils/datetime'
 import { isRentalCode, toPublicRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { isUuid } from '../../utils/slug'
@@ -13,9 +17,11 @@ import {
   findRentalIdentity,
   insertRentalStatusHistory,
   listRentals,
+  listRentalsOverlapping,
   updateRentalStatus,
 } from '../repositories/rental.repository'
 import { insertNotification } from '../repositories/notification.repository'
+import { attachAdminIdentityUrls } from './identity.service'
 
 type Client = SupabaseClient<Database>
 
@@ -34,7 +40,9 @@ async function loadAdminRental(client: Client, identifier: string) {
     throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  return toPublicRental(row)
+  const rental = toPublicRental(row)
+  rental.identity = await attachAdminIdentityUrls(client, rental.uuid, rental.identity)
+  return rental
 }
 
 export async function listAdminRentals(client: Client, query: {
@@ -56,6 +64,59 @@ export async function listAdminRentals(client: Client, query: {
     page: query.page,
     pageSize: query.pageSize,
     total,
+  }
+}
+
+function firstName(value: unknown): string | null {
+  if (!value) {
+    return null
+  }
+
+  const row = Array.isArray(value) ? value[0] : value
+  if (!row || typeof row !== 'object') {
+    return null
+  }
+
+  const record = row as { name?: string, first_name?: string, last_name?: string }
+  if (record.name) {
+    return record.name
+  }
+
+  const full = [record.first_name, record.last_name].filter(Boolean).join(' ').trim()
+  return full || null
+}
+
+export async function getAdminCalendar(client: Client, query: {
+  month?: string
+  status?: CalendarRentalStatus
+}): Promise<AdminCalendar> {
+  const month = query.month || monthKey(calendarDateInZone())
+  const { startsOn, endsOn } = monthBounds(month)
+  const rows = await listRentalsOverlapping(client, {
+    startsOn,
+    endsOn,
+    status: query.status,
+  })
+
+  return {
+    month,
+    startsOn,
+    endsOn,
+    timezone: BUSINESS_TIMEZONE,
+    items: rows.map((row) => {
+      const items = Array.isArray(row.rental_items) ? row.rental_items : []
+      const product = firstName(items[0]?.products)
+
+      return {
+        uuid: row.uuid,
+        code: row.code,
+        status: row.status as CalendarRentalStatus,
+        startsOn: row.starts_on,
+        endsOn: row.ends_on,
+        productName: product || row.code,
+        customerName: firstName(row.profiles),
+      }
+    }),
   }
 }
 

@@ -48,7 +48,7 @@ function show(index: number) {
         width="1200"
         height="900"
         decoding="async"
-        class="h-auto max-h-[28rem] w-full bg-white object-contain"
+        class="h-auto max-h-56 w-full bg-white object-contain sm:max-h-72 lg:max-h-[28rem]"
         @error="useFallback"
       >
     </div>

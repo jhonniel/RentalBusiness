@@ -86,13 +86,13 @@ watch(search, () => {
       <li
         v-for="customer in data.items"
         :key="customer.uuid"
-        class="flex flex-wrap items-center justify-between gap-3 px-4 py-4"
+        class="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div class="min-w-0">
           <p class="font-medium text-stone-900">
             {{ customer.firstName }} {{ customer.lastName }}
           </p>
-          <p class="text-sm text-stone-500">
+          <p class="text-sm break-words text-stone-500">
             {{ customer.phone || 'No phone' }} · joined {{ formatBusinessDate(customer.createdAt) }}
           </p>
         </div>
@@ -104,7 +104,7 @@ watch(search, () => {
 
     <div
       v-if="totalPages > 1"
-      class="flex justify-end gap-2"
+      class="flex flex-wrap justify-end gap-2"
     >
       <UButton
         color="neutral"

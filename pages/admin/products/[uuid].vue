@@ -36,6 +36,8 @@ const imagePending = ref(false)
 const imageError = ref('')
 const archiveOpen = ref(false)
 const archivePending = ref(false)
+const deleteOpen = ref(false)
+const deletePending = ref(false)
 
 const assetForm = reactive({
   assetCode: '',
@@ -179,6 +181,24 @@ async function archiveProduct() {
   }
 }
 
+async function deleteProduct() {
+  deletePending.value = true
+  try {
+    await $fetch(`/api/admin/products/${uuid.value}`, { method: 'DELETE' })
+    toast.add({ title: 'Product deleted', color: 'success' })
+    await navigateTo('/admin/products')
+  }
+  catch (error) {
+    toast.add({
+      title: apiErrorMessage(error, 'We could not delete that product.'),
+      color: 'error',
+    })
+  }
+  finally {
+    deletePending.value = false
+  }
+}
+
 function apiErrorMessage(error: unknown, fallback: string) {
   const payload = typeof error === 'object' && error && 'data' in error
     ? (error as { data?: { message?: string } }).data
@@ -206,7 +226,7 @@ async function onSaved() {
         {{ product?.name || 'Edit product' }}
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Update details, images, and serialized equipment.
+        Update the name, prices, About this kit copy, specifications, accessories, rental rules, images, and serialized equipment.
       </p>
     </div>
 
@@ -248,7 +268,7 @@ async function onSaved() {
         />
 
         <form
-          class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+          class="mt-4 grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-[1fr_1fr_auto]"
           method="post"
           @submit.prevent="uploadImage"
         >
@@ -371,7 +391,7 @@ async function onSaved() {
               :disabled="assetPending"
             />
           </label>
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
             <UButton
               type="submit"
               :loading="assetPending"
@@ -460,6 +480,46 @@ async function onSaved() {
             variant="ghost"
             :disabled="archivePending"
             @click="archiveOpen = false"
+          >
+            Cancel
+          </UButton>
+        </div>
+      </section>
+
+      <section class="rounded-xl border border-red-200 bg-red-50 p-5">
+        <h3 class="text-sm font-medium text-red-900">
+          Delete
+        </h3>
+        <p class="mt-1 text-sm text-red-800">
+          Permanently removes this product, its photos, and unused inventory units. Products on rental history cannot be deleted — archive them instead.
+        </p>
+        <UButton
+          v-if="!deleteOpen"
+          class="mt-4"
+          color="error"
+          @click="deleteOpen = true"
+        >
+          Delete product
+        </UButton>
+        <div
+          v-else
+          class="mt-4 flex flex-wrap items-center gap-2"
+        >
+          <p class="text-sm text-red-800">
+            Delete {{ product.name }} forever?
+          </p>
+          <UButton
+            color="error"
+            :loading="deletePending"
+            @click="deleteProduct"
+          >
+            Confirm delete
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :disabled="deletePending"
+            @click="deleteOpen = false"
           >
             Cancel
           </UButton>

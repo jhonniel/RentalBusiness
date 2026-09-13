@@ -53,7 +53,7 @@ function handleClear() {
         <p class="text-xs uppercase tracking-[0.2em] text-stone-500">
           {{ error.statusCode }}
         </p>
-        <h1 class="font-display mt-4 text-4xl text-stone-900">
+        <h1 class="font-display mt-4 text-3xl text-stone-900 sm:text-4xl">
           {{ title }}
         </h1>
         <p class="mt-4 text-stone-600">

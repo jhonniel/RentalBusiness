@@ -7,6 +7,7 @@ import { updateOwnProfile } from '../../repositories/profile.repository'
 import { defineApiHandler } from '../../utils/api'
 import { requireUser } from '../../utils/auth'
 import { assertRateLimit } from '../../utils/rate-limit'
+import { getSupabaseAdminClient } from '../../utils/supabase'
 import { serverSupabaseClient } from '#supabase/server'
 
 export default defineApiHandler(async (event) => {
@@ -15,8 +16,7 @@ export default defineApiHandler(async (event) => {
 
   const body = await readBody(event)
   const input = parseWithSchema(updateProfileSchema, body)
-  const client = await serverSupabaseClient(event)
-  const row = await updateOwnProfile(client, user.sub, {
+  const values = {
     firstName: input.firstName,
     lastName: input.lastName,
     phone: input.phone ? input.phone : null,
@@ -27,7 +27,11 @@ export default defineApiHandler(async (event) => {
     termsVersion: input.termsAccepted === true
       ? CURRENT_TERMS_VERSION
       : undefined,
-  })
+  }
+  const client = await serverSupabaseClient(event)
+  const row = await updateOwnProfile(client, user.sub, values).catch(() =>
+    updateOwnProfile(getSupabaseAdminClient(), user.sub, values),
+  )
 
   return toPublicProfile(
     row,

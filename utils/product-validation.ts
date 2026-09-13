@@ -18,7 +18,6 @@ export const categoryInputSchema = z.object({
 
 export const productInputSchema = z.object({
   name: z.string().trim().min(1, 'Name is required.').max(120),
-  slug: z.string().trim().max(80).optional(),
   sku: z.string().trim().min(1, 'SKU is required.').max(40),
   categoryUuid: z.string().uuid('Choose a category.'),
   description: z.string().trim().max(8000).default(''),

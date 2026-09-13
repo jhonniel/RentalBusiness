@@ -15,15 +15,7 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/recurring-expenses",
-      "schedule": "0 16 * * *"
-    },
-    {
-      "path": "/api/cron/reminders",
-      "schedule": "0 16 * * *"
-    },
-    {
-      "path": "/api/cron/overdue",
+      "path": "/api/cron/daily",
       "schedule": "0 16 * * *"
     }
   ]

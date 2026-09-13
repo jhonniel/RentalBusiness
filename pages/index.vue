@@ -37,7 +37,7 @@ const catalogProducts = computed(() => catalog.value?.items ?? [])
 
 <template>
   <div>
-    <StorefrontHero :products="catalogProducts" />
+    <StorefrontHero />
     <AvailabilityBar :products="catalogProducts" />
     <FeaturedRentals
       v-if="catalogProducts.length"

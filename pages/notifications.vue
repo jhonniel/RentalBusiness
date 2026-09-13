@@ -37,7 +37,7 @@ async function markRead(item: PublicNotification) {
   <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
     <AccountNav />
 
-    <h1 class="mt-8 text-3xl font-semibold tracking-tight text-slate-900">
+    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       Notifications
     </h1>
     <p class="mt-2 text-stone-600">

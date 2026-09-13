@@ -23,7 +23,7 @@ const remote = useRemoteState(error, pending, hasData)
   <section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
     <AccountNav />
 
-    <h1 class="mt-8 text-3xl font-semibold tracking-tight text-slate-900">
+    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       My rentals
     </h1>
     <p class="mt-2 max-w-2xl text-stone-600">
@@ -76,22 +76,25 @@ const remote = useRemoteState(error, pending, hasData)
       >
         <NuxtLink
           :to="`/rentals/${rental.code}`"
-          class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 hover:bg-stone-50"
+          class="flex flex-col gap-3 px-4 py-4 hover:bg-stone-50 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div>
+          <div class="min-w-0">
             <p class="font-medium text-stone-900">
               {{ rental.items[0]?.product.name || rental.code }}
             </p>
-            <p class="text-sm text-stone-500">
-              {{ rental.code }} · {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
-              · {{ rental.waiver ? `Waiver ${rental.waiver.version.version}` : 'Waiver unsigned' }}
+            <p class="mt-1 text-sm break-words text-stone-500">
+              {{ rental.code }}
+              · {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
+            </p>
+            <p class="mt-1 text-sm break-words text-stone-500">
+              {{ rental.waiver ? `Waiver ${rental.waiver.version.version}` : 'Waiver unsigned' }}
               · {{ rental.payments[0] ? `Payment ${rental.payments[0].status.replaceAll('_', ' ')}` : 'Unpaid' }}
               <template v-if="rental.receipts[0]">
                 · {{ rental.receipts[0].receiptNumber }}
               </template>
             </p>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex shrink-0 items-center gap-3">
             <span class="text-sm text-stone-700">{{ formatMoney(rental.totalAmount) }}</span>
             <StatusBadge :status="rental.status" />
           </div>

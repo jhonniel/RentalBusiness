@@ -104,7 +104,7 @@ const cards = computed(() => {
             <li
               v-for="point in data?.salesByDay"
               :key="point.label"
-              class="grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 text-xs"
+              class="grid grid-cols-[minmax(0,4.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-xs"
             >
               <span class="text-stone-500">{{ point.label.slice(5) }}</span>
               <span class="h-2 overflow-hidden rounded-full bg-stone-100">
@@ -129,7 +129,7 @@ const cards = computed(() => {
             <li
               v-for="point in data.rentalsByStatus"
               :key="point.label"
-              class="grid grid-cols-[8rem_1fr_auto] items-center gap-3 text-xs"
+              class="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-xs sm:grid-cols-[8rem_minmax(0,1fr)_auto]"
             >
               <span class="capitalize text-stone-500">{{ point.label.replaceAll('_', ' ') }}</span>
               <span class="h-2 overflow-hidden rounded-full bg-stone-100">
@@ -163,8 +163,8 @@ const cards = computed(() => {
             :key="product.uuid"
             class="flex items-center justify-between gap-3 py-3 text-sm"
           >
-            <div>
-              <p class="font-medium text-stone-900">
+            <div class="min-w-0">
+              <p class="font-medium break-words text-stone-900">
                 {{ product.name }}
               </p>
               <p class="text-stone-500">

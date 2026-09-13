@@ -1,5 +1,5 @@
 import type { PublicProfile } from '~/types/auth'
-import { AUTH_NEXT_STORAGE_KEY, extractAuthErrorMessage, mapAuthError, rememberPendingPolicies, safeRedirectPath } from '~/utils/auth'
+import { AUTH_NEXT_STORAGE_KEY, accountHomePath, extractAuthErrorMessage, mapAuthError, rememberPendingPolicies, resolvePostLoginPath } from '~/utils/auth'
 import { hasUsableSupabaseConfig } from '~/utils/supabase-config'
 
 export function useAuth() {
@@ -17,6 +17,11 @@ export function useAuth() {
     config.public.supabaseAnonKey,
   ))
 
+  function authHeaders() {
+    const token = session.value?.access_token
+    return token ? { Authorization: `Bearer ${token}` } : undefined
+  }
+
   async function refreshProfile() {
     if (!session.value) {
       profile.value = null
@@ -24,7 +29,9 @@ export function useAuth() {
     }
 
     try {
-      profile.value = await $fetch('/api/auth/me')
+      profile.value = await $fetch('/api/auth/me', {
+        headers: authHeaders(),
+      })
       return profile.value
     }
     catch {
@@ -47,12 +54,8 @@ export function useAuth() {
     return mapAuthError(extractAuthErrorMessage(error))
   }
 
-  function redirectAfterLogin(requested?: unknown) {
-    if (isSafeCustomRedirect(requested)) {
-      return safeRedirectPath(requested)
-    }
-
-    return isAdmin.value ? '/admin' : '/dashboard'
+  function redirectAfterLogin(requested?: unknown, role = profile.value?.role) {
+    return resolvePostLoginPath(requested, role)
   }
 
   async function signInWithGoogle(options: {
@@ -102,12 +105,14 @@ export function useAuth() {
     profile,
     isAuthenticated,
     isAdmin,
+    homePath: computed(() => accountHomePath(profile.value?.role)),
     isConfigured,
     refreshProfile,
     logout,
     authErrorMessage,
     redirectAfterLogin,
     signInWithGoogle,
+    authHeaders,
   }
 }
 

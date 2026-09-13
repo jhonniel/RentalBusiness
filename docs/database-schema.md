@@ -1,6 +1,6 @@
 # Database schema
 
-**Status:** Phase 2 schema through Phase 16 payment methods live in `supabase/migrations/`, plus the availability calendar and privacy-policy acknowledgment columns. RLS, storage buckets, and the development seed are included.
+**Status:** Phase 2 schema through Phase 17 rental identity proof live in `supabase/migrations/`, plus the availability calendar and privacy-policy acknowledgment columns. RLS, storage buckets, and the development seed are included.
 
 Public identifiers are `uuid` or `code`. Internal `bigint` primary keys are never returned from public APIs or placed in URLs.
 
@@ -41,7 +41,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 **products**
 
-- `id`, `uuid`, `slug` (unique), `sku` (unique)
+- `id`, `uuid`, `slug` (unique, generated from `name`), `sku` (unique)
 - `category_id` → product_categories
 - `name`, `description`, `short_description`
 - `daily_price`, `weekly_price`, `monthly_price`, `deposit_amount`, `late_fee`, `replacement_value`
@@ -70,9 +70,10 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 **Relationships**
 
-- `products` 1 → many `product_images`
+- `products` 1 → many `product_images` (`ON DELETE CASCADE`)
 - `products` 1 → many `equipment_assets`
-- `products` 1 → many `rental_items`
+- `products` 1 → many `rental_items` (no cascade — rental history stays)
+- Admin product delete is blocked when `rental_items` or `rental_asset_assignments` exist. Otherwise unused assets and storage objects are removed, then the product row is deleted.
 - `rental_requests` 1 → many `rental_asset_assignments`
 
 ### Rentals
@@ -95,6 +96,14 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 **rental_status_history**
 
 - `id`, `rental_id`, `from_status`, `to_status`, `changed_by`, `note`, `created_at`
+
+**rental_identity_verifications**
+
+- `id`, `uuid`, `rental_id` (unique), `customer_id`
+- `government_id_path`, `selfie_path` (private-documents paths, never returned to the browser)
+- `submitted_at`
+
+**Relationship:** `rental_requests` 1 → 0..1 `rental_identity_verifications`
 
 **product_booked_quantity(product_id, starts_on, ends_on)**
 
@@ -122,7 +131,7 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 **waiver_acceptances**
 
 - `id`, `uuid`, `waiver_version_id`, `rental_id`, `customer_id`
-- `signer_name`, `signature_data`, `accepted_at`, `ip_address`, `user_agent`
+- `signer_name`, `signer_email`, `signer_phone`, `signature_data`, `accepted_at`, `ip_address`, `user_agent`
 - `privacy_policy_version` — the Privacy Policy version acknowledged with that rental
 - `terms_version` — the Terms & Conditions version accepted with that rental
 - Public APIs omit `id`, `signature_data`, `ip_address`, and `user_agent`. Those columns stay on the row for audit.
@@ -198,9 +207,10 @@ Expense categories: `internet`, `electricity`, `maintenance`, `repairs`, `softwa
 
 **audit_logs**
 
-- `id`, `actor_id`, `action`, `entity`, `entity_id`
+- `id`, `uuid`, `actor_id`, `action`, `entity`, `entity_id`
 - `previous_value` (jsonb), `new_value` (jsonb)
 - `ip_address`, `metadata`, `created_at`
+- Append-only. Admins list rows through `GET /api/admin/audit-logs`. Public APIs never return `id` or `actor_id`.
 
 **settings** / **business_profiles**
 
@@ -239,8 +249,10 @@ Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental
 
 Phase 16: `payment_methods` stores admin QR payment options. Authenticated customers may select active rows. Writes are admin-only. QR files live in the public `payment-qr-images` bucket.
 
+Phase 17: `rental_identity_verifications` stores government ID and selfie-with-ID paths in `private-documents`. Customers write only their own open rentals. Public APIs never return storage paths.
+
 ## Seed data
 
 `supabase/seed.sql` is development-only. It inserts categories, featured products, serialized assets, the current waiver version (`JRY-WAIVER-v1.0`, copied from `supabase/waiver-jry-v1.txt`), business settings, a Starlink recurring expense, and a sample maintenance expense. The current Privacy Policy text is `supabase/privacy-jry-v1.txt` (`JRY-PRIVACY-v1.0`). The current Terms & Conditions text is `supabase/terms-jry-v1.txt` (`JRY-TC-v1.0`).
 
-It does **not** create `auth.users`. Register locally, then promote an admin with the SQL in `supabase/README.md`. Never run the seed against production.
+It also creates a development Auth user `admin@jryrentals.local` / `JryAdmin!dev` and sets that profile to `admin`. Never run the seed against production.

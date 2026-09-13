@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
+import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
 import {
   categoryInputSchema,
   equipmentInputSchema,
@@ -66,10 +66,31 @@ describe('product validation', () => {
     })
   })
 
-  it('rejects internal ids and unknown fields', () => {
+  it('accepts admin price edits from form strings', () => {
+    expect(productInputSchema.parse({
+      ...validProduct,
+      dailyPrice: '3750.50',
+      weeklyPrice: '20000',
+      monthlyPrice: '',
+      depositAmount: '12000',
+      lateFee: '750',
+    })).toMatchObject({
+      dailyPrice: 3750.5,
+      weeklyPrice: 20000,
+      monthlyPrice: null,
+      depositAmount: 12000,
+      lateFee: 750,
+    })
+  })
+
+  it('rejects internal ids, unknown fields, and client-set slugs', () => {
     expect(productInputSchema.safeParse({
       ...validProduct,
       id: 12,
+    }).success).toBe(false)
+    expect(productInputSchema.safeParse({
+      ...validProduct,
+      slug: 'custom-slug',
     }).success).toBe(false)
     expect(categoryInputSchema.safeParse({
       name: 'Cameras',
@@ -132,6 +153,7 @@ describe('product validation', () => {
 describe('slug helpers', () => {
   it('slugifies names and normalizes SKUs', () => {
     expect(slugify('Sony A7 IV')).toBe('sony-a7-iv')
+    expect(slugify('DJI Mini 4 Pro')).toBe('dji-mini-4-pro')
     expect(normalizeSku(' cam a7iv ')).toBe('CAM-A7IV')
     expect(isUuid('22222222-2222-4222-8222-222222222222')).toBe(true)
     expect(isUuid('sony-a7-iv')).toBe(false)
@@ -182,5 +204,11 @@ describe('catalog mappers', () => {
     expect(catalog).not.toHaveProperty('reservedQuantity')
     expect(catalog).not.toHaveProperty('status')
     expect(catalog.availableQuantity).toBe(2)
+  })
+
+  it('blocks product delete when rental or asset history exists', () => {
+    expect(canDeleteProduct({ rentalItems: 0, assignments: 0 })).toBe(true)
+    expect(canDeleteProduct({ rentalItems: 1, assignments: 0 })).toBe(false)
+    expect(canDeleteProduct({ rentalItems: 0, assignments: 2 })).toBe(false)
   })
 })

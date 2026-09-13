@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { RentalStatus } from '../../utils/constants'
+import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
+import { CALENDAR_RENTAL_STATUSES } from '../../utils/constants'
 import { AppError, ERROR_CODES } from '../utils/errors'
 
 type Client = SupabaseClient<Database>
@@ -18,6 +19,9 @@ const RENTAL_SELECT = `
   total_amount,
   notes,
   created_at,
+  rental_identity_verifications (
+    submitted_at
+  ),
   rental_items (
     uuid,
     quantity,
@@ -33,6 +37,8 @@ const RENTAL_SELECT = `
   waiver_acceptances (
     uuid,
     signer_name,
+    signer_email,
+    signer_phone,
     accepted_at,
     privacy_policy_version,
     terms_version,
@@ -65,6 +71,23 @@ const RENTAL_SELECT = `
     first_name,
     last_name,
     phone
+  )
+`
+
+const CALENDAR_SELECT = `
+  uuid,
+  code,
+  status,
+  starts_on,
+  ends_on,
+  rental_items (
+    products (
+      name
+    )
+  ),
+  profiles (
+    first_name,
+    last_name
   )
 `
 
@@ -248,6 +271,32 @@ export async function listRentalsByDate(client: Client, filters: {
 
   if (error) {
     throw new AppError('We could not load scheduled rentals.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
+export async function listRentalsOverlapping(client: Client, filters: {
+  startsOn: string
+  endsOn: string
+  status?: CalendarRentalStatus
+}) {
+  let query = client
+    .from('rental_requests')
+    .select(CALENDAR_SELECT)
+    .lte('starts_on', filters.endsOn)
+    .gte('ends_on', filters.startsOn)
+    .order('starts_on', { ascending: true })
+    .limit(300)
+
+  query = filters.status
+    ? query.eq('status', filters.status)
+    : query.in('status', [...CALENDAR_RENTAL_STATUSES])
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new AppError('We could not load the rental calendar.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
   }
 
   return data ?? []

@@ -1,9 +1,14 @@
 <script setup lang="ts">
+const route = useRoute()
 const mobileOpen = ref(false)
+
+watch(() => route.fullPath, () => {
+  mobileOpen.value = false
+})
 </script>
 
 <template>
-  <div class="min-h-dvh bg-slate-50">
+  <div class="min-h-dvh overflow-x-clip bg-slate-50">
     <SkipToContent />
     <div class="flex min-h-dvh">
       <div class="hidden w-64 shrink-0 lg:block">
@@ -19,7 +24,7 @@ const mobileOpen = ref(false)
         />
         <main
           id="main-content"
-          class="flex-1 px-4 py-6 sm:px-6"
+          class="min-w-0 flex-1 px-3 py-5 sm:px-6 sm:py-6"
         >
           <slot />
         </main>

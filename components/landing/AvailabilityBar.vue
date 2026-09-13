@@ -31,9 +31,9 @@ function onSubmit() {
 </script>
 
 <template>
-  <section class="relative z-10 mx-auto -mt-10 max-w-7xl px-4 sm:-mt-12 sm:px-6 lg:px-8">
+  <section class="relative z-10 mx-auto -mt-6 max-w-7xl px-4 sm:-mt-12 sm:px-6 lg:px-8">
     <form
-      class="storefront-card grid items-end gap-4 rounded-[1.75rem] p-4 sm:p-5 lg:grid-cols-[1.2fr_0.9fr_0.9fr_auto_auto]"
+      class="storefront-card grid items-end gap-4 rounded-3xl p-4 sm:grid-cols-2 sm:rounded-[1.75rem] sm:p-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto_auto]"
       @submit.prevent="onSubmit"
     >
       <label class="block text-sm">
@@ -70,7 +70,7 @@ function onSubmit() {
       <UButton
         type="submit"
         color="neutral"
-        class="h-11 rounded-full px-5"
+        class="h-11 w-full rounded-full px-5 sm:col-span-2 lg:col-span-1 lg:w-auto"
       >
         <UIcon
           name="i-lucide-search"

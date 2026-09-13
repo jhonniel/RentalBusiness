@@ -71,6 +71,8 @@ describe('waiver mapper', () => {
 
     expect(acceptance.privacyPolicyVersion).toBeNull()
     expect(acceptance.termsVersion).toBeNull()
+    expect(acceptance.signerEmail).toBeNull()
+    expect(acceptance.signerPhone).toBeNull()
     expect(acceptance).not.toHaveProperty('id')
     expect(acceptance).not.toHaveProperty('ip_address')
     expect(acceptance).not.toHaveProperty('userAgent')

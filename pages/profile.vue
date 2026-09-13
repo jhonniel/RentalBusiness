@@ -84,7 +84,7 @@ async function onSubmit() {
   <section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
     <AccountNav />
 
-    <h1 class="mt-8 text-3xl font-semibold tracking-tight text-slate-900">
+    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       Profile
     </h1>
     <p class="mt-2 max-w-2xl text-stone-600">
@@ -94,10 +94,10 @@ async function onSubmit() {
     <div class="mt-8 max-w-xl rounded-xl border border-stone-200 bg-white p-6">
       <dl class="grid gap-3 text-sm">
         <div class="flex justify-between gap-4">
-          <dt class="text-stone-500">
+          <dt class="shrink-0 text-stone-500">
             Email
           </dt>
-          <dd class="text-stone-900">
+          <dd class="min-w-0 break-all text-right text-stone-900">
             {{ profile?.email || '—' }}
           </dd>
         </div>

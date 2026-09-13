@@ -15,6 +15,8 @@ import {
   namesFromUserMetadata,
   needsPolicyAcceptance,
   policiesFromUserMetadata,
+  accountHomePath,
+  resolvePostLoginPath,
   safeRedirectPath,
   toPublicProfile,
 } from '../../utils/auth'
@@ -77,6 +79,15 @@ describe('auth helpers', () => {
     expect(safeRedirectPath('/profile')).toBe('/profile')
   })
 
+  it('routes administrators to the operations console after sign-in', () => {
+    expect(accountHomePath('admin')).toBe('/admin')
+    expect(accountHomePath('customer')).toBe('/dashboard')
+    expect(resolvePostLoginPath(undefined, 'admin')).toBe('/admin')
+    expect(resolvePostLoginPath('/dashboard', 'admin')).toBe('/admin')
+    expect(resolvePostLoginPath('/products', 'admin')).toBe('/products')
+    expect(resolvePostLoginPath('/dashboard', 'customer')).toBe('/dashboard')
+  })
+
   it('hides provider error details', () => {
     expect(mapAuthError('Invalid login credentials')).toBe('Email or password is incorrect.')
     expect(mapAuthError('relation "secret" does not exist')).toBe(
@@ -89,6 +100,7 @@ describe('auth helpers', () => {
       firstName: 'Ana',
       lastName: 'Reyes',
     })
+    expect(needsPolicyAcceptance(null)).toBe(false)
     expect(needsPolicyAcceptance({ termsVersion: null, privacyPolicyVersion: 'JRY-PRIVACY-v1.0' })).toBe(true)
     expect(needsPolicyAcceptance({ termsVersion: 'JRY-TC-v1.0', privacyPolicyVersion: 'JRY-PRIVACY-v1.0' })).toBe(false)
     expect(authCallbackOtpType('recovery')).toBe('recovery')

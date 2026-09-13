@@ -40,11 +40,11 @@ const values = [
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+  <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16 lg:px-8">
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#5b6b64]">
       About {{ APP_NAME }}
     </p>
-    <h1 class="font-display mt-3 text-4xl text-[#12201a]">
+    <h1 class="font-display mt-3 text-3xl text-[#12201a] sm:text-4xl">
       Rent. Create. Explore.
     </h1>
     <p class="mt-4 text-lg text-[#3b4a44]">

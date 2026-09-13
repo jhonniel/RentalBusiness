@@ -19,8 +19,8 @@ withDefaults(defineProps<{
     <img
       :src="onDark ? '/logo-on-dark.png?v=12' : '/logo.png?v=12'"
       :alt="APP_NAME"
-      class="h-auto w-auto bg-transparent object-contain"
-      :class="compact ? 'h-8' : 'h-9 sm:h-10'"
+      class="w-auto max-w-36 bg-transparent object-contain sm:max-w-none"
+      :class="compact ? 'h-8' : 'h-8 sm:h-10'"
       width="220"
       height="104"
     >

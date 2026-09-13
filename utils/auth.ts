@@ -110,7 +110,11 @@ export function namesFromUserMetadata(metadata: Record<string, unknown> | null |
 }
 
 export function needsPolicyAcceptance(profile: Pick<PublicProfile, 'termsVersion' | 'privacyPolicyVersion'> | null) {
-  return !profile?.termsVersion || !profile?.privacyPolicyVersion
+  if (!profile) {
+    return false
+  }
+
+  return !profile.termsVersion || !profile.privacyPolicyVersion
 }
 
 export function isSafeRedirectPath(path: unknown): path is string {
@@ -122,6 +126,24 @@ export function isSafeRedirectPath(path: unknown): path is string {
 
 export function safeRedirectPath(path: unknown, fallback = '/dashboard'): string {
   return isSafeRedirectPath(path) ? path : fallback
+}
+
+export function accountHomePath(role?: string | null) {
+  return role === 'admin' ? '/admin' : '/dashboard'
+}
+
+export function resolvePostLoginPath(requested: unknown, role?: string | null) {
+  const home = accountHomePath(role)
+
+  if (!isSafeRedirectPath(requested)) {
+    return home
+  }
+
+  if (role === 'admin' && (requested === '/dashboard' || requested === '/dashboard/')) {
+    return home
+  }
+
+  return requested
 }
 
 export function toPublicProfile(

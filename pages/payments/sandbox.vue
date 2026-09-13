@@ -61,7 +61,7 @@ async function complete(outcome: 'paid' | 'failed') {
 
 <template>
   <section class="mx-auto max-w-lg px-4 py-10 sm:px-6">
-    <h1 class="font-display text-4xl text-stone-900">
+    <h1 class="font-display text-3xl text-stone-900 sm:text-4xl">
       Sandbox checkout
     </h1>
     <p class="mt-2 text-stone-600">

@@ -30,8 +30,14 @@ useSiteMeta({
 
 const canCancel = computed(() => ['draft', 'pending', 'awaiting_payment'].includes(rental.value?.status ?? ''))
 const canSignWaiver = computed(() => ['draft', 'pending'].includes(rental.value?.status ?? '') && !rental.value?.waiver)
+const canUploadIdentity = computed(() =>
+  ['draft', 'pending'].includes(rental.value?.status ?? '')
+  && Boolean(rental.value?.waiver)
+  && !rental.value?.identity,
+)
 const canPay = computed(() =>
   Boolean(rental.value?.waiver)
+  && Boolean(rental.value?.identity)
   && ['pending', 'awaiting_payment'].includes(rental.value?.status ?? ''),
 )
 const latestPayment = computed(() => rental.value?.payments[0] ?? null)
@@ -82,7 +88,7 @@ async function cancelRental() {
         <p class="text-xs uppercase tracking-wider text-lumen-700">
           {{ rental.code }}
         </p>
-        <h1 class="font-display mt-2 text-4xl text-stone-900">
+        <h1 class="font-display mt-2 text-3xl text-stone-900 sm:text-4xl">
           Rental request
         </h1>
         <div class="mt-3">
@@ -109,9 +115,9 @@ async function cancelRental() {
           <li
             v-for="item in rental.items"
             :key="item.uuid"
-            class="flex justify-between gap-4 py-3 text-sm"
+            class="flex flex-wrap justify-between gap-3 py-3 text-sm"
           >
-            <div>
+            <div class="min-w-0">
               <p class="font-medium text-stone-900">
                 {{ item.product.name }}
               </p>
@@ -192,6 +198,24 @@ async function cancelRental() {
         </p>
       </section>
 
+      <section class="rounded-2xl border border-stone-200 bg-white p-5">
+        <h2 class="text-sm font-medium text-stone-900">
+          Identity documents
+        </h2>
+        <p
+          v-if="rental.identity"
+          class="mt-2 text-sm text-stone-600"
+        >
+          Government ID and selfie with ID were submitted for this rental.
+        </p>
+        <p
+          v-else
+          class="mt-2 text-sm text-stone-600"
+        >
+          Upload a government ID and a selfie holding that ID before payment.
+        </p>
+      </section>
+
       <p
         v-if="rental.notes"
         class="text-sm text-stone-600"
@@ -211,6 +235,12 @@ async function cancelRental() {
           :to="`/rentals/${rental.code}/pay`"
         >
           Pay now
+        </UButton>
+        <UButton
+          v-if="canUploadIdentity"
+          :to="`/rentals/${rental.code}/verify`"
+        >
+          Upload ID
         </UButton>
         <UButton
           v-if="canSignWaiver"

@@ -26,6 +26,8 @@ export interface WaiverAcceptanceRow {
   accepted_at: string
   privacy_policy_version?: string | null
   terms_version?: string | null
+  signer_email?: string | null
+  signer_phone?: string | null
   waiver_versions: WaiverAcceptanceVersionRow | WaiverAcceptanceVersionRow[] | null
 }
 
@@ -61,6 +63,8 @@ export function toPublicWaiverAcceptance(row: WaiverAcceptanceRow): PublicWaiver
   return {
     uuid: row.uuid,
     signerName: row.signer_name,
+    signerEmail: row.signer_email ?? null,
+    signerPhone: row.signer_phone ?? null,
     acceptedAt: row.accepted_at,
     privacyPolicyVersion: row.privacy_policy_version ?? null,
     termsVersion: row.terms_version ?? null,

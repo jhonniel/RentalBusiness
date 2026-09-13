@@ -64,11 +64,11 @@ watch([search, categorySlug, page], () => {
 </script>
 
 <template>
-  <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+  <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#5b6b64]">
       Rent
     </p>
-    <h1 class="mt-3 text-3xl font-semibold tracking-tight text-[#12201a] sm:text-4xl">
+    <h1 class="mt-3 text-2xl font-semibold tracking-tight text-[#12201a] sm:text-4xl">
       Equipment
     </h1>
     <p class="mt-3 max-w-2xl text-sm text-[#5b6b64]">
@@ -76,7 +76,7 @@ watch([search, categorySlug, page], () => {
     </p>
 
     <form
-      class="storefront-card mt-8 grid gap-3 rounded-3xl p-4 sm:grid-cols-[1fr_16rem]"
+      class="storefront-card mt-8 grid gap-3 rounded-3xl p-4 md:grid-cols-[1fr_16rem]"
       method="get"
       @submit.prevent
     >
@@ -169,7 +169,7 @@ watch([search, categorySlug, page], () => {
         </div>
         <div
           v-if="totalPages > 1"
-          class="flex items-center justify-between text-sm text-stone-600"
+          class="flex flex-wrap items-center justify-between gap-2 text-sm text-stone-600"
         >
           <UButton
             color="neutral"

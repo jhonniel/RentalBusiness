@@ -10,6 +10,16 @@ export function toDate(value: string | Date): Date {
   return date
 }
 
+export function formatBookingDate(value: string): string {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) {
+    return formatBusinessDate(value)
+  }
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${day} ${months[month - 1]} ${year}`
+}
+
 export function formatBusinessDate(
   value: string | Date,
   options: Intl.DateTimeFormatOptions = {

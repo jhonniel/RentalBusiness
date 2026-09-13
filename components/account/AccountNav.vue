@@ -6,7 +6,7 @@ const route = useRoute()
 
 <template>
   <nav
-    class="flex gap-2 overflow-x-auto"
+    class="touch-scroll -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
     aria-label="Account"
   >
     <NuxtLink

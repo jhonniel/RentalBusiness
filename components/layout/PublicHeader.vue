@@ -5,7 +5,7 @@ const mobileOpen = ref(false)
 const searchOpen = ref(false)
 const search = ref('')
 const router = useRouter()
-const { isAuthenticated, isAdmin, logout, profile } = useAuth()
+const { isAuthenticated, homePath, logout, profile } = useAuth()
 const visibleNavItems = computed(() =>
   publicNavItems.filter(item => item.enabled && item.to && (!item.authRequired || isAuthenticated.value)),
 )
@@ -31,7 +31,7 @@ function submitSearch() {
 
 <template>
   <header class="sticky top-0 z-40 border-b border-[#12201a]/6 bg-white">
-    <div class="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-[72px] sm:gap-4 sm:px-6 lg:px-8">
       <AppLogo />
 
       <nav
@@ -48,7 +48,7 @@ function submitSearch() {
         </NuxtLink>
       </nav>
 
-      <div class="hidden items-center gap-2 md:flex">
+      <div class="hidden items-center gap-2 lg:flex">
         <UPopover v-model:open="searchOpen">
           <UButton
             color="neutral"
@@ -81,21 +81,12 @@ function submitSearch() {
 
         <template v-if="isAuthenticated">
           <UButton
-            to="/dashboard"
+            :to="homePath"
             color="neutral"
             variant="outline"
             class="rounded-full"
           >
             {{ profile?.firstName || 'Account' }}
-          </UButton>
-          <UButton
-            v-if="isAdmin"
-            to="/admin"
-            color="neutral"
-            variant="ghost"
-            class="rounded-full"
-          >
-            Admin
           </UButton>
           <UButton
             color="neutral"
@@ -168,19 +159,11 @@ function submitSearch() {
           </NuxtLink>
           <template v-if="isAuthenticated">
             <NuxtLink
-              to="/dashboard"
+              :to="homePath"
               class="text-base text-[#12201a]"
               @click="mobileOpen = false"
             >
-              Dashboard
-            </NuxtLink>
-            <NuxtLink
-              v-if="isAdmin"
-              to="/admin"
-              class="text-base text-[#12201a]"
-              @click="mobileOpen = false"
-            >
-              Admin
+              Account
             </NuxtLink>
             <UButton
               color="neutral"

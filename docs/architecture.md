@@ -2,7 +2,7 @@
 
 JRY Rentals is a production rental management and booking platform.
 
-**Current phase:** 16 — payment methods.
+**Current phase:** 17 — rental identity proof.
 
 ## Stack
 
@@ -64,6 +64,7 @@ Protected business operations follow:
 **Server**
 
 - Service-role client (`getSupabaseAdminClient`) for privileged work
+- Admin catalog writes (product info and prices) after `requireAdmin`
 - Payment webhooks, email sends, cron jobs
 - Structured JSON logs with redacted secrets
 
@@ -76,7 +77,7 @@ Protected business operations follow:
 | `auth` | Sign-in, register, password reset |
 | `blank` | Isolated flows such as print receipts |
 
-Admin pages use the `admin` middleware. That middleware calls `GET /api/auth/me` and allows access only when the database role is `admin`.
+After sign-in, the app loads `profiles.role` from `GET /api/auth/me` and sends the account to its home: administrators open the operations console, customers open `/dashboard`. The header Account control uses the same home. Administrators who open `/dashboard` are redirected. Admin pages still use the `admin` middleware, which allows access only when the database role is `admin`. Do not trust a role value from the client.
 
 ## Design system
 
@@ -86,7 +87,7 @@ Admin pages use the `admin` middleware. That middleware calls `GET /api/auth/me`
 - Currency display: PHP (`en-PH`)
 - Business timezone: `Asia/Manila`
 - Motion is short and disabled under `prefers-reduced-motion`
-- Public catalog pages use SWR (`/`, `/products/**`); admin and account routes send `cache-control: private, no-store`
+- Public catalog listing uses short SWR (`/products`). Product detail pages are not cached so admin price and info updates show immediately. Admin and account routes send `cache-control: private, no-store`
 - Default Open Graph image is `/og.png`. Account, auth, and admin paths are `noindex, nofollow`
 - `/robots.txt` and `/sitemap.xml` list public URLs only (home, catalog, about, privacy, terms, and active product slugs when Supabase is connected)
 - Public pages include Open Graph, Twitter, canonical, and JSON-LD (`LocalBusiness`, `WebSite`, `HowTo`, `CollectionPage`, `AboutPage`, product `Offer`)

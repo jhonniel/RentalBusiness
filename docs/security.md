@@ -17,10 +17,13 @@ The browser may receive `NUXT_PUBLIC_SUPABASE_URL` and the anon / publishable ke
 ## Authentication
 
 - Supabase Auth: email/password, Google OAuth, verification, password reset
-- Session cookies via `@nuxtjs/supabase` (`useSsrCookies`)
+- Session cookies via `@nuxtjs/supabase` (`useSsrCookies`). Do not set `httpOnly` on those cookies; the browser client must persist them after Google and email sign-in so `/api/auth/me` can see the session
+- API auth also accepts the session access token as `Authorization: Bearer`
+- A missing profile fetch is not treated as “needs policies.” Only a loaded profile without Terms or Privacy versions goes to `/accept-policies`
 - No access tokens in `localStorage`
-- Named middleware (`auth`, `guest`, `admin`) — not a global login wall, so the catalog stays public
-- Google sign-in uses the same cookie session. New Google accounts must accept the current Terms and Privacy Policy before using account routes
+- Named middleware (`auth`, `guest`, `admin`, `customer-home`) — not a global login wall, so the catalog stays public
+- After sign-in, the server-loaded profile role chooses the account home. Administrators are sent to the operations console so they do not open `/admin` by hand. Customers stay on `/dashboard`.
+- Google sign-in uses the same cookie session. New Google accounts without stored Terms/Privacy versions must accept them once. Accounts that already signed up are not sent back to that screen
 - Auth forms use `method="post"` and `@submit.prevent` (do not use `UAuthForm`)
 
 ## Authorization
@@ -46,7 +49,7 @@ Profile rules:
 - Users may update only `first_name`, `last_name`, `phone`
 - A trigger rejects changes to `role`, `user_id`, and `uuid`
 - New users always receive `role = 'customer'` from a security-definer trigger
-- Role promotion is a SQL operation, never a client field
+- Role promotion is a SQL insert of a new profile row, never an `update` of `role` and never a client field
 
 Phase 2 additions:
 
@@ -60,7 +63,9 @@ Phase 2 additions:
 Phase 3 additions:
 
 - Catalog mutations require an authenticated admin session (`requireAdmin`) plus a 40/min rate limit
+- Product delete (`DELETE /api/admin/products/[uuid]`) is rejected with 409 when `rental_items` or `rental_asset_assignments` exist so rental history is preserved. Unused images and assets are removed only when delete is allowed
 - Product, category, image, and asset payloads are strict Zod schemas and reject internal `id`
+- Product `slug` is derived from the product name on the server. Clients cannot send `slug`
 - Public catalog mappers expose `uuid` / `sku` / `asset_code` only
 - Admin mutations write `audit_logs` through `write_audit_log` without failing the save if audit insert fails
 
@@ -77,6 +82,10 @@ Phase 5 additions:
 - Availability queries reject internal `id` and require `uuid` or `slug`
 - Pages display API results only; overlap math stays in `utils/availability.ts` and SQL
 - `GET /api/availability/calendar` uses security-definer `product_occupying_ranges` and returns dates only, never rental or customer identifiers
+- `GET /api/admin/calendar` requires an admin session and returns rental `uuid`/`code` only, never database primary keys
+- `GET /api/admin/sales` requires an admin session, reuses paid-sales report rules, and returns payment `uuid` plus rental `uuid`/`code` only
+- `GET`/`PATCH /api/admin/settings` require an admin session. Clients cannot change `currency` or `timezone`. The payload uses `uuid` only
+- `GET /api/admin/audit-logs` is admin-only and read-only. Payloads use log `uuid` and actor profile `uuid`. Secrets in stored JSON are redacted. Rows are never updated or deleted from this API
 
 Phase 6 additions:
 
@@ -159,6 +168,14 @@ Phase 15 additions:
 - API and account routes send `cache-control: private, no-store`
 - In-memory rate limits are best-effort on Vercel (per isolate). Sign-in throttling stays with Supabase Auth.
 
+Phase 17 additions:
+
+- `rental_identity_verifications` is forced RLS; customers insert/update only their own open rentals
+- Government ID and selfie files live in `private-documents` under `{auth.uid()}/rentals/{rentalUuid}/`
+- Public APIs never return storage paths. Admins receive short-lived signed URLs
+- Payment create requires a signed waiver and submitted identity documents
+- Waiver email and phone are copied from the server-loaded profile
+
 Phase 16 additions:
 
 - `payment_methods` is forced RLS; customers may select active rows only
@@ -179,7 +196,7 @@ Customers must not:
 - Modify payments or rental status
 - Read expenses, analytics, audit logs, or settings writes
 
-Admins may access operations data through policies that check `profiles.role = 'admin'`. Privileged jobs use the service-role client on the server only.
+Admins may access operations data through policies that check `profiles.role = 'admin'`. After that server check, catalog writes (product info and prices) use the service-role client so the save still works when the browser session cookie is missing. Privileged jobs use the service-role client on the server only. Customers never write catalog prices.
 
 ## Payments
 
@@ -192,6 +209,7 @@ Admins may access operations data through policies that check `profiles.role = '
 ## Cron
 
 - Cron routes reject requests that do not present `CRON_SECRET` (`Authorization: Bearer` or `x-cron-secret`)
+- Vercel schedules only `/api/cron/daily` so Hobby stays within the two-cron limit
 - Compare uses a length-checked timing-safe match; query-string secrets are not accepted
 - Recurring expense posting is idempotent on `(recurring_expense_id, occurs_on)`
 - Reminder emails are idempotent on `(template, payload_hash)`
@@ -228,7 +246,7 @@ Users see friendly messages. APIs return `{ message, code }` only. Stack traces 
 - [x] Zod validation on every mutating endpoint
 - [x] Payment webhook signature verified; placeholder webhook secrets return 503
 - [x] Cron secret verified with a timing-safe compare; query-string secrets are not read
-- [x] Rate limiting on auth profile/me, payments, catalog, rentals, waivers, privacy policy, terms, and notifications (in-memory / per isolate)
+- [x] Rate limiting on auth profile/me, payments, catalog, rentals, identity uploads, waivers, privacy policy, terms, and notifications (in-memory / per isolate)
 - [x] Session cookies: `httpOnly`, `SameSite=Lax`, `Secure` in production
 - [x] Storage policies reviewed (`product-images` and `payment-qr-images` public read, `private-documents` owner/admin)
 - [x] Audit logging on admin mutations

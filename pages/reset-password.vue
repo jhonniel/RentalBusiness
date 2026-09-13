@@ -12,7 +12,7 @@ useSiteMeta({
 
 const supabase = useSupabaseClient()
 const session = useSupabaseSession()
-const { authErrorMessage } = useAuth()
+const { authErrorMessage, refreshProfile, redirectAfterLogin } = useAuth()
 
 const form = reactive({
   password: '',
@@ -49,7 +49,8 @@ async function onSubmit() {
       return
     }
 
-    await navigateTo('/dashboard')
+    const nextProfile = await refreshProfile()
+    await navigateTo(redirectAfterLogin(undefined, nextProfile?.role))
   }
   catch (error) {
     formError.value = authErrorMessage(error)

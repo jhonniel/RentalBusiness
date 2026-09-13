@@ -10,6 +10,8 @@ export interface PublicWaiverVersion {
 export interface PublicWaiverAcceptance {
   uuid: string
   signerName: string
+  signerEmail: string | null
+  signerPhone: string | null
   acceptedAt: string
   privacyPolicyVersion: string | null
   termsVersion: string | null

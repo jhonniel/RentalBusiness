@@ -9,5 +9,8 @@ export default defineApiHandler(async (event) => {
   const { profile, client, profileId } = await requireUserClient(event)
   assertRateLimit(`waiver-accept:${profile.uuid}`, 20, 60_000)
   const input = parseWithSchema(acceptWaiverSchema, await readBody(event))
-  return acceptWaiver(event, client, profileId, input)
+  return acceptWaiver(event, client, profileId, input, {
+    email: profile.email,
+    phone: profile.phone,
+  })
 })

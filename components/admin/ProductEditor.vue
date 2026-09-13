@@ -3,6 +3,7 @@ import type { PublicCategory, PublicProduct } from '~/types/catalog'
 import { PRODUCT_STATUSES } from '~/utils/constants'
 import { fieldErrors } from '~/utils/auth-validation'
 import { productInputSchema } from '~/utils/product-validation'
+import { slugify } from '~/utils/slug'
 
 const props = defineProps<{
   product?: PublicProduct
@@ -14,13 +15,13 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { authHeaders } = useAuth()
 const pending = ref(false)
 const formError = ref('')
 const errors = ref<Record<string, string>>({})
 
 const form = reactive({
   name: props.product?.name ?? '',
-  slug: props.product?.slug ?? '',
   sku: props.product?.sku ?? '',
   categoryUuid: props.product?.category.uuid ?? '',
   shortDescription: props.product?.shortDescription ?? '',
@@ -82,8 +83,16 @@ async function onSubmit() {
 
   try {
     const result = props.product
-      ? await $fetch<PublicProduct>(`/api/admin/products/${props.product.uuid}`, { method: 'PATCH', body: parsed.data })
-      : await $fetch<PublicProduct>('/api/admin/products', { method: 'POST', body: parsed.data })
+      ? await $fetch<PublicProduct>(`/api/admin/products/${props.product.uuid}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: parsed.data,
+      })
+      : await $fetch<PublicProduct>('/api/admin/products', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: parsed.data,
+      })
 
     toast.add({ title: 'Product saved', color: 'success' })
     emit('saved', result.uuid)
@@ -126,6 +135,9 @@ async function onSubmit() {
             v-if="errors.name"
             class="mt-1 block text-xs text-red-700"
           >{{ errors.name }}</span>
+          <span class="mt-1 block text-xs text-stone-500">
+            Public URL uses this name: /products/{{ slugify(form.name) || 'item' }}
+          </span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">SKU</span>
@@ -137,14 +149,6 @@ async function onSubmit() {
             v-if="errors.sku"
             class="mt-1 block text-xs text-red-700"
           >{{ errors.sku }}</span>
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Slug</span>
-          <UInput
-            v-model="form.slug"
-            placeholder="Generated from the name if empty"
-            :disabled="pending"
-          />
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Category</span>
@@ -190,14 +194,9 @@ async function onSubmit() {
             v-model="form.shortDescription"
             :disabled="pending"
           />
-        </label>
-        <label class="block text-sm sm:col-span-2">
-          <span class="mb-1.5 block text-stone-700">Description</span>
-          <UTextarea
-            v-model="form.description"
-            :rows="5"
-            :disabled="pending"
-          />
+          <span class="mt-1 block text-xs text-stone-500">
+            Used on catalog cards, not the product page kit section.
+          </span>
         </label>
         <label class="flex items-center gap-2 text-sm text-stone-700">
           <input
@@ -214,7 +213,10 @@ async function onSubmit() {
       <h3 class="text-sm font-medium text-stone-900">
         Pricing
       </h3>
-      <div class="mt-4 grid gap-4 sm:grid-cols-3">
+      <p class="mt-1 text-sm text-stone-500">
+        Daily, weekly, and monthly rates are what customers see at checkout. Amounts are PHP.
+      </p>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Daily (₱)</span>
           <UInput
@@ -224,6 +226,10 @@ async function onSubmit() {
             step="0.01"
             :disabled="pending"
           />
+          <span
+            v-if="errors.dailyPrice"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.dailyPrice }}</span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Weekly (₱)</span>
@@ -234,6 +240,10 @@ async function onSubmit() {
             step="0.01"
             :disabled="pending"
           />
+          <span
+            v-if="errors.weeklyPrice"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.weeklyPrice }}</span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Monthly (₱)</span>
@@ -244,6 +254,10 @@ async function onSubmit() {
             step="0.01"
             :disabled="pending"
           />
+          <span
+            v-if="errors.monthlyPrice"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.monthlyPrice }}</span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Deposit (₱)</span>
@@ -254,6 +268,10 @@ async function onSubmit() {
             step="0.01"
             :disabled="pending"
           />
+          <span
+            v-if="errors.depositAmount"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.depositAmount }}</span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Late fee (₱)</span>
@@ -264,6 +282,10 @@ async function onSubmit() {
             step="0.01"
             :disabled="pending"
           />
+          <span
+            v-if="errors.lateFee"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.lateFee }}</span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Replacement value (₱)</span>
@@ -274,6 +296,10 @@ async function onSubmit() {
             step="0.01"
             :disabled="pending"
           />
+          <span
+            v-if="errors.replacementValue"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.replacementValue }}</span>
         </label>
       </div>
     </section>
@@ -282,7 +308,7 @@ async function onSubmit() {
       <h3 class="text-sm font-medium text-stone-900">
         Inventory
       </h3>
-      <div class="mt-4 grid gap-4 sm:grid-cols-3">
+      <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label
           v-for="field in [
             ['quantity', 'Total'],
@@ -308,25 +334,50 @@ async function onSubmit() {
 
     <section class="rounded-xl border border-stone-200 bg-white p-5">
       <h3 class="text-sm font-medium text-stone-900">
-        Rules and specifications
+        Product page copy
       </h3>
+      <p class="mt-1 text-sm text-stone-500">
+        These fields are what customers see under About this kit, Specifications, Included accessories, and Rental rules.
+      </p>
       <div class="mt-4 grid gap-4">
         <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Included accessories</span>
-          <UInput
-            v-model="form.accessories"
-            placeholder="Battery, charger, strap"
+          <span class="mb-1.5 block text-stone-700">About this kit</span>
+          <UTextarea
+            v-model="form.description"
+            :rows="5"
             :disabled="pending"
           />
+          <span
+            v-if="errors.description"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.description }}</span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Specifications</span>
           <UTextarea
             v-model="form.specifications"
             :rows="4"
-            placeholder="sensor: 33MP full-frame"
+            placeholder="video: 4K60"
             :disabled="pending"
           />
+          <span class="mt-1 block text-xs text-stone-500">
+            One specification per line as name: value.
+          </span>
+          <span
+            v-if="errors.specifications"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.specifications }}</span>
+        </label>
+        <label class="block text-sm">
+          <span class="mb-1.5 block text-stone-700">Included accessories</span>
+          <UInput
+            v-model="form.accessories"
+            placeholder="Battery x2, Charger, Strap"
+            :disabled="pending"
+          />
+          <span class="mt-1 block text-xs text-stone-500">
+            Separate items with commas.
+          </span>
         </label>
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Rental rules</span>
@@ -335,7 +386,19 @@ async function onSubmit() {
             :rows="3"
             :disabled="pending"
           />
+          <span
+            v-if="errors.rentalRules"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.rentalRules }}</span>
         </label>
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-stone-200 bg-white p-5">
+      <h3 class="text-sm font-medium text-stone-900">
+        Condition and model
+      </h3>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Condition</span>
           <UInput
@@ -356,6 +419,7 @@ async function onSubmit() {
 
     <UButton
       type="submit"
+      class="w-full sm:w-auto"
       :loading="pending"
     >
       Save product

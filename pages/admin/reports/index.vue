@@ -85,6 +85,65 @@ const summaryCards = computed(() => {
     { label: 'Utilization', value: `${Math.round(report.summary.utilization * 100)}%` },
   ]
 })
+
+const mobileRows = computed(() => {
+  const report = data.value
+  if (!report) {
+    return []
+  }
+
+  if (report.type === 'sales') {
+    return report.rows.map(row => ({
+      key: row.uuid,
+      title: row.rentalCode || 'Sale',
+      meta: row.paidOn,
+      value: formatMoney(row.amount),
+    }))
+  }
+
+  if (report.type === 'expenses') {
+    return report.rows.map(row => ({
+      key: row.uuid,
+      title: row.name,
+      meta: `${row.incurredOn} · ${row.category}`,
+      value: formatMoney(row.amount),
+    }))
+  }
+
+  if (report.type === 'profit') {
+    return report.rows.map(row => ({
+      key: row.date,
+      title: row.date,
+      meta: `Sales ${formatMoney(row.sales)} · Expenses ${formatMoney(row.expenses)}`,
+      value: formatMoney(row.profit),
+    }))
+  }
+
+  if (report.type === 'rentals') {
+    return report.rows.map(row => ({
+      key: row.uuid,
+      title: row.code,
+      meta: `${row.customerName || '—'} · ${row.startsOn} – ${row.endsOn}`,
+      value: formatMoney(row.totalAmount),
+    }))
+  }
+
+  if (report.type === 'inventory') {
+    return report.rows.map(row => ({
+      key: row.uuid,
+      title: row.name,
+      meta: `${row.sku} · ${row.rentable} rentable of ${row.quantity}`,
+      value: formatMoney(row.inventoryValue),
+    }))
+  }
+
+  return report.rows.map(row => ({
+    key: row.uuid,
+    title: row.name,
+    meta: `${row.bookedUnitDays} booked / ${row.capacityUnitDays} capacity`,
+    value: `${Math.round(row.utilization * 100)}%`,
+  }))
+})
 </script>
 
 <template>
@@ -194,7 +253,28 @@ const summaryCards = computed(() => {
         </article>
       </div>
 
-      <div class="overflow-x-auto rounded-xl border border-stone-200 bg-white">
+      <ul
+        v-if="mobileRows.length"
+        class="space-y-3 md:hidden"
+      >
+        <li
+          v-for="row in mobileRows"
+          :key="row.key"
+          class="rounded-xl border border-stone-200 bg-white p-4"
+        >
+          <p class="font-medium break-words text-stone-900">
+            {{ row.title }}
+          </p>
+          <p class="mt-1 text-sm break-words text-stone-500">
+            {{ row.meta }}
+          </p>
+          <p class="mt-2 text-sm text-stone-900">
+            {{ row.value }}
+          </p>
+        </li>
+      </ul>
+
+      <div class="hidden overflow-x-auto rounded-xl border border-stone-200 bg-white md:block">
         <table
           v-if="data?.type === 'sales'"
           class="min-w-full text-left text-sm"
@@ -453,13 +533,14 @@ const summaryCards = computed(() => {
           </tbody>
         </table>
 
-        <p
-          v-if="data && !data.rows.length"
-          class="px-4 py-6 text-sm text-stone-500"
-        >
-          No rows in this range.
-        </p>
       </div>
+
+      <p
+        v-if="data && !data.rows.length"
+        class="rounded-xl border border-stone-200 bg-white px-4 py-6 text-sm text-stone-500"
+      >
+        No rows in this range.
+      </p>
     </template>
   </div>
 </template>

@@ -7,8 +7,8 @@ const { isAuthenticated } = useAuth()
 
 <template>
   <footer class="bg-[#0f1c17] text-white">
-    <div class="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-5 lg:px-8">
-      <div>
+    <div class="mx-auto grid max-w-7xl gap-10 px-4 py-14 text-center sm:grid-cols-2 sm:px-6 sm:text-left lg:grid-cols-5 lg:px-8">
+      <div class="flex justify-center sm:justify-start">
         <AppLogo on-dark />
       </div>
 
@@ -79,7 +79,7 @@ const { isAuthenticated } = useAuth()
         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">
           Follow us
         </p>
-        <div class="mt-4 flex gap-3 text-white/75">
+        <div class="mt-4 flex justify-center gap-3 text-white/75 sm:justify-start">
           <a
             :href="FACEBOOK_URL"
             target="_blank"
@@ -97,9 +97,9 @@ const { isAuthenticated } = useAuth()
     </div>
 
     <div class="border-t border-white/10">
-      <div class="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <div class="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 py-4 text-center text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left lg:px-8">
         <p>© {{ year }} {{ APP_NAME }}. All rights reserved.</p>
-        <div class="flex gap-4">
+        <div class="flex justify-center gap-4 sm:justify-start">
           <NuxtLink to="/privacy" class="hover:text-white">
             Privacy Policy
           </NuxtLink>

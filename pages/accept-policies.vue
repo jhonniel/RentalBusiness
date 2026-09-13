@@ -14,7 +14,8 @@ useSiteMeta({
 
 const route = useRoute()
 const user = useSupabaseUser()
-const { profile, refreshProfile, redirectAfterLogin, authErrorMessage } = useAuth()
+const { profile, refreshProfile, redirectAfterLogin, authErrorMessage, authHeaders } = useAuth()
+const session = useSupabaseSession()
 
 await refreshProfile()
 
@@ -30,9 +31,27 @@ const errors = ref<Record<string, string>>({})
 const formError = ref('')
 const pending = ref(false)
 
-if (profile.value && !needsPolicyAcceptance(profile.value) && profile.value.firstName && profile.value.lastName) {
-  await navigateTo(redirectAfterLogin(route.query.redirect))
+if (!session.value) {
+  await navigateTo({
+    path: '/login',
+    query: route.query.redirect ? { redirect: String(route.query.redirect) } : undefined,
+  })
 }
+else if (profile.value && !needsPolicyAcceptance(profile.value) && profile.value.firstName && profile.value.lastName) {
+  await navigateTo(redirectAfterLogin(route.query.redirect, profile.value.role))
+}
+
+const setupDescription = computed(() => {
+  const provider = typeof user.value?.app_metadata?.provider === 'string'
+    ? user.value.app_metadata.provider
+    : ''
+
+  if (provider === 'google') {
+    return 'Google created your sign-in. Confirm your name and accept the current Terms and Privacy Policy to continue.'
+  }
+
+  return 'Confirm your name and accept the current Terms and Privacy Policy to continue.'
+})
 
 function onPolicyAgreed(kind: 'terms' | 'privacy') {
   const key = kind === 'terms' ? 'termsAccepted' : 'privacyAcknowledged'
@@ -56,6 +75,7 @@ async function onSubmit() {
   try {
     await $fetch('/api/auth/profile', {
       method: 'PATCH',
+      headers: authHeaders(),
       body: {
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
@@ -64,8 +84,8 @@ async function onSubmit() {
         marketingOptIn: parsed.data.marketingOptIn,
       },
     })
-    await refreshProfile()
-    await navigateTo(redirectAfterLogin(route.query.redirect))
+    const nextProfile = await refreshProfile()
+    await navigateTo(redirectAfterLogin(route.query.redirect, nextProfile?.role))
   }
   catch (error) {
     formError.value = authErrorMessage(error)
@@ -80,7 +100,7 @@ async function onSubmit() {
   <div>
     <AuthPageHeader
       title="Finish setting up your account"
-      description="Google created your sign-in. Confirm your name and accept the current Terms and Privacy Policy to continue."
+      :description="setupDescription"
     />
 
     <AuthAlert

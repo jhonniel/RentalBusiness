@@ -2,7 +2,10 @@
   <div class="storefront-shell min-h-dvh text-[#12201a]">
     <SkipToContent />
     <PublicHeader />
-    <main id="main-content">
+    <main
+      id="main-content"
+      class="min-w-0"
+    >
       <slot />
     </main>
     <PublicFooter />

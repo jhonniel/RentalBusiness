@@ -51,6 +51,14 @@ const termsConditions = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913260000_terms_conditions.sql'),
   'utf8',
 )
+const existingPolicyVersions = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260913280000_grandfather_existing_policy_versions.sql'),
+  'utf8',
+)
+const rentalIdentity = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260913290000_phase17_rental_identity.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -205,6 +213,25 @@ describe('terms and conditions acknowledgments', () => {
   })
 })
 
+describe('rental identity verification', () => {
+  it('stores private ID paths and one verification per rental', () => {
+    expect(rentalIdentity).toContain('create table if not exists public.rental_identity_verifications')
+    expect(rentalIdentity).toContain('constraint rental_identity_verifications_rental_unique unique (rental_id)')
+    expect(rentalIdentity).toContain('signer_email')
+    expect(rentalIdentity).toContain('force row level security')
+    expect(rentalIdentity).not.toContain('grant insert on public.rental_identity_verifications to anon')
+  })
+})
+
+describe('existing account policy versions', () => {
+  it('stamps current Terms and Privacy versions on profiles that signed up earlier', () => {
+    expect(existingPolicyVersions).toContain('JRY-PRIVACY-v1.0')
+    expect(existingPolicyVersions).toContain('JRY-TC-v1.0')
+    expect(existingPolicyVersions).toContain('privacy_policy_version is null')
+    expect(existingPolicyVersions).toContain('terms_version is null')
+  })
+})
+
 describe('privacy policy acknowledgments', () => {
   it('stores a version on the profile and on each waiver acceptance', () => {
     expect(privacyPolicy).toContain('privacy_policy_version')
@@ -215,10 +242,13 @@ describe('privacy policy acknowledgments', () => {
 })
 
 describe('development seed', () => {
-  it('is marked development-only and does not insert auth users', () => {
+  it('is marked development-only and seeds a local admin login', () => {
     expect(seed).toContain('Do not run against production')
     expect(seed).toContain('Starlink Mini')
     expect(seed).toContain('JRY-WAIVER-v1.0')
-    expect(seed).not.toContain('insert into auth.users')
+    expect(seed).toContain('admin@jryrentals.local')
+    expect(seed).toContain('insert into auth.users')
+    expect(seed).toContain('insert into public.profiles')
+    expect(seed).not.toMatch(/update public\.profiles\s+set[\s\S]*?role = 'admin'/)
   })
 })

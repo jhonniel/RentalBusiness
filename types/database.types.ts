@@ -469,6 +469,8 @@ export interface Database {
           user_agent: string | null
           privacy_policy_version: string | null
           terms_version: string | null
+          signer_email: string | null
+          signer_phone: string | null
         }
         Insert: {
           waiver_version_id: number
@@ -481,6 +483,8 @@ export interface Database {
           user_agent?: string | null
           privacy_policy_version?: string | null
           terms_version?: string | null
+          signer_email?: string | null
+          signer_phone?: string | null
         }
         Update: Record<string, never>
         Relationships: [
@@ -500,6 +504,49 @@ export interface Database {
           },
           {
             foreignKeyName: 'waiver_acceptances_customer_id_fkey'
+            columns: ['customer_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      rental_identity_verifications: {
+        Row: {
+          id: number
+          uuid: string
+          rental_id: number
+          customer_id: number
+          government_id_path: string
+          selfie_path: string
+          submitted_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          rental_id: number
+          customer_id: number
+          government_id_path: string
+          selfie_path: string
+          uuid?: string
+          submitted_at?: string
+        }
+        Update: {
+          government_id_path?: string
+          selfie_path?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'rental_identity_verifications_rental_id_fkey'
+            columns: ['rental_id']
+            isOneToOne: true
+            referencedRelation: 'rental_requests'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'rental_identity_verifications_customer_id_fkey'
             columns: ['customer_id']
             isOneToOne: false
             referencedRelation: 'profiles'

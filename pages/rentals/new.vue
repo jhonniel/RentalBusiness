@@ -19,7 +19,7 @@ const form = reactive({
   productSlug: typeof route.query.product === 'string' ? route.query.product : '',
   startsOn: typeof route.query.startsOn === 'string' ? route.query.startsOn : today,
   endsOn: typeof route.query.endsOn === 'string' ? route.query.endsOn : today,
-  quantity: Number(route.query.quantity) > 0 ? Number(route.query.quantity) : 1,
+  quantity: 1,
   firstName: '',
   lastName: '',
   phone: '',
@@ -130,11 +130,11 @@ async function onSubmit() {
   <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
     <AccountNav />
 
-    <h1 class="mt-8 text-3xl font-semibold tracking-tight text-slate-900">
+    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       Request a rental
     </h1>
     <p class="mt-2 text-stone-600">
-      Confirm dates, quantity, and your contact details. You will sign the current waiver after this request.
+      Confirm dates and your contact details. You will sign the current waiver and upload a government ID after this request.
     </p>
 
     <CatalogNotice
@@ -180,34 +180,24 @@ async function onSubmit() {
 
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 class="text-sm font-medium text-stone-900">
-          Dates and quantity
+          Dates
         </h2>
-        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
           <BookingDateField
             v-model="form.startsOn"
-            label="Start"
+            label="Start date"
             :product-slug="form.productSlug || undefined"
-            :quantity="Number(form.quantity) || 1"
+            :quantity="1"
             :disabled="pending"
           />
           <BookingDateField
             v-model="form.endsOn"
-            label="End"
+            label="End date"
             :product-slug="form.productSlug || undefined"
-            :quantity="Number(form.quantity) || 1"
+            :quantity="1"
             :min="form.startsOn || undefined"
             :disabled="pending"
           />
-          <label class="block text-sm">
-            <span class="mb-1.5 block text-stone-700">Quantity</span>
-            <UInput
-              v-model="form.quantity"
-              type="number"
-              min="1"
-              max="99"
-              :disabled="pending"
-            />
-          </label>
         </div>
       </section>
 
@@ -221,7 +211,7 @@ async function onSubmit() {
         <dl class="mt-4 space-y-2 text-sm">
           <div class="flex justify-between gap-4">
             <dt class="text-stone-500">
-              {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }} × {{ quote.quantity }}
+              {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
             </dt>
             <dd>{{ formatMoney(quote.lineTotal) }}</dd>
           </div>
@@ -290,6 +280,7 @@ async function onSubmit() {
 
       <UButton
         type="submit"
+        class="w-full sm:w-auto"
         :loading="pending || quoting"
         :disabled="!quote?.canFulfill"
       >

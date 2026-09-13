@@ -36,9 +36,9 @@ function printReceipt() {
 
 <template>
   <article class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-    <div class="flex items-center justify-between gap-3 print:hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 print:hidden">
       <AppLogo />
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <UButton
           color="neutral"
           variant="outline"
@@ -71,7 +71,7 @@ function printReceipt() {
       <p class="text-xs uppercase tracking-wider text-lumen-700">
         {{ snapshot.business.name }}
       </p>
-      <h1 class="font-display mt-2 text-4xl text-stone-900">
+      <h1 class="font-display mt-2 text-3xl break-words text-stone-900 sm:text-4xl">
         Receipt {{ receipt.receiptNumber }}
       </h1>
       <p class="mt-2 text-sm text-stone-500">

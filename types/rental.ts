@@ -3,6 +3,12 @@ import type { PublicReceipt } from '~/types/receipt'
 import type { PublicWaiverAcceptance } from '~/types/waiver'
 import type { RentalStatus } from '~/utils/constants'
 
+export interface PublicRentalIdentity {
+  submittedAt: string
+  governmentIdUrl?: string | null
+  selfieUrl?: string | null
+}
+
 export interface PublicRentalItem {
   uuid: string
   quantity: number
@@ -30,6 +36,7 @@ export interface PublicRental {
   notes: string | null
   items: PublicRentalItem[]
   waiver: PublicWaiverAcceptance | null
+  identity: PublicRentalIdentity | null
   payments: PublicPayment[]
   receipts: PublicReceipt[]
   customer: {

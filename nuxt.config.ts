@@ -32,6 +32,9 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/png', href: '/logo.png' },
         { rel: 'apple-touch-icon', href: '/logo.png' },
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap' },
       ],
     },
     pageTransition: {
@@ -69,8 +72,8 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/': { swr: false },
-    '/products': { swr: 120 },
-    '/products/**': { swr: 120 },
+    '/products': { swr: 30 },
+    '/products/**': { swr: false },
     '/about': { swr: 3600 },
     '/privacy': { swr: 3600 },
     '/terms': { swr: 3600 },
@@ -126,7 +129,6 @@ export default defineNuxtConfig({
       maxAge: 60 * 60 * 24 * 7,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      httpOnly: true,
     },
     types: '~/types/database.types.ts',
     url: process.env.NUXT_PUBLIC_SUPABASE_URL,

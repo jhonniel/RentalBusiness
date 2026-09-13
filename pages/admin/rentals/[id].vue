@@ -155,6 +155,18 @@ async function approve() {
               </dd>
             </div>
             <div>
+              <dt class="text-stone-500">Email</dt>
+              <dd class="mt-0.5 break-all text-stone-800">
+                {{ rental.waiver.signerEmail || 'Not recorded' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-stone-500">Mobile</dt>
+              <dd class="mt-0.5 text-stone-800">
+                {{ rental.waiver.signerPhone || rental.customer?.phone || 'Not recorded' }}
+              </dd>
+            </div>
+            <div>
               <dt class="text-stone-500">Accepted</dt>
               <dd class="mt-0.5 text-stone-800">
                 {{ formatBusinessDateTime(rental.waiver.acceptedAt) }}
@@ -187,6 +199,59 @@ async function approve() {
           class="mt-2 text-stone-600"
         >
           No waiver has been accepted on this rental yet.
+        </p>
+      </section>
+
+      <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
+        <h3 class="font-medium text-stone-900">
+          Identity documents
+        </h3>
+        <template v-if="rental.identity">
+          <p class="mt-2 text-stone-600">
+            Submitted for this rental.
+          </p>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <figure>
+              <figcaption class="mb-2 text-stone-500">
+                Government ID
+              </figcaption>
+              <img
+                v-if="rental.identity.governmentIdUrl"
+                :src="rental.identity.governmentIdUrl"
+                alt="Government ID"
+                class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
+              >
+              <p
+                v-else
+                class="text-stone-500"
+              >
+                Image is not available.
+              </p>
+            </figure>
+            <figure>
+              <figcaption class="mb-2 text-stone-500">
+                Selfie with ID
+              </figcaption>
+              <img
+                v-if="rental.identity.selfieUrl"
+                :src="rental.identity.selfieUrl"
+                alt="Selfie holding government ID"
+                class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
+              >
+              <p
+                v-else
+                class="text-stone-500"
+              >
+                Image is not available.
+              </p>
+            </figure>
+          </div>
+        </template>
+        <p
+          v-else
+          class="mt-2 text-stone-600"
+        >
+          No government ID or selfie has been submitted yet.
         </p>
       </section>
 

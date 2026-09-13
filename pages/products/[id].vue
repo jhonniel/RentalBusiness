@@ -4,7 +4,7 @@ import { breadcrumbJsonLd, productJsonLd } from '~/utils/seo'
 
 const route = useRoute()
 const identifier = computed(() => String(route.params.id))
-const { isAuthenticated } = useAuth()
+const { isAdmin } = useAuth()
 const { formatMoney } = useCurrency()
 
 const { data: product, error } = await useFetch<CatalogProduct>(
@@ -49,18 +49,10 @@ useHead({
 })
 
 const specEntries = computed(() => Object.entries(product.value?.specifications ?? {}))
-const rentPath = computed(() => ({
-  path: '/rentals/new',
-  query: { product: product.value?.slug || identifier.value },
-}))
-const rentTo = computed(() => ({
-  path: '/login',
-  query: { redirect: `/rentals/new?product=${product.value?.slug || identifier.value}` },
-}))
 </script>
 
 <template>
-  <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+  <section class="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-16 lg:px-8">
     <CatalogNotice
       v-if="error?.statusCode === 503"
       title="Catalog is not connected"
@@ -105,7 +97,7 @@ const rentTo = computed(() => ({
         <p class="text-xs uppercase tracking-wider text-lumen-700">
           {{ product.category.name }}
         </p>
-        <h1 class="font-display mt-2 text-4xl text-stone-900">
+        <h1 class="font-display mt-2 text-2xl break-words text-stone-900 sm:text-4xl">
           {{ product.name }}
         </h1>
         <p class="mt-3 text-stone-600">
@@ -161,8 +153,8 @@ const rentTo = computed(() => ({
           </div>
         </dl>
 
-        <p class="mt-6 text-sm text-stone-500">
-          {{ product.availableQuantity }} listed on the shelf right now. Use the date check below for overlapping bookings.
+        <p class="mt-6 text-sm leading-6 text-[#5b6b64]">
+          {{ product.availableQuantity }} {{ product.availableQuantity === 1 ? 'unit is' : 'units are' }} listed right now. Check dates below before you request it.
         </p>
 
         <AvailabilityChecker
@@ -172,40 +164,23 @@ const rentTo = computed(() => ({
           :initial-starts-on="typeof route.query.startsOn === 'string' ? route.query.startsOn : undefined"
           :initial-ends-on="typeof route.query.endsOn === 'string' ? route.query.endsOn : undefined"
         />
-
-        <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-          <UButton
-            v-if="!isAuthenticated"
-            :to="rentTo"
-            size="lg"
-          >
-            Sign in to rent
-          </UButton>
-          <UButton
-            v-else
-            :to="rentPath"
-            size="lg"
-          >
-            Rent now
-          </UButton>
-          <UButton
-            to="/products"
-            size="lg"
-            color="neutral"
-            variant="outline"
-          >
-            Browse more
-          </UButton>
-        </div>
-        <p
-          v-if="isAuthenticated"
-          class="mt-3 text-sm text-stone-500"
-        >
-          Choose dates and confirm your details to submit a rental request.
-        </p>
       </div>
 
       <div class="space-y-8 lg:col-span-2">
+        <div
+          v-if="isAdmin && product.uuid"
+          class="flex justify-end"
+        >
+          <UButton
+            :to="`/admin/products/${product.uuid}`"
+            color="neutral"
+            variant="outline"
+            size="sm"
+          >
+            Edit kit details
+          </UButton>
+        </div>
+
         <section v-if="product.description">
           <h2 class="text-lg font-medium text-stone-900">
             About this kit

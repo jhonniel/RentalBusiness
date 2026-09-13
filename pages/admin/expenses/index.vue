@@ -141,13 +141,13 @@ watch([search, category, status], () => {
       >
         <NuxtLink
           :to="`/admin/expenses/${expense.uuid}`"
-          class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 hover:bg-stone-50"
+          class="flex flex-col gap-3 px-4 py-4 hover:bg-stone-50 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div>
+          <div class="min-w-0">
             <p class="font-medium text-stone-900">
               {{ expense.name }}
             </p>
-            <p class="text-sm text-stone-500">
+            <p class="text-sm break-words text-stone-500">
               {{ expense.category }}
               · {{ formatBusinessDate(expense.incurredOn) }}
               <span v-if="expense.vendor">· {{ expense.vendor }}</span>
@@ -163,7 +163,7 @@ watch([search, category, status], () => {
 
     <div
       v-if="totalPages > 1"
-      class="flex justify-end gap-2"
+      class="flex flex-wrap justify-end gap-2"
     >
       <UButton
         color="neutral"

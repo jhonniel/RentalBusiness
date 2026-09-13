@@ -18,6 +18,10 @@ const status = ref('')
 const categoryUuid = ref('')
 const page = ref(1)
 
+const toast = useToast()
+const deleteUuid = ref('')
+const deletePending = ref(false)
+
 const query = computed(() => ({
   search: search.value || undefined,
   status: status.value || undefined,
@@ -26,7 +30,7 @@ const query = computed(() => ({
   pageSize: 20,
 }))
 
-const { data, error, pending } = await useFetch<ProductListResponse>('/api/admin/products', {
+const { data, error, pending, refresh } = await useFetch<ProductListResponse>('/api/admin/products', {
   query,
   watch: [query],
 })
@@ -41,6 +45,28 @@ watch([search, status, categoryUuid], () => {
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0) / 20)))
+
+async function deleteProduct(uuid: string) {
+  deletePending.value = true
+  try {
+    await $fetch(`/api/admin/products/${uuid}`, { method: 'DELETE' })
+    toast.add({ title: 'Product deleted', color: 'success' })
+    deleteUuid.value = ''
+    await refresh()
+  }
+  catch (caught) {
+    const payload = typeof caught === 'object' && caught && 'data' in caught
+      ? (caught as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not delete that product.',
+      color: 'error',
+    })
+  }
+  finally {
+    deletePending.value = false
+  }
+}
 </script>
 
 <template>
@@ -191,14 +217,44 @@ const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0)
                 <StatusBadge :status="product.status" />
               </td>
               <td class="px-4 py-3 text-right">
-                <UButton
-                  :to="`/admin/products/${product.uuid}`"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                >
-                  Edit
-                </UButton>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  <UButton
+                    :to="`/admin/products/${product.uuid}`"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    Edit
+                  </UButton>
+                  <template v-if="deleteUuid === product.uuid">
+                    <UButton
+                      color="error"
+                      size="sm"
+                      :loading="deletePending"
+                      @click="deleteProduct(product.uuid)"
+                    >
+                      Confirm
+                    </UButton>
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      :disabled="deletePending"
+                      @click="deleteUuid = ''"
+                    >
+                      Cancel
+                    </UButton>
+                  </template>
+                  <UButton
+                    v-else
+                    color="error"
+                    variant="ghost"
+                    size="sm"
+                    @click="deleteUuid = product.uuid"
+                  >
+                    Delete
+                  </UButton>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -222,19 +278,45 @@ const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0)
         <p class="mt-1 text-sm text-stone-500">
           {{ product.availableQuantity }} of {{ product.quantity }} available
         </p>
-        <UButton
-          :to="`/admin/products/${product.uuid}`"
-          color="neutral"
-          variant="outline"
-          class="mt-3"
-        >
-          Edit
-        </UButton>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <UButton
+            :to="`/admin/products/${product.uuid}`"
+            color="neutral"
+            variant="outline"
+          >
+            Edit
+          </UButton>
+          <template v-if="deleteUuid === product.uuid">
+            <UButton
+              color="error"
+              :loading="deletePending"
+              @click="deleteProduct(product.uuid)"
+            >
+              Confirm delete
+            </UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              :disabled="deletePending"
+              @click="deleteUuid = ''"
+            >
+              Cancel
+            </UButton>
+          </template>
+          <UButton
+            v-else
+            color="error"
+            variant="outline"
+            @click="deleteUuid = product.uuid"
+          >
+            Delete
+          </UButton>
+        </div>
       </article>
 
       <div
         v-if="totalPages > 1"
-        class="flex items-center justify-between text-sm text-stone-600"
+        class="flex flex-wrap items-center justify-between gap-2 text-sm text-stone-600"
       >
         <UButton
           color="neutral"

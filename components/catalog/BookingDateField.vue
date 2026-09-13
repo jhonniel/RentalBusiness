@@ -2,7 +2,7 @@
 import { CalendarDate, parseDate } from '@internationalized/date'
 import type { DateValue } from '@internationalized/date'
 import type { AvailabilityCalendar } from '~/types/availability'
-import { calendarDateInZone } from '~/utils/datetime'
+import { calendarDateInZone, formatBookingDate } from '~/utils/datetime'
 
 const model = defineModel<string>({ required: true })
 
@@ -78,22 +78,27 @@ watch([blocked, minDate], () => {
     model.value = ''
   }
 })
+
+const displayValue = computed(() => model.value ? formatBookingDate(model.value) : 'Choose a date')
 </script>
 
 <template>
-  <label class="block text-sm">
-    <span class="mb-1.5 block text-stone-700">
+  <label class="block">
+    <span class="mb-2 block text-xs font-medium tracking-wide text-[#5b6b64] uppercase">
       {{ label }}
     </span>
     <UPopover :disabled="disabled">
-      <UButton
-        color="neutral"
-        variant="outline"
-        class="w-full justify-start"
+      <button
+        type="button"
+        class="flex h-12 w-full items-center gap-3 rounded-xl border border-[#12201a]/12 bg-white px-3.5 text-left text-sm text-[#12201a] transition-colors hover:border-[#12201a]/28 disabled:cursor-not-allowed disabled:opacity-60"
         :disabled="disabled"
       >
-        {{ model || 'Choose a date' }}
-      </UButton>
+        <UIcon
+          name="i-lucide-calendar"
+          class="size-4 shrink-0 text-[#5b6b64]"
+        />
+        <span class="min-w-0 truncate tracking-normal">{{ displayValue }}</span>
+      </button>
       <template #content>
         <div class="p-2">
           <UCalendar

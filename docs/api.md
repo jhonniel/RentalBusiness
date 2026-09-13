@@ -2,7 +2,7 @@
 
 All application APIs live under `/api`. Handlers validate input with Zod and authorize on the server. Public identifiers are `uuid` or `code`.
 
-**Current phase:** health through reports, public discovery, admin payment methods, and production readiness flags.
+**Current phase:** health through reports, public discovery, admin payment methods, rental identity proof, the operations calendar, sales ledger, business settings, audit logs, and production readiness flags.
 
 ## Conventions
 
@@ -103,15 +103,16 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | GET | `/api/admin/products` | Search, status, category, pagination |
 | POST | `/api/admin/products` | Create product |
 | GET | `/api/admin/products/[uuid]` | Product with images |
-| PATCH | `/api/admin/products/[uuid]` | Update product |
+| PATCH | `/api/admin/products/[uuid]` | Update product info and prices (name, descriptions, daily/weekly/monthly, deposit, late fee, inventory, status) |
 | POST | `/api/admin/products/[uuid]/archive` | Set status to `archived` |
+| DELETE | `/api/admin/products/[uuid]` | Permanently delete a product with no rental or asset-assignment history. Returns 409 if history exists — archive instead. |
 | POST | `/api/admin/products/[uuid]/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP, 5 MB). Extra photos appear under the main image on the product page. |
 | DELETE | `/api/admin/images/[uuid]` | Remove image and storage object |
 | GET | `/api/admin/inventory` | Serialized assets |
 | POST | `/api/admin/products/[uuid]/assets` | Create asset |
 | PATCH | `/api/admin/assets/[uuid]` | Update asset |
 
-**Product body:** name, sku, categoryUuid, prices, deposit, quantities, status (`draft` / `active` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. Extra fields such as `id` are rejected.
+**Product body:** name, sku, categoryUuid, prices, deposit, quantities, status (`draft` / `active` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` is generated from `name` on the server. Extra fields such as `id` or `slug` are rejected.
 
 ### Public catalog
 
@@ -165,11 +166,12 @@ Authenticated. Customers read and create only their own rows. Totals come from `
 | GET | `/api/rentals` | Own rentals, optional status, pagination |
 | GET | `/api/rentals/[id]` | By `uuid` or `code` |
 | POST | `/api/rentals/[id]/cancel` | Own `draft` or `pending` only |
+| POST | `/api/rentals/[id]/identity` | Multipart `governmentId` and `selfie` (JPG/PNG/WebP, 5 MB). Owner of a `draft`/`pending` rental only. |
 
 **Create body:** product uuid/slug, dates, quantity, firstName, lastName, phone?, notes?, status?  
-**Rate limit:** 20 creates / minute / user
+**Rate limit:** 20 creates / minute / user; 12 identity uploads / minute / user
 
-Rental payloads include `waiver` when the customer has signed (`uuid`, `signerName`, `acceptedAt`, `privacyPolicyVersion`, `termsVersion`, bound version). They never include `id`, `ip_address`, or `signature_data`.
+Rental payloads include `waiver` when the customer has signed (`uuid`, `signerName`, `signerEmail`, `signerPhone`, `acceptedAt`, `privacyPolicyVersion`, `termsVersion`, bound version). They include `identity.submittedAt` after ID documents are uploaded. They never include `id`, `ip_address`, `signature_data`, or storage paths.
 
 ### Waivers
 
@@ -182,7 +184,7 @@ Current terms are public. Acceptance requires a signed-in owner of a `draft` or 
 | GET | `/api/admin/waivers` | All versions |
 | POST | `/api/admin/waivers` | Publish a new current version |
 
-**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit; those flags are UI-only and are not stored as separate columns. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile.  
+**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents before checkout.  
 **Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 admin publishes / minute / admin
 
 ### Privacy Policy
@@ -208,7 +210,7 @@ Rental payloads include `payments` (`uuid`, amount, currency, provider, status, 
 
 ### Payments
 
-Server-created intents. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver is required. Status changes only from a verified webhook or a server-side provider retrieve.
+Server-created intents. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver and submitted identity documents are required. Status changes only from a verified webhook or a server-side provider retrieve.
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -264,6 +266,11 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products |
+| GET | `/api/admin/calendar` | Rentals overlapping a `YYYY-MM` month in Asia/Manila |
+| GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
+| GET | `/api/admin/settings` | Business profile for receipts |
+| PATCH | `/api/admin/settings` | Update name, contact, and policy copy. Currency and timezone stay PHP / Asia/Manila |
+| GET | `/api/admin/audit-logs` | Append-only audit trail. Search action/entity/public id. Paginated |
 | GET | `/api/admin/rentals` | All rentals, search code, status, pagination |
 | GET | `/api/admin/rentals/[id]` | By uuid or code |
 | POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, audited |
@@ -304,11 +311,12 @@ No user session. Present `Authorization: Bearer $CRON_SECRET` or `x-cron-secret`
 
 | Method | Path | Notes |
 | --- | --- | --- |
+| GET/POST | `/api/cron/daily` | Runs recurring expenses, reminders, and overdue in one scheduled job |
 | GET/POST | `/api/cron/recurring-expenses` | Post due recurring expenses |
 | GET/POST | `/api/cron/reminders` | Pickup and return emails for tomorrow in Asia/Manila |
 | GET/POST | `/api/cron/overdue` | `active` → `overdue` when `ends_on` is before today |
 
-Schedule in `vercel.json`: `0 16 * * *` (midnight Asia/Manila). Reminder emails reuse `(template, payload_hash)`. Occurrences reuse `(recurring_expense_id, occurs_on)`. Overdue only transitions `active` rentals.
+`vercel.json` schedules only `/api/cron/daily` at `0 16 * * *` (midnight Asia/Manila) so Hobby accounts stay within the two-cron limit. The three single-job paths stay available for manual runs. Reminder emails reuse `(template, payload_hash)`. Occurrences reuse `(recurring_expense_id, occurs_on)`. Overdue only transitions `active` rentals.
 
 ### Reports
 
@@ -334,7 +342,7 @@ Public, unauthenticated. These are Nitro routes, not `/api` handlers.
 
 ## Planned endpoints
 
-None. Phase 16 is the last documented build phase.
+None. Phase 17 is the last documented build phase.
 
 ## Authorization checklist (every protected route)
 

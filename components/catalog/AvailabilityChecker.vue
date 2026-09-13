@@ -9,13 +9,29 @@ const props = defineProps<{
   initialEndsOn?: string
 }>()
 
+const { isAuthenticated } = useAuth()
 const today = calendarDateInZone()
 const startsOn = ref(props.initialStartsOn || today)
 const endsOn = ref(props.initialEndsOn || today)
-const quantity = ref(1)
 const pending = ref(false)
 const formError = ref('')
 const result = ref<AvailabilityResponse | null>(null)
+
+const rentQuery = computed(() => ({
+  product: props.productSlug,
+  startsOn: startsOn.value,
+  endsOn: endsOn.value,
+  quantity: '1',
+}))
+
+const rentTo = computed(() => {
+  if (!isAuthenticated.value) {
+    const next = `/rentals/new?product=${props.productSlug}&startsOn=${startsOn.value}&endsOn=${endsOn.value}&quantity=1`
+    return { path: '/login', query: { redirect: next } }
+  }
+
+  return { path: '/rentals/new', query: rentQuery.value }
+})
 
 async function onSubmit() {
   formError.value = ''
@@ -29,13 +45,13 @@ async function onSubmit() {
         productSlug: props.productSlug,
         startsOn: startsOn.value,
         endsOn: endsOn.value,
-        quantity: quantity.value,
+        quantity: 1,
       },
     })
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
-      ? (error as { data?: { message?: string, statusCode?: number } }).data
+      ? (error as { data?: { message?: string } }).data
       : null
     formError.value = payload?.message || 'We could not check those dates.'
   }
@@ -47,45 +63,37 @@ async function onSubmit() {
 
 <template>
   <form
-    class="rounded-2xl border border-stone-200 bg-white p-5"
+    class="rounded-2xl border border-[#12201a]/8 bg-[#f7f8f7] p-5 font-[system-ui,sans-serif] tracking-normal sm:p-6"
     method="post"
     @submit.prevent="onSubmit"
   >
-    <h2 class="text-sm font-medium text-stone-900">
-      Check dates
-    </h2>
-    <p class="mt-1 text-sm text-stone-500">
-      Availability counts overlapping rentals, not only the number on the shelf.
-    </p>
+    <div>
+      <h2 class="text-lg font-semibold text-[#12201a]">
+        Check availability
+      </h2>
+      <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+        Confirm this kit is free for the days you need it.
+      </p>
+    </div>
 
-    <div class="mt-4 grid gap-3 sm:grid-cols-3">
+    <div class="mt-5 grid gap-4 sm:grid-cols-2">
       <BookingDateField
         v-model="startsOn"
-        label="Start"
+        label="Start date"
         :product-uuid="productUuid"
         :product-slug="productSlug"
-        :quantity="Number(quantity) || 1"
+        :quantity="1"
         :disabled="pending"
       />
       <BookingDateField
         v-model="endsOn"
-        label="End"
+        label="End date"
         :product-uuid="productUuid"
         :product-slug="productSlug"
-        :quantity="Number(quantity) || 1"
+        :quantity="1"
         :min="startsOn || undefined"
         :disabled="pending"
       />
-      <label class="block text-sm">
-        <span class="mb-1.5 block text-stone-700">Quantity</span>
-        <UInput
-          v-model="quantity"
-          type="number"
-          min="1"
-          max="99"
-          :disabled="pending"
-        />
-      </label>
     </div>
 
     <AuthAlert
@@ -96,41 +104,48 @@ async function onSubmit() {
 
     <div
       v-if="result"
-      class="mt-4 rounded-lg px-4 py-3 text-sm"
-      :class="result.canFulfill ? 'bg-lumen-50 text-lumen-900' : 'bg-red-50 text-red-900'"
+      class="mt-4 rounded-xl px-4 py-3 text-sm leading-6"
+      :class="result.canFulfill ? 'bg-white text-[#12201a] ring-1 ring-[#12201a]/8' : 'bg-red-50 text-red-900'"
       role="status"
     >
       <p v-if="result.canFulfill">
-        {{ result.available }} of {{ result.capacity }} units are free for these dates.
+        Available for these dates. {{ result.available }} of {{ result.capacity }} units are free.
       </p>
       <p v-else>
-        Only {{ result.available }} of {{ result.capacity }} units are free. {{ result.booked }} are already booked in this range.
+        Those dates are not fully free. {{ result.available }} of {{ result.capacity }} units remain.
       </p>
     </div>
 
-    <div class="mt-4 flex flex-wrap gap-2">
+    <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
       <UButton
         type="submit"
-        :loading="pending"
-      >
-        Check availability
-      </UButton>
-      <UButton
-        v-if="result?.canFulfill"
-        :to="{
-          path: '/rentals/new',
-          query: {
-            product: productSlug,
-            startsOn: startsOn,
-            endsOn: endsOn,
-            quantity: String(quantity),
-          },
-        }"
         color="neutral"
         variant="outline"
+        class="w-full justify-center rounded-full tracking-normal sm:w-auto"
+        :loading="pending"
       >
-        Continue to request
+        Check dates
+      </UButton>
+      <UButton
+        :to="rentTo"
+        color="neutral"
+        class="w-full justify-center rounded-full bg-[#12201a] tracking-normal text-white hover:bg-[#1b2d26] sm:w-auto"
+      >
+        {{ isAuthenticated ? 'Rent now' : 'Sign in to rent' }}
+      </UButton>
+      <UButton
+        to="/products"
+        color="neutral"
+        variant="ghost"
+        class="w-full justify-center rounded-full tracking-normal sm:w-auto"
+      >
+        Browse catalog
       </UButton>
     </div>
+    <p class="mt-3 text-xs leading-5 text-[#5b6b64]">
+      {{ isAuthenticated
+        ? 'After you confirm dates, you can submit a rental request.'
+        : 'Sign in to send a rental request for these dates.' }}
+    </p>
   </form>
 </template>

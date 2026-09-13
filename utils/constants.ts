@@ -11,7 +11,7 @@ export const BUSINESS_COUNTRY = 'PH'
 export const BUSINESS_ADDRESS = 'Davao City, Philippines'
 export const FACEBOOK_URL = 'https://www.facebook.com/jryrentals/'
 
-export const CURRENT_PHASE = 16
+export const CURRENT_PHASE = 17
 
 export const USER_ROLES = ['admin', 'customer'] as const
 export type UserRole = (typeof USER_ROLES)[number]
@@ -66,6 +66,13 @@ export const INVENTORY_OCCUPYING_RENTAL_STATUSES = [
   'active',
   'overdue',
 ] as const
+
+export const CALENDAR_RENTAL_STATUSES = [
+  ...INVENTORY_OCCUPYING_RENTAL_STATUSES,
+  'returned',
+  'completed',
+] as const
+export type CalendarRentalStatus = (typeof CALENDAR_RENTAL_STATUSES)[number]
 
 export const EXPENSE_STATUSES = ['pending', 'paid', 'void'] as const
 export type ExpenseStatus = (typeof EXPENSE_STATUSES)[number]

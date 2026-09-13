@@ -10,7 +10,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const { profile } = useAuth()
+const { profile, authHeaders } = useAuth()
 const toast = useToast()
 const identifier = computed(() => String(route.params.id))
 const pad = ref<{ toDataUrl: () => string, hasInk: { value: boolean } } | null>(null)
@@ -58,6 +58,10 @@ const accepted = reactive<Record<(typeof acknowledgments)[number]['id'], boolean
   privacy: false,
 })
 const allAcknowledged = computed(() => acknowledgments.every(item => accepted[item.id]))
+
+const accountName = computed(() => [profile.value?.firstName, profile.value?.lastName].filter(Boolean).join(' '))
+const accountEmail = computed(() => profile.value?.email || '')
+const accountPhone = computed(() => profile.value?.phone || '')
 
 watch(profile, (value) => {
   if (!value || signerName.value) {
@@ -125,10 +129,11 @@ async function onSubmit() {
   try {
     await $fetch<PublicWaiverAcceptance>('/api/waivers/accept', {
       method: 'POST',
+      headers: authHeaders(),
       body: parsed.data,
     })
     toast.add({ title: 'Waiver signed', color: 'success' })
-    await navigateTo(`/rentals/${rental.value.code}/pay`)
+    await navigateTo(`/rentals/${rental.value.code}/verify`)
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
@@ -146,11 +151,11 @@ async function onSubmit() {
   <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
     <AccountNav />
 
-    <h1 class="mt-8 text-3xl font-semibold tracking-tight text-slate-900">
+    <h1 class="mt-8 text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-3xl">
       Equipment Rental Agreement & Liability Waiver
     </h1>
     <p class="mt-2 text-stone-600">
-      Read the current terms, confirm each acknowledgment, type your name, and sign. This copy is stored with your rental and will not change after you accept it.
+      Review the renter details from your account, read the current terms, confirm each acknowledgment, and sign. You will upload a government ID next.
     </p>
 
     <CatalogNotice
@@ -166,7 +171,16 @@ async function onSubmit() {
       title="Waiver already signed"
       :description="`You accepted version ${rental.waiver.version.version} on this rental.`"
     >
-      <UButton :to="`/rentals/${rental.code}`">
+      <UButton
+        v-if="!rental.identity"
+        :to="`/rentals/${rental.code}/verify`"
+      >
+        Upload ID
+      </UButton>
+      <UButton
+        v-else
+        :to="`/rentals/${rental.code}`"
+      >
         Back to rental
       </UButton>
     </CatalogNotice>
@@ -201,7 +215,19 @@ async function onSubmit() {
           <div>
             <dt class="text-stone-500">Renter</dt>
             <dd class="mt-0.5 text-stone-800">
-              {{ [rental.customer?.firstName, rental.customer?.lastName].filter(Boolean).join(' ') || 'Your account name' }}
+              {{ accountName || [rental.customer?.firstName, rental.customer?.lastName].filter(Boolean).join(' ') || 'Your account name' }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-stone-500">Email</dt>
+            <dd class="mt-0.5 text-stone-800">
+              {{ accountEmail || 'From your account' }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-stone-500">Mobile</dt>
+            <dd class="mt-0.5 text-stone-800">
+              {{ accountPhone || rental.customer?.phone || 'Add a phone number on your profile' }}
             </dd>
           </div>
           <div>
@@ -317,9 +343,10 @@ async function onSubmit() {
         </div>
       </section>
 
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <UButton
           type="submit"
+          class="w-full sm:w-auto"
           :loading="pending"
           :disabled="!allAcknowledged"
         >
@@ -329,6 +356,7 @@ async function onSubmit() {
           :to="`/rentals/${rental.code}`"
           color="neutral"
           variant="outline"
+          class="w-full sm:w-auto"
         >
           Back
         </UButton>

@@ -187,3 +187,27 @@ export async function runOverdueJob(event: H3Event, today = jobDate()) {
   logger.info('Overdue job finished', summary)
   return { job: 'overdue', asOf: today, ...summary }
 }
+
+export async function runDailyJobs(event: H3Event, today = jobDate()) {
+  const jobs = [
+    { name: 'recurring-expenses', run: () => runRecurringExpenseJob(event, today) },
+    { name: 'reminders', run: () => runReminderJob(event, today) },
+    { name: 'overdue', run: () => runOverdueJob(event, today) },
+  ] as const
+
+  const results = []
+  for (const job of jobs) {
+    try {
+      results.push(await job.run())
+    }
+    catch (error) {
+      logger.warn('Daily cron job failed', {
+        job: job.name,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      })
+      results.push({ job: job.name, asOf: today, failed: 1 })
+    }
+  }
+
+  return { job: 'daily', asOf: today, results }
+}

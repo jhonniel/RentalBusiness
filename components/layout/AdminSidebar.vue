@@ -39,7 +39,10 @@ function isActive(to?: string) {
               :name="item.icon"
               class="size-4 shrink-0"
             />
-            <span v-if="!compact">{{ item.label }}</span>
+            <span
+              v-if="!compact"
+              class="min-w-0 break-words"
+            >{{ item.label }}</span>
           </NuxtLink>
           <span
             v-else

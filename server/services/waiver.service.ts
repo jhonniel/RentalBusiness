@@ -50,6 +50,7 @@ export async function acceptWaiver(
   client: Client,
   profileId: number,
   input: AcceptWaiverInput,
+  account: { email: string | null, phone: string | null },
 ) {
   const rental = await getOwnRental(client, input.rentalUuid || input.rentalCode || '')
 
@@ -85,6 +86,8 @@ export async function acceptWaiver(
     rental_id: identity.id,
     customer_id: profileId,
     signer_name: input.signerName,
+    signer_email: account.email,
+    signer_phone: account.phone,
     signature_data: input.signatureData,
     ip_address: requestIp(event),
     user_agent: requestUserAgent(event),
@@ -107,6 +110,8 @@ export async function acceptWaiver(
       privacyPolicyVersion: CURRENT_PRIVACY_POLICY_VERSION,
       termsVersion: CURRENT_TERMS_VERSION,
       signerName: acceptance.signerName,
+      signerEmail: acceptance.signerEmail,
+      signerPhone: acceptance.signerPhone,
     },
   })
 

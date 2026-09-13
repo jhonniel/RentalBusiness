@@ -22,7 +22,7 @@ const route = useRoute()
 const supabase = useSupabaseClient()
 const session = useSupabaseSession()
 const user = useSupabaseUser()
-const { refreshProfile, redirectAfterLogin, authErrorMessage } = useAuth()
+const { refreshProfile, redirectAfterLogin, authErrorMessage, authHeaders } = useAuth()
 const message = ref('Please wait while we activate your account.')
 const failed = ref(false)
 const title = computed(() => failed.value ? 'Could not confirm your account' : 'Confirming your account')
@@ -126,6 +126,7 @@ async function finishSignedIn() {
     try {
       profile = await $fetch('/api/auth/profile', {
         method: 'PATCH',
+        headers: authHeaders(),
         body: {
           firstName,
           lastName,
@@ -154,7 +155,7 @@ async function finishSignedIn() {
     return
   }
 
-  await navigateTo(redirectAfterLogin(next || route.query.next))
+  await navigateTo(redirectAfterLogin(next || route.query.next, profile?.role))
 }
 
 const showLoginLink = computed(() =>

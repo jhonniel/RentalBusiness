@@ -110,19 +110,21 @@ watch([search, status], () => {
       >
         <NuxtLink
           :to="`/admin/rentals/${rental.code}`"
-          class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 hover:bg-stone-50"
+          class="flex flex-col gap-3 px-4 py-4 hover:bg-stone-50 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div>
+          <div class="min-w-0">
             <p class="font-medium text-stone-900">
               {{ rental.items[0]?.product.name || rental.code }}
             </p>
-            <p class="text-sm text-stone-500">
+            <p class="mt-1 text-sm break-words text-stone-500">
               {{ rental.code }}
               · {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Customer' }}
-              · {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
+            </p>
+            <p class="mt-1 text-sm text-stone-500">
+              {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
             </p>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex shrink-0 items-center gap-3">
             <span class="text-sm">{{ formatMoney(rental.totalAmount) }}</span>
             <StatusBadge :status="rental.status" />
           </div>
@@ -132,7 +134,7 @@ watch([search, status], () => {
 
     <div
       v-if="totalPages > 1"
-      class="flex justify-end gap-2"
+      class="flex flex-wrap justify-end gap-2"
     >
       <UButton
         color="neutral"

@@ -2,7 +2,7 @@
 import type { RentalListResponse } from '~/types/rental'
 
 definePageMeta({
-  middleware: 'auth',
+  middleware: ['auth', 'customer-home'],
 })
 
 useSiteMeta({
@@ -10,7 +10,7 @@ useSiteMeta({
   path: '/dashboard',
 })
 
-const { profile, isAdmin } = useAuth()
+const { profile } = useAuth()
 const { data, error, pending } = await useFetch<RentalListResponse>('/api/rentals', {
   query: { pageSize: 50 },
 })
@@ -36,25 +36,12 @@ const counts = computed(() => {
   <section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
     <AccountNav />
 
-    <h1 class="mt-8 text-3xl font-semibold tracking-tight text-slate-900">
+    <h1 class="mt-8 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
       {{ greeting }}
     </h1>
     <p class="mt-2 max-w-2xl text-sm text-slate-500">
       Upcoming, active, and past rentals for this account.
     </p>
-
-    <div
-      v-if="isAdmin"
-      class="mt-6 rounded-xl border border-lumen-200 bg-lumen-50 px-4 py-3 text-sm text-lumen-900"
-    >
-      You have administrator access.
-      <NuxtLink
-        to="/admin"
-        class="font-medium underline"
-      >
-        Open the operations console
-      </NuxtLink>
-    </div>
 
     <CatalogNotice
       v-if="remote.unavailable"

@@ -352,7 +352,7 @@ async function saveAsset() {
 
       <div
         v-if="totalPages > 1"
-        class="flex items-center justify-between text-sm text-stone-600"
+        class="flex flex-wrap items-center justify-between gap-2 text-sm text-stone-600"
       >
         <UButton
           color="neutral"

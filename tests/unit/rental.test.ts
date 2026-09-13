@@ -74,6 +74,7 @@ describe('rental mapper', () => {
 
     expect(rental).not.toHaveProperty('id')
     expect(rental.waiver).toBeNull()
+    expect(rental.identity).toBeNull()
     expect(rental.payments).toEqual([])
     expect(rental.receipts).toEqual([])
     expect(rental.customer).toBeNull()

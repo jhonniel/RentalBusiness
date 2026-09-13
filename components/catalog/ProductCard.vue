@@ -27,7 +27,7 @@ function useFallback() {
       :to="`/products/${product.slug}`"
       class="flex flex-1 flex-col"
     >
-      <div class="flex min-h-56 items-center justify-center bg-white px-6 py-8">
+      <div class="flex min-h-44 items-center justify-center bg-white px-4 py-6 sm:min-h-56 sm:px-6 sm:py-8">
         <img
           :src="src"
           :alt="product.name"

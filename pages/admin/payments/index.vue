@@ -232,7 +232,7 @@ async function removeQr(method: PublicPaymentMethod) {
             Show to customers
           </label>
         </div>
-        <div class="mt-4 flex gap-2">
+        <div class="mt-4 flex flex-wrap gap-2">
           <UButton
             type="submit"
             :loading="saving"
@@ -305,7 +305,7 @@ async function removeQr(method: PublicPaymentMethod) {
               {{ method.instructions }}
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <StatusBadge :status="method.isActive ? 'active' : 'hidden'" />
             <UButton
               color="neutral"

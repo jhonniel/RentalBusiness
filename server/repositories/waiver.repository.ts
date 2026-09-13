@@ -8,6 +8,8 @@ const VERSION_SELECT = 'id, uuid, version, title, body, is_current, published_at
 const ACCEPTANCE_SELECT = `
   uuid,
   signer_name,
+  signer_email,
+  signer_phone,
   accepted_at,
   privacy_policy_version,
   terms_version,

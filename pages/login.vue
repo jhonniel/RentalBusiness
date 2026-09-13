@@ -51,8 +51,8 @@ async function onSubmit() {
       return
     }
 
-    await refreshProfile()
-    await navigateTo(redirectAfterLogin(route.query.redirect))
+    const nextProfile = await refreshProfile()
+    await navigateTo(redirectAfterLogin(route.query.redirect, nextProfile?.role))
   }
   catch (error) {
     formError.value = authErrorMessage(error)

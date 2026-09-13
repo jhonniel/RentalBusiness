@@ -2,8 +2,8 @@
 @import "@nuxt/ui";
 
 @theme static {
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, "Geist", sans-serif;
+  --font-display: ui-sans-serif, system-ui, "Geist", sans-serif;
 
   --color-lumen-50: #f4f7fb;
   --color-lumen-100: #e6eef8;
@@ -23,6 +23,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     background-color: #fff;
   }
@@ -30,11 +31,28 @@
   body,
   #__nuxt,
   #__nuxt > div {
+    max-width: 100%;
     background-color: #fff;
+  }
+
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
+    select,
+    textarea {
+      font-size: 1rem;
+    }
   }
 
   body {
     @apply text-[#12201a] antialiased;
+    font-family: var(--font-sans);
+    letter-spacing: 0.01em;
   }
 
   :focus-visible {
@@ -96,6 +114,7 @@
 
 .storefront-shell {
   background: #fff;
+  overflow-x: clip;
 }
 
 .storefront-hero {
@@ -187,6 +206,15 @@
   border-radius: 0.3rem;
   border: 1px solid rgb(18 32 26 / 22%);
   accent-color: #12201a;
+}
+
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.touch-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .saas-badge {

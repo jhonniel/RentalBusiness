@@ -171,3 +171,25 @@ export async function stampTermsAcceptance(
     )
   }
 }
+
+export async function listProfileActors(client: TypedClient, ids: number[]) {
+  if (!ids.length) {
+    return []
+  }
+
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, uuid, first_name, last_name')
+    .in('id', ids)
+
+  if (error) {
+    throw new AppError(
+      'We could not load audit actors.',
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      { cause: error },
+    )
+  }
+
+  return data ?? []
+}

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { calendarDateInZone, formatBusinessDate, isInclusiveDateRange, isStartBeforeEnd } from '../../utils/datetime'
+import { calendarDateInZone, formatBookingDate, formatBusinessDate, isInclusiveDateRange, isStartBeforeEnd } from '../../utils/datetime'
+
+describe('formatBookingDate', () => {
+  it('keeps spaces between day, month, and year', () => {
+    expect(formatBookingDate('2026-09-13')).toBe('13 Sep 2026')
+  })
+})
 
 describe('formatBusinessDate', () => {
   it('formats a UTC instant in Asia/Manila', () => {

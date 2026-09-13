@@ -32,6 +32,7 @@ useSiteMeta({
 const latestPayment = computed(() => rental.value?.payments[0] ?? null)
 const canPay = computed(() =>
   Boolean(rental.value?.waiver)
+  && Boolean(rental.value?.identity)
   && ['pending', 'awaiting_payment'].includes(rental.value?.status ?? ''),
 )
 
@@ -68,7 +69,7 @@ async function startCheckout() {
   <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
     <AccountNav />
 
-    <h1 class="mt-8 text-3xl font-semibold tracking-tight text-slate-900">
+    <h1 class="mt-8 text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-3xl">
       Pay for this rental
     </h1>
     <p class="mt-2 text-stone-600">
@@ -90,6 +91,17 @@ async function startCheckout() {
     >
       <UButton :to="`/rentals/${rental.code}/waiver`">
         Sign waiver
+      </UButton>
+    </CatalogNotice>
+
+    <CatalogNotice
+      v-else-if="rental && !rental.identity"
+      class="mt-8"
+      title="Upload identity documents first"
+      description="A government ID and a selfie holding that ID are required before checkout."
+    >
+      <UButton :to="`/rentals/${rental.code}/verify`">
+        Upload ID
       </UButton>
     </CatalogNotice>
 
@@ -189,6 +201,7 @@ async function startCheckout() {
 
       <div class="flex flex-wrap gap-2">
         <UButton
+          class="w-full sm:w-auto"
           :loading="pending"
           @click="startCheckout"
         >
@@ -198,6 +211,7 @@ async function startCheckout() {
           :to="`/rentals/${rental.code}`"
           color="neutral"
           variant="outline"
+          class="w-full sm:w-auto"
         >
           Back
         </UButton>

@@ -206,3 +206,7 @@ export function toPublicAsset(row: AssetRow): PublicEquipmentAsset {
     },
   }
 }
+
+export function canDeleteProduct(input: { rentalItems: number, assignments: number }) {
+  return input.rentalItems === 0 && input.assignments === 0
+}

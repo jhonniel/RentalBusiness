@@ -8,9 +8,9 @@ defineProps<{
 
 <template>
   <section class="mx-auto max-w-7xl bg-white px-4 py-16 sm:px-6 lg:px-8">
-    <div class="flex items-end justify-between gap-4">
-      <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-[#12201a]">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+      <div class="min-w-0">
+        <h2 class="text-xl font-semibold tracking-tight text-[#12201a] sm:text-2xl">
           Available equipment
         </h2>
         <p class="mt-1 text-sm text-[#5b6b64]">
