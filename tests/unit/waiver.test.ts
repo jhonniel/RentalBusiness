@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { firstWaiverAcceptance, isSignatureDataUrl, renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
 import { acceptWaiverSchema, publishWaiverSchema } from '../../utils/waiver-validation'
@@ -108,5 +110,17 @@ describe('waiver mapper', () => {
     expect(published).toContain('- DJI Air 3 × 1')
     expect(published).not.toContain('Starlink Mini')
     expect(published).not.toContain('DJI Osmo 360')
+  })
+})
+
+describe('waiver down payment refund', () => {
+  it('requires a current v1.1 source that freezes the down payment after booking', () => {
+    const source = readFileSync(resolve(process.cwd(), 'supabase/waiver-jry-v1.txt'), 'utf8')
+
+    expect(source).toContain('Agreement version: JRY-WAIVER-v1.1')
+    expect(source).toContain('16. DOWN PAYMENT AND REFUND')
+    expect(source).toContain('The down payment is not refundable once the Renter has booked the rental.')
+    expect(source).toContain('They understand that the down payment is not refundable once the rental is booked.')
+    expect(source).not.toContain('Agreement version: JRY-WAIVER-v1.0')
   })
 })

@@ -48,7 +48,7 @@ Wait for: `Proceed to Phase 7`
 
 ## Phase 7 — Waiver (completed)
 
-Versioned waivers, digital acceptance, signature, audit trail. Current published text is `JRY-WAIVER-v1.0` (Equipment Rental Agreement & Liability Waiver). Older signed copies stay bound to the version accepted at the time.
+Versioned waivers, digital acceptance, signature, audit trail. Current published text is `JRY-WAIVER-v1.1` (Equipment Rental Agreement & Liability Waiver). It states that the down payment is not refundable once the rental is booked. Older signed copies stay bound to the version accepted at the time (`JRY-WAIVER-v1.0` remains frozen).
 
 Wait for: `Proceed to Phase 8`
 
@@ -104,7 +104,7 @@ Wait for: `Proceed to Phase 16`
 
 Admin-configurable payment methods with QR image upload. Customers send the rental total to those bank or QR details. Methods do not confirm payment.
 
-Current published Privacy Policy is `JRY-PRIVACY-v1.0` (RA 10173-oriented). Current Terms & Conditions are `JRY-TC-v1.0`. Registration and Google finish-setup open Terms and Privacy in a modal; agreement is recorded only from I agree in that modal. Public `/terms` and `/privacy` pages stay for footer and SEO. Profile and waiver keep Terms, privacy acknowledgment, marketing opt-in, and the rental waiver as separate records.
+Current published Privacy Policy is `JRY-PRIVACY-v1.0` (RA 10173-oriented). Current Terms & Conditions are `JRY-TC-v1.0` and match the waiver: the down payment is not refundable once a rental is booked. Current Cookie Policy is `JRY-COOKIE-v1.0`. Registration and Google finish-setup open Terms and Privacy in a modal; agreement is recorded only from I agree in that modal. Public `/terms`, `/privacy`, and `/cookies` pages stay for footer and SEO. Profile and waiver keep Terms, privacy acknowledgment, marketing opt-in, and the rental waiver as separate records.
 
 Wait for: `Proceed to Phase 17`
 

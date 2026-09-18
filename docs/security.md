@@ -11,6 +11,7 @@ Never commit `.env`. Never send these values to the browser:
 - `PAYMENT_PROVIDER_KEY`
 - `PAYMENT_WEBHOOK_SECRET`
 - `CRON_SECRET`
+- `GROQ_API_KEY` (optional; free Groq key for the maintenance chat)
 
 The browser may receive `NUXT_PUBLIC_SUPABASE_URL` and the anon / publishable key only.
 
@@ -56,7 +57,7 @@ Phase 2 additions:
 - Public catalog read is limited to active products and categories
 - Customers insert rentals only as `draft` or `pending` for their own profile
 - Customers cannot write `payment_transactions`, `receipts`, `expenses`, `email_logs`, or `audit_logs`
-- Accepted waiver versions cannot be updated or deleted
+- Accepted waiver versions cannot be updated or deleted. Publishing `JRY-WAIVER-v1.1` only rotates `is_current`; signed `JRY-WAIVER-v1.0` bodies stay frozen.
 - `expense_occurrences` is unique on `(recurring_expense_id, occurs_on)` for idempotent cron
 - Storage: public `product-images`, public `payment-qr-images`, public `maintenance-images`, private `private-documents` (path prefixed by `auth.uid()`)
 
@@ -185,7 +186,8 @@ Site maintenance additions:
 - `site_maintenance` and `maintenance_images` are forced RLS; anon and authenticated may select, only admins write
 - Maintenance image uploads require `requireAdmin` plus a 40/min rate limit
 - Public `GET /api/maintenance` never returns storage paths. It may include up to three catalog kits by public slug.
-- When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, and payment webhook routes stay open
+- `POST /api/maintenance/chat` is public, rate-limited, and stays open during maintenance. The Groq key stays on the server. Availability and price answers reuse `quoteRental` and never expose database primary keys.
+- When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, and payment webhook routes stay open
 - Administrators can still sign in and use `/admin` to turn the page off
 
 Phase 16 additions:
@@ -260,7 +262,7 @@ Users see friendly messages. APIs return `{ message, code }` only. Stack traces 
 - [x] Zod validation on every mutating endpoint
 - [x] Payment webhook signature verified; placeholder webhook secrets return 503
 - [x] Cron secret verified with a timing-safe compare; query-string secrets are not read
-- [x] Rate limiting on auth profile/me, payments, catalog, rentals, identity uploads, waivers, privacy policy, terms, and notifications (in-memory / per isolate)
+- [x] Rate limiting on auth profile/me, payments, catalog, rentals, identity uploads, waivers, privacy policy, terms, cookie policy, and notifications (in-memory / per isolate)
 - [x] Session cookies: `httpOnly`, `SameSite=Lax`, `Secure` in production
 - [x] Storage policies reviewed (`product-images`, `payment-qr-images`, and `maintenance-images` public read, `private-documents` owner/admin)
 - [x] Audit logging on admin mutations

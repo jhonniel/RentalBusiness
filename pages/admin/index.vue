@@ -66,25 +66,25 @@ const cards = computed(() => {
     <template v-else>
       <div
         v-if="remote.loading"
-        class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
+        class="flex w-full flex-wrap gap-3"
         role="status"
         aria-busy="true"
       >
         <USkeleton
           v-for="index in 11"
           :key="index"
-          class="h-24 w-full"
+          class="h-24 min-w-[14rem] flex-1 basis-[14rem]"
         />
       </div>
 
       <div
         v-else
-        class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
+        class="flex w-full flex-wrap gap-3"
       >
         <article
           v-for="card in cards"
           :key="card.label"
-          class="rounded-xl border border-stone-200 bg-white p-4"
+          class="min-w-[14rem] flex-1 basis-[14rem] rounded-xl border border-stone-200 bg-white p-4"
         >
           <p class="text-xs uppercase tracking-wider text-stone-500">
             {{ card.label }}
@@ -95,7 +95,7 @@ const cards = computed(() => {
         </article>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div class="grid w-full gap-4 lg:grid-cols-3">
         <section class="rounded-xl border border-stone-200 bg-white p-5">
           <h3 class="text-sm font-medium text-stone-900">
             Sales · 14 days
@@ -149,7 +149,7 @@ const cards = computed(() => {
           </p>
         </section>
 
-        <section class="rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2 xl:col-span-1">
+        <section class="rounded-xl border border-stone-200 bg-white p-5">
           <h3 class="text-sm font-medium text-stone-900">
             Most-rented products
           </h3>

@@ -65,6 +65,11 @@ const { isAuthenticated } = useAuth()
               Privacy Policy
             </NuxtLink>
           </li>
+          <li>
+            <NuxtLink to="/cookies" class="hover:text-white">
+              Cookie Policy
+            </NuxtLink>
+          </li>
         </ul>
       </div>
 
@@ -112,6 +117,9 @@ const { isAuthenticated } = useAuth()
         <div class="flex justify-center gap-4 sm:justify-start">
           <NuxtLink to="/privacy" class="hover:text-white">
             Privacy Policy
+          </NuxtLink>
+          <NuxtLink to="/cookies" class="hover:text-white">
+            Cookie Policy
           </NuxtLink>
           <NuxtLink to="/terms" class="hover:text-white">
             Terms & Conditions

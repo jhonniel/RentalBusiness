@@ -49,6 +49,10 @@ const acknowledgments = [
     id: 'privacy',
     label: 'I acknowledge the JRY Rentals Privacy Policy.',
   },
+  {
+    id: 'downpayment',
+    label: 'I understand that the down payment is not refundable once this rental is booked.',
+  },
 ] as const
 const accepted = reactive<Record<(typeof acknowledgments)[number]['id'], boolean>>({
   read: false,
@@ -58,6 +62,7 @@ const accepted = reactive<Record<(typeof acknowledgments)[number]['id'], boolean
   accurate: false,
   terms: false,
   privacy: false,
+  downpayment: false,
 })
 const allAcknowledged = computed(() => acknowledgments.every(item => accepted[item.id]))
 

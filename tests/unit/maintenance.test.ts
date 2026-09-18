@@ -131,9 +131,11 @@ describe('maintenance access', () => {
     expect(isMaintenanceBypassPath('/dashboard')).toBe(false)
 
     expect(isMaintenanceBypassApiPath('/api/maintenance')).toBe(true)
+    expect(isMaintenanceBypassApiPath('/api/maintenance/chat')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/admin/maintenance')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/auth/me')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/payments/webhook')).toBe(true)
+    expect(isMaintenanceBypassApiPath('/api/cookie-policy/current')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/products')).toBe(false)
     expect(isMaintenanceBypassApiPath('/api/rentals')).toBe(false)
   })

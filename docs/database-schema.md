@@ -261,6 +261,6 @@ Site maintenance: `site_maintenance` is a singleton. `maintenance_images` are pu
 
 ## Seed data
 
-`supabase/seed.sql` is development-only. It inserts categories, featured products, serialized assets, the current waiver version (`JRY-WAIVER-v1.0`, copied from `supabase/waiver-jry-v1.txt`), business settings, a Starlink recurring expense, and a sample maintenance expense. The current Privacy Policy text is `supabase/privacy-jry-v1.txt` (`JRY-PRIVACY-v1.0`). The current Terms & Conditions text is `supabase/terms-jry-v1.txt` (`JRY-TC-v1.0`).
+`supabase/seed.sql` is development-only. It inserts categories, featured products, serialized assets, the current waiver version (`JRY-WAIVER-v1.1`, copied from `supabase/waiver-jry-v1.txt`, with a non-refundable down-payment clause), business settings, a Starlink recurring expense, and a sample maintenance expense. Existing databases pick up v1.1 from `20260913310000_waiver_v1_1_nonrefundable_downpayment.sql` without rewriting accepted v1.0 snapshots. The current Privacy Policy text is `supabase/privacy-jry-v1.txt` (`JRY-PRIVACY-v1.0`). The current Terms & Conditions text is `supabase/terms-jry-v1.txt` (`JRY-TC-v1.0`). The current Cookie Policy text is `supabase/cookies-jry-v1.txt` (`JRY-COOKIE-v1.0`).
 
 It also creates a development Auth user `admin@jryrentals.local` / `JryAdmin!dev` and sets that profile to `admin`. Never run the seed against production.

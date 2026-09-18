@@ -20,6 +20,7 @@ describe('site robots', () => {
     expect(siteRobots('/')).toBe('index, follow')
     expect(siteRobots('/privacy')).toBe('index, follow')
     expect(siteRobots('/terms')).toBe('index, follow')
+    expect(siteRobots('/cookies')).toBe('index, follow')
   })
 })
 
@@ -32,7 +33,7 @@ describe('organization JSON-LD', () => {
     expect(json.address.addressLocality).toBe('Davao City')
     expect(json.sameAs).toContain('https://www.facebook.com/jryrentals/')
     expect(defaultOgImage('https://lumen.test')).toBe('https://lumen.test/og.png')
-    expect(publicSitemapPaths()).toEqual(['/', '/products', '/about', '/privacy', '/terms'])
+    expect(publicSitemapPaths()).toEqual(['/', '/products', '/about', '/privacy', '/terms', '/cookies'])
     expect(websiteJsonLd('https://lumen.test').potentialAction['query-input']).toBe('required name=search_term_string')
   })
 

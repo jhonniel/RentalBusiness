@@ -22,7 +22,7 @@ watch(() => route.fullPath, () => {
         </div>
       </div>
 
-      <div class="flex min-w-0 flex-1 flex-col">
+      <div class="flex min-w-0 w-full flex-1 flex-col">
         <AdminHeader
           title="Operations"
           @open-menu="mobileOpen = true"
@@ -39,7 +39,7 @@ watch(() => route.fullPath, () => {
         </p>
         <main
           id="main-content"
-          class="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
+          class="min-w-0 w-full flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
         >
           <slot />
         </main>

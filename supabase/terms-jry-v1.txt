@@ -3,7 +3,7 @@ TERMS & CONDITIONS
 
 Version: JRY-TC-v1.0
 Effective Date: September 13, 2026
-Last Updated: September 13, 2026
+Last Updated: September 18, 2026
 
 Welcome to JRY Rentals.
 
@@ -215,11 +215,11 @@ An extension is not confirmed until JRY Rentals approves it and the applicable a
 The Renter should not assume that keeping the equipment beyond the return time automatically constitutes an approved extension.
 
 22. CANCELLATION BY THE RENTER
-Customers may cancel a booking according to this cancellation policy and any additional terms shown during checkout for that rental.
+Customers may cancel a booking. The down payment paid to confirm the booking is not refundable once the rental is booked.
 
 JRY Rentals cancellation policy:
-- Cancellation more than 48 hours before the rental start date may be refunded minus applicable processing fees.
-- Cancellation within 48 hours of the rental start date, and no-shows, are subject to the booking terms shown at checkout and may not be fully refundable.
+- The down payment / booking payment is not refunded after the rental is booked, as stated in the Equipment Rental Agreement & Liability Waiver signed for that rental.
+- A security deposit, if collected, is separate from the down payment and remains subject to the deposit policy.
 - Rescheduling may be offered where equipment remains available and JRY Rentals agrees.
 
 The specific amounts for a booking are those displayed during checkout for that rental.

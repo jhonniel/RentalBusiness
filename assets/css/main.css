@@ -96,7 +96,15 @@
   .page-enter-active,
   .page-leave-active,
   .page-enter-from,
-  .page-leave-to {
+  .page-leave-to,
+  .chat-support-enter-active,
+  .chat-support-leave-active,
+  .chat-support-enter-from,
+  .chat-support-leave-to,
+  .chat-support-launcher,
+  .chat-support-launcher-open,
+  .chat-support-launcher-icon,
+  .chat-support-launcher-icon-hidden {
     transition: none !important;
     transform: none !important;
   }
@@ -113,6 +121,43 @@
 .page-leave-to {
   opacity: 0;
   transform: translateY(6px);
+}
+
+.chat-support-enter-active,
+.chat-support-leave-active {
+  transform-origin: 100% 100%;
+  transition:
+    opacity 240ms var(--ease-out),
+    transform 240ms var(--ease-out);
+}
+
+.chat-support-enter-from,
+.chat-support-leave-to {
+  opacity: 0;
+  transform: translate3d(12px, 16px, 0) scale(0.92);
+}
+
+.chat-support-launcher {
+  transition: transform 220ms var(--ease-out);
+}
+
+.chat-support-launcher:active {
+  transform: scale(0.94);
+}
+
+.chat-support-launcher-open {
+  transform: rotate(90deg);
+}
+
+.chat-support-launcher-icon {
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+.chat-support-launcher-icon-hidden {
+  opacity: 0;
+  transform: scale(0.5) rotate(-45deg);
 }
 
 .font-display {

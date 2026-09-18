@@ -1,0 +1,81 @@
+JRY RENTALS
+COOKIE POLICY
+
+Version: JRY-COOKIE-v1.0
+Effective Date: September 18, 2026
+Last Updated: September 18, 2026
+
+This Cookie Policy explains how JRY Rentals (“JRY Rentals,” “we,” “us,” or “our”) uses cookies and similar technologies on the JRY Rentals website and rental platform.
+
+It should be read together with our Privacy Policy and Terms & Conditions. Personal information is processed in accordance with Republic Act No. 10173, or the Data Privacy Act of 2012, and applicable issuances of the National Privacy Commission.
+
+1. WHO WE ARE
+Business Name: JRY Rentals
+Email: jryrentals@gmail.com
+Business Address: Davao City, Philippines
+
+2. WHAT COOKIES ARE
+Cookies are small text files stored on your device when you visit a website. Similar technologies include local storage and session storage in your browser.
+
+Cookies may be:
+- Session cookies, which expire when you close your browser
+- Persistent cookies, which remain until they expire or you delete them
+
+3. COOKIES AND STORAGE WE USE
+JRY Rentals currently uses cookies and similar storage only as needed to operate the website and keep you signed in.
+
+A. Strictly necessary (essential)
+These are required for the site to work. They cannot be switched off in the product if you want to use an account.
+
+They are used for:
+- Authentication and session continuity after email or Google sign-in
+- Keeping you logged in across pages
+- Security of the signed-in session
+- Completing booking, waiver, identity, and payment flows while you are signed in
+
+Session cookies are managed by our identity provider (Supabase). In production they are marked Secure and use SameSite=Lax. The browser must be able to persist the session after sign-in so the server can recognize you.
+
+B. Preferences stored on your device
+The site may store non-essential display preferences in local storage (for example color-mode preference). This is not used for advertising.
+
+Cookie Policy acknowledgment is stored in local storage on your device so we do not show the notice again until this policy version changes. That record stays on your device and is not sent as a tracking cookie.
+
+C. What we do not use today
+We do not currently set advertising cookies, marketing pixels, or third-party analytics cookies.
+
+The public chat assistant sends questions you type to our servers so we can answer. Chat messages are not stored as cookies.
+
+If we later enable analytics or marketing technologies, we will update this Cookie Policy and, where required, provide controls for non-essential cookies.
+
+4. LEGAL BASIS
+Essential cookies are used because they are necessary to provide the website, accounts, and rental service you request.
+
+Where a non-essential cookie or similar technology is introduced, JRY Rentals will rely on consent where Philippine privacy rules require it.
+
+5. HOW LONG COOKIES LAST
+Sign-in session cookies follow the configured session lifetime (up to seven days unless you sign out or the session ends sooner).
+
+Local storage preferences remain until you clear site data in your browser or we publish a new Cookie Policy version that asks you to acknowledge it again.
+
+6. HOW TO CONTROL COOKIES
+You can delete or block cookies in your browser settings. If you block essential cookies, you may not be able to sign in, stay signed in, or complete a booking.
+
+You can also:
+- Sign out of your JRY Rentals account
+- Clear this site’s cookies and local storage
+- Read the full Privacy Policy for how personal information is processed
+
+7. THIRD PARTIES
+Authentication cookies are set in connection with our hosting and identity provider so the signed-in session works. Payment confirmation uses our payment flow; we do not use advertising cookies from payment apps.
+
+We do not sell personal information and do not use cookies to sell your data.
+
+8. UPDATES
+This Cookie Policy is versioned (JRY-COOKIE-v1.0). If we publish a later version, the new text applies going forward. The notice on the website will ask you to acknowledge the new version.
+
+9. CONTACT
+Questions about cookies or privacy: jryrentals@gmail.com
+
+Related documents:
+- Privacy Policy
+- Terms & Conditions

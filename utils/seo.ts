@@ -34,6 +34,7 @@ const PUBLIC_SITEMAP_PATHS = [
   '/about',
   '/privacy',
   '/terms',
+  '/cookies',
 ] as const
 
 export function normalizeSitePath(path: string): string {

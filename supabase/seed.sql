@@ -273,9 +273,14 @@ values
   )
 on conflict (asset_code) do nothing;
 
+update public.waiver_versions
+set is_current = false
+where is_current = true
+  and version is distinct from 'JRY-WAIVER-v1.1';
+
 insert into public.waiver_versions (version, title, body, is_current, published_at)
 values (
-  'JRY-WAIVER-v1.0',
+  'JRY-WAIVER-v1.1',
   'Equipment Rental Agreement & Liability Waiver',
   $waiver$
 JRY RENTALS
@@ -283,7 +288,7 @@ EQUIPMENT RENTAL AGREEMENT & LIABILITY WAIVER
 
 Business: JRY Rentals
 Tagline: Rent. Create. Explore.
-Agreement version: JRY-WAIVER-v1.0
+Agreement version: JRY-WAIVER-v1.1
 
 This Equipment Rental Agreement and Liability Waiver (“Agreement”) is entered into between JRY Rentals (“Rental Provider”) and the individual or organization renting the equipment (“Renter”).
 
@@ -426,14 +431,25 @@ The Renter agrees to pay all applicable rental fees, delivery fees, extension fe
 
 All applicable charges will be presented to the Renter through the rental system or communicated by JRY Rentals.
 
-16. SECURITY DEPOSIT
+The amount paid to confirm this rental is the down payment / booking payment.
+
+16. DOWN PAYMENT AND REFUND
+The down payment is not refundable once the Renter has booked the rental.
+
+A rental is booked for this purpose when the Renter submits the rental request and the booking is recorded by JRY Rentals.
+
+After that point, the down payment stays with JRY Rentals if the Renter cancels, changes dates, fails to complete remaining payment, or does not collect the equipment, except where a refund is required by applicable Philippine consumer law.
+
+The down payment is separate from any security deposit. A security deposit, if required, is not the down payment.
+
+17. SECURITY DEPOSIT
 Where applicable, JRY Rentals may require a security deposit before releasing equipment.
 
 The security deposit may be used toward legitimate charges resulting from damage, loss, missing accessories, theft, excessive cleaning, late return, or other agreed rental obligations.
 
 Any remaining refundable amount will be handled according to JRY Rentals’ applicable deposit policy.
 
-17. EQUIPMENT MALFUNCTION
+18. EQUIPMENT MALFUNCTION
 If equipment malfunctions during a rental through no fault of the Renter, the Renter must notify JRY Rentals as soon as reasonably possible.
 
 The Renter must not attempt unauthorized repairs or modifications.
@@ -442,7 +458,7 @@ JRY Rentals may, depending on circumstances, troubleshoot the issue, provide rep
 
 JRY Rentals does not guarantee uninterrupted operation of rented equipment.
 
-18. PROHIBITED USE
+19. PROHIBITED USE
 The equipment must not be used for illegal, dangerous, abusive, or unauthorized activities.
 
 The Renter must not:
@@ -455,46 +471,48 @@ The Renter must not:
 - Use equipment in a reckless manner
 - Conceal loss or damage
 
-19. CANCELLATION
-Cancellation and refund terms are governed by the cancellation policy displayed during the booking process.
+20. CANCELLATION
+The Renter may request cancellation through JRY Rentals after booking. Cancellation does not refund the down payment.
 
-The Renter acknowledges that cancellation policies may differ depending on the equipment, rental period, booking status, and other applicable conditions.
+The down payment remains non-refundable after the rental is booked, as stated in the Down Payment and Refund section of this Agreement.
 
-20. FORCE MAJEURE
+Any remaining unpaid rental balance may still be due if the cancellation occurs after the rental period has started or as otherwise presented during booking.
+
+21. FORCE MAJEURE
 JRY Rentals will not be responsible for delays or inability to provide services caused by circumstances reasonably beyond its control, including severe weather, natural disasters, government restrictions, major network outages, transportation disruptions, or other extraordinary events.
 
 Where appropriate, JRY Rentals may offer rescheduling, replacement, refund, credit, or another reasonable solution.
 
-21. LIMITATION OF LIABILITY
+22. LIMITATION OF LIABILITY
 To the extent permitted by applicable law, JRY Rentals’ liability arising from a rental will be limited to the remedies and amounts applicable to the particular rental transaction.
 
 Nothing in this Agreement shall be interpreted as waiving rights or liabilities that cannot legally be waived.
 
-22. ACKNOWLEDGMENT OF RISK
+23. ACKNOWLEDGMENT OF RISK
 The Renter acknowledges that certain equipment may involve inherent risks when used improperly or in unsuitable environments.
 
 The Renter confirms that they have sufficient knowledge and ability to safely operate the equipment they are renting or will follow appropriate manufacturer instructions and safety guidance.
 
 The Renter accepts responsibility for their own actions and the actions of anyone they authorize to use the equipment.
 
-23. ELECTRONIC AGREEMENT
+24. ELECTRONIC AGREEMENT
 The Renter agrees that electronic acceptance of this Agreement through the JRY Rentals website or application constitutes their acknowledgment and acceptance of these terms.
 
 The following information may be recorded: renter name, rental ID, agreement version, date and time of acceptance, IP address, user/account ID, digital signature or acceptance record, and equipment associated with the agreement.
 
 JRY Rentals may retain the acceptance record for rental, accounting, dispute-resolution, and legal purposes, subject to applicable privacy laws.
 
-24. ENTIRE AGREEMENT
+25. ENTIRE AGREEMENT
 This Agreement, together with the applicable booking details, rental pricing, cancellation policy, equipment condition report, and other terms presented during the booking process, constitutes the agreement between the Renter and JRY Rentals regarding the rental.
 
 If a specific booking term conflicts with a general term in this Agreement, the applicable booking-specific term will control to the extent clearly stated.
 
-25. GOVERNING LAW
+26. GOVERNING LAW
 This Agreement shall be interpreted in accordance with the applicable laws of the Republic of the Philippines, subject to applicable consumer protection, privacy, civil, and other laws and regulations.
 
 Any dispute shall be handled through appropriate lawful means and the appropriate jurisdiction.
 
-26. RENTER ACKNOWLEDGMENT
+27. RENTER ACKNOWLEDGMENT
 By accepting this Agreement, the Renter confirms that:
 - They have read and understood the JRY Rentals Equipment Rental Agreement & Liability Waiver.
 - They agree to take reasonable care of the equipment and return it according to the rental terms.
@@ -502,6 +520,7 @@ By accepting this Agreement, the Renter confirms that:
 - They agree to comply with applicable laws and safety requirements when using the equipment.
 - The information provided for this rental is accurate.
 - They agree to the JRY Rentals Privacy Policy and Terms & Conditions.
+- They understand that the down payment is not refundable once the rental is booked.
 
 This version is stored with the Renter’s acceptance and will not be altered after they sign.
 $waiver$,
@@ -509,6 +528,14 @@ $waiver$,
   timezone('utc', now())
 )
 on conflict (version) do nothing;
+
+update public.waiver_versions
+set is_current = false
+where version is distinct from 'JRY-WAIVER-v1.1';
+
+update public.waiver_versions
+set is_current = true
+where version = 'JRY-WAIVER-v1.1';
 
 insert into public.business_profiles (
   name,
@@ -530,7 +557,7 @@ select
   'Asia/Manila',
   'Late returns are charged per day using the product late fee.',
   'A refundable deposit is authorized at checkout and released after inspection.',
-  'Cancellations more than 48 hours before pickup may be refunded minus processing fees.'
+  'The down payment is not refundable once a rental is booked.'
 where not exists (
   select 1 from public.business_profiles
 );

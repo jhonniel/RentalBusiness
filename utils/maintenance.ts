@@ -30,6 +30,7 @@ const API_BYPASS_PREFIXES = [
   '/api/payments/webhook',
   '/api/terms',
   '/api/privacy',
+  '/api/cookie-policy',
 ]
 
 export interface MaintenanceRow {

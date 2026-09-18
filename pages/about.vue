@@ -112,6 +112,11 @@ const values = [
           to="/privacy"
           class="font-medium text-[#12201a] underline-offset-4 hover:underline"
         >JRY Rentals Privacy Policy</NuxtLink>.
+        Cookies and similar technologies are explained in the
+        <NuxtLink
+          to="/cookies"
+          class="font-medium text-[#12201a] underline-offset-4 hover:underline"
+        >Cookie Policy</NuxtLink>.
         Equipment rentals also require the current Equipment Rental Agreement & Liability Waiver.
         We do not sell customer data.
       </p>

@@ -1,3 +1,16 @@
+-- Publish JRY-WAIVER-v1.1 with a non-refundable down-payment rule.
+-- Accepted JRY-WAIVER-v1.0 snapshots stay frozen.
+
+update public.waiver_versions
+set is_current = false
+where is_current = true
+  and version is distinct from 'JRY-WAIVER-v1.1';
+
+insert into public.waiver_versions (version, title, body, is_current, published_at)
+values (
+  'JRY-WAIVER-v1.1',
+  'Equipment Rental Agreement & Liability Waiver',
+  $waiver$
 JRY RENTALS
 EQUIPMENT RENTAL AGREEMENT & LIABILITY WAIVER
 
@@ -238,3 +251,16 @@ By accepting this Agreement, the Renter confirms that:
 - They understand that the down payment is not refundable once the rental is booked.
 
 This version is stored with the Renter’s acceptance and will not be altered after they sign.
+$waiver$,
+  true,
+  timezone('utc', now())
+)
+on conflict (version) do nothing;
+
+update public.waiver_versions
+set is_current = false
+where version is distinct from 'JRY-WAIVER-v1.1';
+
+update public.waiver_versions
+set is_current = true
+where version = 'JRY-WAIVER-v1.1';

@@ -187,7 +187,7 @@ Current terms are public. Acceptance requires a signed-in owner of a `draft` or 
 | GET | `/api/admin/waivers/[uuid]/pdf` | Admin PDF of a published version. `download=1` attaches the file |
 | GET | `/api/admin/rentals/[id]/waiver-pdf` | Admin PDF of the signed rental waiver, including signature. `download=1` attaches the file |
 
-**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents, then submits the draft request before checkout.  
+**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit, including that the down payment is not refundable once booked; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents, then submits the draft request before checkout.  
 **Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 admin publishes / minute / admin; 20 PDF downloads / minute / admin
 
 ### Privacy Policy
@@ -203,11 +203,21 @@ Account-level fields: `privacyPolicyVersion`, `privacyAcceptedAt`, `termsVersion
 
 ### Terms & Conditions
 
-The published Terms are versioned (`JRY-TC-v1.0`) and public at `/terms`. They govern the website and rental service and stay separate from the waiver and Privacy Policy.
+The published Terms are versioned (`JRY-TC-v1.0`) and public at `/terms`. They govern the website and rental service and stay separate from the waiver and Privacy Policy. Cancellation follows the waiver: the down payment is not refundable once the rental is booked.
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/terms/current` | Current version, dates, and body |
+
+### Cookie Policy
+
+The published Cookie Policy is versioned (`JRY-COOKIE-v1.0`) and public at `/cookies`. It describes essential session cookies used to sign in. Visitors see a consent notice until they accept the current version; that acknowledgment is stored only in the browser. Registration still requires Terms and Privacy, not a separate cookie checkbox.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/cookie-policy/current` | Current version, dates, and body |
+
+**Rate limit:** 80 reads / minute / IP
 
 Rental payloads include `payments` (`uuid`, amount, currency, provider, status, method, paidAt, checkoutUrl). They never include `id` or `provider_transaction_id`.
 
@@ -289,9 +299,9 @@ Approve is allowed only after payment is `paid`. The customer receives an in-app
 
 ### Site maintenance
 
-Public `GET /api/maintenance` returns `{ enabled, title, message, images, products }` with public image URLs, product slugs, and `uuid` values — never storage paths or database ids. `products` is the three storefront kits (Starlink Mini, DJI Air 3, DJI Osmo 360). When `enabled` is true, visitors are sent to `/maintenance` and other public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, and payment webhook routes stay available.
+Public `GET /api/maintenance` returns `{ enabled, title, message, images, products }` with public image URLs, product slugs, and `uuid` values — never storage paths or database ids. `products` is the three storefront kits (Starlink Mini, DJI Air 3, DJI Osmo 360). `POST /api/maintenance/chat` accepts `{ messages: [{ role, content }] }` and returns `{ reply }`. The last message must be from the visitor. If they name a kit and a date or a number of days, the server quotes live availability and PHP totals through the same rental quote path as booking. Public storefront pages render a bottom-right chat-support widget; the maintenance page keeps an in-page chat. When `GROQ_API_KEY` is set, the server uses Groq's free Llama model; otherwise it answers from JRY business knowledge. Paid OpenAI models are not used. When `enabled` is true, visitors are sent to `/maintenance` and other public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, and payment webhook routes stay available.
 
-**Rate limit:** 20 setting writes / minute / admin; 40 image writes / minute / admin
+**Rate limit:** 20 setting writes / minute / admin; 40 image writes / minute / admin; 20 chat messages / minute / IP
 
 ### Expenses
 
@@ -351,7 +361,7 @@ Public, unauthenticated. These are Nitro routes, not `/api` handlers.
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/robots.txt` | Allows public catalog; disallows account, auth, admin, and `/api` paths. `Sitemap` uses `NUXT_PUBLIC_SITE_URL`. |
-| GET | `/sitemap.xml` | Home, `/products`, `/about`, `/privacy`, `/terms`. When Supabase is configured, also includes the first page of active product slugs. |
+| GET | `/sitemap.xml` | Home, `/products`, `/about`, `/privacy`, `/terms`, `/cookies`. When Supabase is configured, also includes the first page of active product slugs. |
 
 ## Planned endpoints
 

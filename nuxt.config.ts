@@ -72,6 +72,9 @@ export default defineNuxtConfig({
     paymentProviderKey: process.env.PAYMENT_PROVIDER_KEY || '',
     paymentWebhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || '',
     cronSecret: process.env.CRON_SECRET || process.env.NUXT_CRON_SECRET || '',
+    groqApiKey: process.env.GROQ_API_KEY || process.env.NUXT_GROQ_API_KEY || '',
+    groqBaseUrl: process.env.GROQ_BASE_URL || process.env.NUXT_GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
+    groqModel: process.env.GROQ_MODEL || process.env.NUXT_GROQ_MODEL || 'llama-3.1-8b-instant',
     public: {
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
       supabaseUrl: publicSupabaseUrl,
@@ -86,6 +89,7 @@ export default defineNuxtConfig({
     '/about': { swr: 3600 },
     '/privacy': { swr: 3600 },
     '/terms': { swr: 3600 },
+    '/cookies': { swr: 3600 },
     '/api/**': { headers: { 'cache-control': 'private, no-store' } },
     '/admin/**': { headers: { 'cache-control': 'private, no-store' } },
     '/dashboard': { headers: { 'cache-control': 'private, no-store' } },

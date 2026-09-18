@@ -160,6 +160,7 @@ async function copyValue(value: string, label: string) {
           {{ formatMoney(rental.totalAmount) }}
         </p>
         <p class="mt-2 text-sm text-stone-500">
+          The amount due is the down payment for this booking and is not refundable once booked.
           Deposit {{ formatMoney(rental.depositAmount) }} is a hold and is not charged in this step.
         </p>
         <p

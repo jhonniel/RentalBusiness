@@ -63,6 +63,10 @@ const siteMaintenance = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913300000_site_maintenance.sql'),
   'utf8',
 )
+const waiverDownPayment = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260913310000_waiver_v1_1_nonrefundable_downpayment.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -259,11 +263,21 @@ describe('privacy policy acknowledgments', () => {
   })
 })
 
+describe('waiver down payment refund', () => {
+  it('publishes JRY-WAIVER-v1.1 without rewriting accepted v1.0 copies', () => {
+    expect(waiverDownPayment).toContain('JRY-WAIVER-v1.1')
+    expect(waiverDownPayment).toContain('The down payment is not refundable once the Renter has booked the rental.')
+    expect(waiverDownPayment).toContain('Accepted JRY-WAIVER-v1.0 snapshots stay frozen')
+    expect(waiverDownPayment).toContain('on conflict (version) do nothing')
+  })
+})
+
 describe('development seed', () => {
   it('is marked development-only and seeds a local admin login', () => {
     expect(seed).toContain('Do not run against production')
     expect(seed).toContain('Starlink Mini')
-    expect(seed).toContain('JRY-WAIVER-v1.0')
+    expect(seed).toContain('JRY-WAIVER-v1.1')
+    expect(seed).toContain('The down payment is not refundable once a rental is booked.')
     expect(seed).toContain('admin@jryrentals.local')
     expect(seed).toContain('insert into auth.users')
     expect(seed).toContain('insert into public.profiles')

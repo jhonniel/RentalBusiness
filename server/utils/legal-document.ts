@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { AppError, ERROR_CODES } from './errors'
 
-export type LegalDocumentName = 'terms-jry-v1.txt' | 'privacy-jry-v1.txt'
+export type LegalDocumentName = 'terms-jry-v1.txt' | 'privacy-jry-v1.txt' | 'cookies-jry-v1.txt'
 
 function asText(value: unknown): string | null {
   if (typeof value === 'string' && value.trim()) {

@@ -19,3 +19,12 @@ export interface PublicMaintenanceStatus {
   images: PublicMaintenanceImage[]
   products: PublicMaintenanceProduct[]
 }
+
+export interface MaintenanceChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface MaintenanceChatResponse {
+  reply: string
+}

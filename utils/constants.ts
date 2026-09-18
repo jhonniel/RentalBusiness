@@ -12,6 +12,15 @@ export const BUSINESS_COUNTRY = 'PH'
 export const BUSINESS_ADDRESS = 'Davao City, Philippines'
 export const FACEBOOK_URL = 'https://www.facebook.com/jryrentals/'
 
+export const CURRENT_COOKIE_POLICY_VERSION = 'JRY-COOKIE-v1.0'
+export const CURRENT_COOKIE_POLICY_META = {
+  version: CURRENT_COOKIE_POLICY_VERSION,
+  title: 'Cookie Policy',
+  effectiveDate: '2026-09-18',
+  lastUpdated: '2026-09-18',
+} as const
+export const COOKIE_CONSENT_STORAGE_KEY = 'jry-cookie-consent'
+
 export const CURRENT_PHASE = 17
 
 export const USER_ROLES = ['admin', 'customer'] as const

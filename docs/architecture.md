@@ -51,7 +51,7 @@ Protected business operations follow:
 - Controllers stay thin and coordinate validation, auth, and responses.
 - Services own business rules (availability, pricing, rental transitions, waiver acceptance, payments, receipts, analytics, expenses, scheduled jobs, reports). A rental is created as `draft` only when those dates still have free stock after occupying rentals (`pending` and later). Moving it to `pending` requires a signed waiver and identity documents and is the step that occupies inventory. That submit also emails `contactmejry@gmail.com`. KPI math lives in `utils/analytics.ts`. Recurring dates live in `utils/expense.ts`. Cron due-date rules live in `utils/cron.ts`. Report totals and CSV live in `utils/report.ts`. Payment HMAC, cron secret matching, and email payload hashes live in `server/utils` so Node `crypto` never enters the browser bundle. Payment, receipt, and cron writes use the service-role client because customers cannot insert those rows.
 - Repositories own queries. They never expose internal primary keys in public payloads.
-- Vue components do not call Supabase service-role APIs or contain pricing/availability rules.
+- Vue components do not call Supabase service-role APIs or contain pricing/availability rules. The public chat asks the server; the chat service quotes through `quoteRental` and loads booked dates from the availability calendar so the assistant can say whether a date is booked or free.
 
 ## Runtime boundaries
 
@@ -79,7 +79,7 @@ Protected business operations follow:
 
 After sign-in, the app loads `profiles.role` from `GET /api/auth/me` and sends the account to its home: administrators open the operations console, customers open `/dashboard`. The header Account control uses the same home. Administrators who open `/dashboard` are redirected. Admin pages still use the `admin` middleware, which allows access only when the database role is `admin`. Do not trust a role value from the client.
 
-When an administrator enables maintenance, visitors are sent to `/maintenance` and public storefront APIs return 503. The maintenance page shows the message plus up to three catalog kit images. Admins can still sign in and use `/admin`. Auth, health, cron, and payment webhook routes stay available.
+When an administrator enables maintenance, visitors are sent to `/maintenance` and public storefront APIs return 503. Public storefront pages show a floating chat-support widget on the bottom-right edge. The maintenance page keeps an in-page chat. Admins can still sign in and use `/admin`. Auth, health, cron, and payment webhook routes stay available.
 
 ## Design system
 
@@ -91,7 +91,7 @@ When an administrator enables maintenance, visitors are sent to `/maintenance` a
 - Motion is short and disabled under `prefers-reduced-motion`
 - Public catalog listing uses short SWR (`/products`). Product detail pages are not cached so admin price and info updates show immediately. Admin and account routes send `cache-control: private, no-store`
 - Default Open Graph image is `/og.png`. Account, auth, and admin paths are `noindex, nofollow`
-- `/robots.txt` and `/sitemap.xml` list public URLs only (home, catalog, about, privacy, terms, and active product slugs when Supabase is connected)
+- `/robots.txt` and `/sitemap.xml` list public URLs only (home, catalog, about, privacy, terms, cookies, and active product slugs when Supabase is connected)
 - Public pages include Open Graph, Twitter, canonical, and JSON-LD (`LocalBusiness`, `WebSite`, `HowTo`, `CollectionPage`, `AboutPage`, product `Offer`)
 - Responses set `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and a restrictive CSP. Vercel also sends HSTS.
 

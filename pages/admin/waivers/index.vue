@@ -96,7 +96,7 @@ async function onSubmit() {
             <span class="mb-1.5 block text-stone-700">Version</span>
             <UInput
               v-model="form.version"
-              placeholder="JRY-WAIVER-v1.1"
+              placeholder="JRY-WAIVER-v1.2"
               :disabled="saving"
             />
           </label>
