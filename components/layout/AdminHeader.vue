@@ -11,7 +11,7 @@ const { profile, logout } = useAuth()
 </script>
 
 <template>
-  <header class="flex min-h-[4.25rem] items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 sm:px-6">
+  <header class="flex min-h-[4.25rem] items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 sm:px-6 lg:px-8">
     <div class="flex min-w-0 items-center gap-3">
       <UButton
         class="lg:hidden"

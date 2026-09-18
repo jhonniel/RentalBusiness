@@ -1,14 +1,16 @@
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { PublicMaintenanceImage, PublicMaintenanceStatus } from '../../types/maintenance'
+import type { PublicMaintenanceImage, PublicMaintenanceProduct, PublicMaintenanceStatus } from '../../types/maintenance'
 import type { MaintenanceInput } from '../../utils/maintenance-validation'
 import {
   DEFAULT_MAINTENANCE_MESSAGE,
   DEFAULT_MAINTENANCE_TITLE,
   MAINTENANCE_IMAGE_MAX_BYTES,
   MAINTENANCE_IMAGE_MAX_UPLOAD,
+  fallbackMaintenanceProducts,
   isMaintenanceImageType,
+  maintenanceProductsFromCatalog,
   toPublicMaintenanceImage,
   toPublicMaintenanceStatus,
 } from '../../utils/maintenance'
@@ -16,6 +18,7 @@ import { STORAGE_BUCKETS } from '../../utils/storage'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
 import { getSupabaseAdminClient, isSupabaseConfigured } from '../utils/supabase'
+import { getPublicProducts } from './catalog.service'
 import {
   deleteMaintenanceImage,
   findMaintenanceImageByUuid,
@@ -49,12 +52,26 @@ export function clearMaintenanceCache() {
   enabledCache = null
 }
 
+async function listMaintenanceProducts(client: Client): Promise<PublicMaintenanceProduct[]> {
+  try {
+    const catalog = await getPublicProducts(client, {
+      page: 1,
+      pageSize: 24,
+    })
+    return maintenanceProductsFromCatalog(catalog.items)
+  }
+  catch {
+    return fallbackMaintenanceProducts()
+  }
+}
+
 export async function getPublicMaintenance(client: Client): Promise<PublicMaintenanceStatus> {
-  const [row, images] = await Promise.all([
+  const [row, images, products] = await Promise.all([
     findSiteMaintenance(client),
     listMaintenanceImages(client),
+    listMaintenanceProducts(client),
   ])
-  return toPublicMaintenanceStatus(row, images, supabaseUrl())
+  return toPublicMaintenanceStatus(row, images, supabaseUrl(), products)
 }
 
 export async function getPublicMaintenanceSafe(client?: Client | null): Promise<PublicMaintenanceStatus> {

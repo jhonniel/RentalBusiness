@@ -81,7 +81,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl space-y-6">
+  <div class="w-full space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <UButton
@@ -108,11 +108,12 @@ async function onSubmit() {
     />
 
     <template v-else>
-      <form
-        class="rounded-xl border border-stone-200 bg-white p-5"
-        method="post"
-        @submit.prevent="onSubmit"
-      >
+      <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+        <form
+          class="rounded-xl border border-stone-200 bg-white p-5"
+          method="post"
+          @submit.prevent="onSubmit"
+        >
         <h3 class="text-sm font-medium text-stone-900">
           {{ editingUuid ? 'Edit category' : 'New category' }}
         </h3>
@@ -173,50 +174,53 @@ async function onSubmit() {
         </div>
       </form>
 
-      <div
-        v-if="pending && !categories"
-        class="space-y-3"
-      >
-        <USkeleton class="h-20 w-full" />
-        <USkeleton class="h-20 w-full" />
-      </div>
-
-      <AdminNotice
-        v-else-if="!categories?.length"
-        title="No categories yet"
-        description="Create a category before adding products."
-      />
-
-      <ul
-        v-else
-        class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
-      >
-        <li
-          v-for="category in categories"
-          :key="category.uuid"
-          class="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+      <div class="space-y-3">
+        <div
+          v-if="pending && !categories"
+          class="space-y-3"
         >
-          <div>
-            <p class="font-medium text-stone-900">
-              {{ category.name }}
-            </p>
-            <p class="text-sm text-stone-500">
-              {{ category.slug }} · sort {{ category.sortOrder }}
-            </p>
-          </div>
-          <div class="flex items-center gap-2">
-            <StatusBadge :status="category.isActive ? 'active' : 'hidden'" />
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="startEdit(category)"
-            >
-              Edit
-            </UButton>
-          </div>
-        </li>
-      </ul>
+          <USkeleton class="h-20 w-full" />
+          <USkeleton class="h-20 w-full" />
+        </div>
+
+        <AdminNotice
+          v-else-if="!categories?.length"
+          title="No categories yet"
+          description="Create a category before adding products."
+        />
+
+        <ul
+          v-else
+          class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
+        >
+          <li
+            v-for="category in categories"
+            :key="category.uuid"
+            class="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+          >
+            <div>
+              <p class="font-medium text-stone-900">
+                {{ category.name }}
+              </p>
+              <p class="text-sm text-stone-500">
+                {{ category.slug }} · sort {{ category.sortOrder }}
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <StatusBadge :status="category.isActive ? 'active' : 'hidden'" />
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="startEdit(category)"
+              >
+                Edit
+              </UButton>
+            </div>
+          </li>
+        </ul>
+      </div>
+      </div>
     </template>
   </div>
 </template>

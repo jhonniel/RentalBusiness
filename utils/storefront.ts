@@ -12,8 +12,15 @@ const CATEGORY_VISUALS: Record<string, string> = {
 const PRODUCT_VISUALS: Record<string, string> = {
   'starlink-mini': '/storefront/starlink.png?v=10',
   'dji-air-3': '/storefront/drone.png?v=10',
+  'dji-osmo-360': '/storefront/action-camera.png?v=11',
   'sony-a7-iv': '/storefront/action-camera.png?v=11',
 }
+
+export const STOREFRONT_KIT_PRODUCTS = [
+  { slug: 'starlink-mini', name: 'Starlink Mini', categorySlug: 'starlink' },
+  { slug: 'dji-air-3', name: 'DJI Air 3', categorySlug: 'drones' },
+  { slug: 'dji-osmo-360', name: 'DJI Osmo 360', categorySlug: 'cameras' },
+] as const
 
 const CATEGORY_BLURBS: Record<string, string> = {
   drones: 'Take your shots higher.',

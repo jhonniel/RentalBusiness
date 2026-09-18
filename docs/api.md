@@ -289,7 +289,7 @@ Approve is allowed only after payment is `paid`. The customer receives an in-app
 
 ### Site maintenance
 
-Public `GET /api/maintenance` returns `{ enabled, title, message, images }` with public image URLs and `uuid` values — never storage paths or database ids. When `enabled` is true, visitors are sent to `/maintenance` and other public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, and payment webhook routes stay available.
+Public `GET /api/maintenance` returns `{ enabled, title, message, images, products }` with public image URLs, product slugs, and `uuid` values — never storage paths or database ids. `products` is the three storefront kits (Starlink Mini, DJI Air 3, DJI Osmo 360). When `enabled` is true, visitors are sent to `/maintenance` and other public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, and payment webhook routes stay available.
 
 **Rate limit:** 20 setting writes / minute / admin; 40 image writes / minute / admin
 

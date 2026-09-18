@@ -36,7 +36,7 @@ function printPdf() {
       id="waiver-pdf-frame"
       :src="src"
       title="Waiver PDF"
-      class="h-[80vh] w-full rounded-xl border border-stone-200 bg-white"
+      class="h-[calc(100dvh-11rem)] min-h-[36rem] w-full rounded-xl border border-stone-200 bg-white"
     />
   </div>
 </template>

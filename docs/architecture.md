@@ -79,7 +79,7 @@ Protected business operations follow:
 
 After sign-in, the app loads `profiles.role` from `GET /api/auth/me` and sends the account to its home: administrators open the operations console, customers open `/dashboard`. The header Account control uses the same home. Administrators who open `/dashboard` are redirected. Admin pages still use the `admin` middleware, which allows access only when the database role is `admin`. Do not trust a role value from the client.
 
-When an administrator enables maintenance, visitors are sent to `/maintenance` and public storefront APIs return 503. Admins can still sign in and use `/admin`. Auth, health, cron, and payment webhook routes stay available.
+When an administrator enables maintenance, visitors are sent to `/maintenance` and public storefront APIs return 503. The maintenance page shows the message plus up to three catalog kit images. Admins can still sign in and use `/admin`. Auth, health, cron, and payment webhook routes stay available.
 
 ## Design system
 

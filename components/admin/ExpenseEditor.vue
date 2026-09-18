@@ -73,7 +73,7 @@ function onSubmit() {
       {{ error }}
     </p>
 
-    <div class="grid gap-4 sm:grid-cols-2">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <label class="block text-sm">
         <span class="text-stone-600">Name</span>
         <input
@@ -154,25 +154,27 @@ function onSubmit() {
       </label>
     </div>
 
-    <label class="block text-sm">
-      <span class="text-stone-600">Description</span>
-      <textarea
-        v-model="form.description"
-        class="mt-1 w-full rounded-md border border-stone-200 px-3 py-2"
-        rows="3"
-        :disabled="disabled"
-      />
-    </label>
+    <div class="grid gap-4 lg:grid-cols-2">
+      <label class="block text-sm">
+        <span class="text-stone-600">Description</span>
+        <textarea
+          v-model="form.description"
+          class="mt-1 w-full rounded-md border border-stone-200 px-3 py-2"
+          rows="3"
+          :disabled="disabled"
+        />
+      </label>
 
-    <label class="block text-sm">
-      <span class="text-stone-600">Notes</span>
-      <textarea
-        v-model="form.notes"
-        class="mt-1 w-full rounded-md border border-stone-200 px-3 py-2"
-        rows="2"
-        :disabled="disabled"
-      />
-    </label>
+      <label class="block text-sm">
+        <span class="text-stone-600">Notes</span>
+        <textarea
+          v-model="form.notes"
+          class="mt-1 w-full rounded-md border border-stone-200 px-3 py-2"
+          rows="3"
+          :disabled="disabled"
+        />
+      </label>
+    </div>
 
     <UButton
       type="submit"

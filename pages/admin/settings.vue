@@ -75,7 +75,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-6">
+  <div class="w-full space-y-6">
     <div>
       <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
         Operations
@@ -103,84 +103,86 @@ async function onSubmit() {
 
     <form
       v-else
-      class="space-y-6"
+      class="grid gap-6 xl:grid-cols-2 xl:items-start"
       method="post"
       @submit.prevent="onSubmit"
     >
-      <AuthAlert
-        v-if="formError"
-        :description="formError"
-      />
+      <div class="space-y-6">
+        <AuthAlert
+          v-if="formError"
+          :description="formError"
+        />
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
-        <h3 class="text-sm font-medium text-stone-900">
-          Business profile
-        </h3>
-        <div class="mt-4 grid gap-4 sm:grid-cols-2">
-          <label class="block text-sm sm:col-span-2">
-            <span class="mb-1.5 block text-stone-700">Name</span>
-            <UInput
-              v-model="form.name"
-              :disabled="saving"
-            />
-            <span
-              v-if="errors.name"
-              class="mt-1 block text-xs text-red-700"
-            >{{ errors.name }}</span>
-          </label>
-          <label class="block text-sm">
-            <span class="mb-1.5 block text-stone-700">Email</span>
-            <UInput
-              v-model="form.email"
-              type="email"
-              :disabled="saving"
-            />
-            <span
-              v-if="errors.email"
-              class="mt-1 block text-xs text-red-700"
-            >{{ errors.email }}</span>
-          </label>
-          <label class="block text-sm">
-            <span class="mb-1.5 block text-stone-700">Phone</span>
-            <UInput
-              v-model="form.phone"
-              type="tel"
-              :disabled="saving"
-            />
-          </label>
-          <label class="block text-sm sm:col-span-2">
-            <span class="mb-1.5 block text-stone-700">Address</span>
-            <UInput
-              v-model="form.address"
-              :disabled="saving"
-            />
-          </label>
-        </div>
-      </section>
+        <section class="rounded-xl border border-stone-200 bg-white p-5">
+          <h3 class="text-sm font-medium text-stone-900">
+            Business profile
+          </h3>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <label class="block text-sm sm:col-span-2">
+              <span class="mb-1.5 block text-stone-700">Name</span>
+              <UInput
+                v-model="form.name"
+                :disabled="saving"
+              />
+              <span
+                v-if="errors.name"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.name }}</span>
+            </label>
+            <label class="block text-sm">
+              <span class="mb-1.5 block text-stone-700">Email</span>
+              <UInput
+                v-model="form.email"
+                type="email"
+                :disabled="saving"
+              />
+              <span
+                v-if="errors.email"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.email }}</span>
+            </label>
+            <label class="block text-sm">
+              <span class="mb-1.5 block text-stone-700">Phone</span>
+              <UInput
+                v-model="form.phone"
+                type="tel"
+                :disabled="saving"
+              />
+            </label>
+            <label class="block text-sm sm:col-span-2">
+              <span class="mb-1.5 block text-stone-700">Address</span>
+              <UInput
+                v-model="form.address"
+                :disabled="saving"
+              />
+            </label>
+          </div>
+        </section>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
-        <h3 class="text-sm font-medium text-stone-900">
-          Operating defaults
-        </h3>
-        <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt class="text-stone-500">
-              Currency
-            </dt>
-            <dd class="mt-1 text-stone-900">
-              {{ data?.currency || 'PHP' }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-stone-500">
-              Timezone
-            </dt>
-            <dd class="mt-1 text-stone-900">
-              {{ data?.timezone || 'Asia/Manila' }}
-            </dd>
-          </div>
-        </dl>
-      </section>
+        <section class="rounded-xl border border-stone-200 bg-white p-5">
+          <h3 class="text-sm font-medium text-stone-900">
+            Operating defaults
+          </h3>
+          <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt class="text-stone-500">
+                Currency
+              </dt>
+              <dd class="mt-1 text-stone-900">
+                {{ data?.currency || 'PHP' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-stone-500">
+                Timezone
+              </dt>
+              <dd class="mt-1 text-stone-900">
+                {{ data?.timezone || 'Asia/Manila' }}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      </div>
 
       <section class="rounded-xl border border-stone-200 bg-white p-5">
         <h3 class="text-sm font-medium text-stone-900">
@@ -217,12 +219,14 @@ async function onSubmit() {
         </div>
       </section>
 
-      <UButton
-        type="submit"
-        :loading="saving"
-      >
-        Save settings
-      </UButton>
+      <div class="xl:col-span-2">
+        <UButton
+          type="submit"
+          :loading="saving"
+        >
+          Save settings
+        </UButton>
+      </div>
     </form>
   </div>
 </template>

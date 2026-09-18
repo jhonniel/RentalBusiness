@@ -5,6 +5,8 @@ import {
   isMaintenanceBypassApiPath,
   isMaintenanceBypassPath,
   isMaintenanceImageType,
+  maintenanceProductsFromCatalog,
+  toPublicMaintenanceProduct,
   toPublicMaintenanceStatus,
 } from '../../utils/maintenance'
 import { maintenanceInputSchema } from '../../utils/maintenance-validation'
@@ -62,14 +64,60 @@ describe('maintenance mapping', () => {
     expect(payload.images[0]).not.toHaveProperty('id')
     expect(payload.images[0]).not.toHaveProperty('storagePath')
     expect(payload.images[0]?.url).toContain('/storage/v1/object/public/maintenance-images/notice.jpg')
+    expect(payload.products).toHaveLength(3)
+    expect(payload.products.map(product => product.slug)).toEqual([
+      'starlink-mini',
+      'dji-air-3',
+      'dji-osmo-360',
+    ])
   })
 
-  it('falls back to the default title and explanation', () => {
+  it('keeps the Osmo kit instead of a Sony catalog row', () => {
+    expect(maintenanceProductsFromCatalog([
+      {
+        slug: 'sony-a7-iv',
+        name: 'Sony A7 IV',
+        category: { slug: 'cameras' },
+        images: [{ url: 'https://cdn.example/sony.png' }],
+      },
+      {
+        slug: 'starlink-mini',
+        name: 'Starlink Mini',
+        category: { slug: 'starlink' },
+        images: [{ url: 'https://cdn.example/starlink.png' }],
+      },
+    ]).map(product => product.slug)).toEqual([
+      'starlink-mini',
+      'dji-air-3',
+      'dji-osmo-360',
+    ])
+  })
+
+  it('maps catalog kits without extra product fields', () => {
+    expect(toPublicMaintenanceProduct({
+      slug: 'dji-air-3',
+      name: 'DJI Air 3',
+      category: { slug: 'drones' },
+      images: [{ url: 'https://cdn.example/drone.png' }],
+    })).toEqual({
+      slug: 'dji-air-3',
+      name: 'DJI Air 3',
+      categorySlug: 'drones',
+      imageUrl: 'https://cdn.example/drone.png',
+    })
+  })
+
+  it('falls back to the default title, explanation, and kit images', () => {
     expect(toPublicMaintenanceStatus(null)).toMatchObject({
       enabled: false,
       title: DEFAULT_MAINTENANCE_TITLE,
       message: DEFAULT_MAINTENANCE_MESSAGE,
       images: [],
+      products: [
+        { slug: 'starlink-mini', name: 'Starlink Mini' },
+        { slug: 'dji-air-3', name: 'DJI Air 3' },
+        { slug: 'dji-osmo-360', name: 'DJI Osmo 360' },
+      ],
     })
   })
 })

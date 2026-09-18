@@ -133,7 +133,7 @@ async function removeQr(method: PublicPaymentMethod) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl space-y-6">
+  <div class="w-full space-y-6">
     <div>
       <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
         Finance
@@ -153,11 +153,12 @@ async function removeQr(method: PublicPaymentMethod) {
     />
 
     <template v-else>
-      <form
-        class="rounded-xl border border-stone-200 bg-white p-5"
-        method="post"
-        @submit.prevent="onSubmit"
-      >
+      <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+        <form
+          class="rounded-xl border border-stone-200 bg-white p-5"
+          method="post"
+          @submit.prevent="onSubmit"
+        >
         <h3 class="text-sm font-medium text-stone-900">
           {{ editingUuid ? 'Edit payment method' : 'New payment method' }}
         </h3>
@@ -251,29 +252,30 @@ async function removeQr(method: PublicPaymentMethod) {
         </div>
       </form>
 
-      <div
-        v-if="pending && !methods"
-        class="space-y-3"
-      >
-        <USkeleton class="h-24 w-full" />
-        <USkeleton class="h-24 w-full" />
-      </div>
-
-      <AdminNotice
-        v-else-if="!methods?.length"
-        title="No payment methods yet"
-        description="Add GCash, Maya, or a bank account so customers can scan a QR at checkout."
-      />
-
-      <ul
-        v-else
-        class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
-      >
-        <li
-          v-for="method in methods"
-          :key="method.uuid"
-          class="flex flex-wrap items-start gap-4 px-4 py-4"
+      <div class="space-y-3">
+        <div
+          v-if="pending && !methods"
+          class="space-y-3"
         >
+          <USkeleton class="h-24 w-full" />
+          <USkeleton class="h-24 w-full" />
+        </div>
+
+        <AdminNotice
+          v-else-if="!methods?.length"
+          title="No payment methods yet"
+          description="Add GCash, Maya, or a bank account so customers can scan a QR at checkout."
+        />
+
+        <ul
+          v-else
+          class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
+        >
+          <li
+            v-for="method in methods"
+            :key="method.uuid"
+            class="flex flex-wrap items-start gap-4 px-4 py-4"
+          >
           <div class="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-stone-200 bg-stone-50">
             <img
               v-if="method.qrUrl"
@@ -327,6 +329,8 @@ async function removeQr(method: PublicPaymentMethod) {
           </div>
         </li>
       </ul>
+      </div>
+      </div>
     </template>
   </div>
 </template>

@@ -20,7 +20,7 @@ async function onSaved(uuid: string) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl space-y-6">
+  <div class="w-full space-y-6">
     <div>
       <UButton
         to="/admin/products"

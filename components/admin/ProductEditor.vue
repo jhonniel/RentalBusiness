@@ -339,7 +339,7 @@ async function onSubmit() {
       <p class="mt-1 text-sm text-stone-500">
         These fields are what customers see under About this kit, Specifications, Included accessories, and Rental rules.
       </p>
-      <div class="mt-4 grid gap-4">
+      <div class="mt-4 grid gap-4 lg:grid-cols-2">
         <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">About this kit</span>
           <UTextarea

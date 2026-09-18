@@ -35,7 +35,7 @@ watch(search, () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-6">
+  <div class="w-full space-y-6">
     <div>
       <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
         Operations
@@ -49,12 +49,13 @@ watch(search, () => {
     </div>
 
     <form
+      class="rounded-xl border border-stone-200 bg-white p-4"
       method="get"
       @submit.prevent
     >
       <input
         v-model="searchInput"
-        class="w-full max-w-sm rounded-md border border-stone-200 px-3 py-2 text-sm"
+        class="w-full rounded-md border border-stone-200 px-3 py-2 text-sm lg:max-w-md"
         placeholder="Search name"
       >
     </form>
@@ -86,7 +87,7 @@ watch(search, () => {
       <li
         v-for="customer in data.items"
         :key="customer.uuid"
-        class="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+        class="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
       >
         <div class="min-w-0">
           <p class="font-medium text-stone-900">

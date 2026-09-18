@@ -66,7 +66,7 @@ async function approve() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-6">
+  <div class="w-full space-y-6">
     <UButton
       to="/admin/rentals"
       color="neutral"
@@ -83,65 +83,88 @@ async function approve() {
     />
 
     <template v-else-if="rental">
-      <div>
-        <p class="text-xs uppercase tracking-wider text-lumen-700">
-          {{ rental.code }}
-        </p>
-        <h2 class="mt-2 text-2xl font-medium text-stone-900">
-          Rental request
-        </h2>
-        <div class="mt-3">
-          <StatusBadge :status="rental.status" />
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-wider text-lumen-700">
+            {{ rental.code }}
+          </p>
+          <h2 class="mt-2 text-2xl font-medium text-stone-900">
+            Rental request
+          </h2>
+          <div class="mt-3">
+            <StatusBadge :status="rental.status" />
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UButton
+            v-if="canApprove"
+            :loading="approving"
+            @click="approve"
+          >
+            Approve
+          </UButton>
+          <UButton
+            v-if="rental.receipts[0]"
+            :to="`/receipts/${rental.receipts[0].receiptNumber}`"
+            color="neutral"
+            variant="outline"
+          >
+            Receipt
+          </UButton>
         </div>
       </div>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
-        <h3 class="font-medium text-stone-900">
-          Customer
-        </h3>
-        <p class="mt-2 text-stone-600">
-          {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Unknown customer' }}
-        </p>
-        <p
-          v-if="rental.customer?.phone"
-          class="text-stone-500"
-        >
-          {{ rental.customer.phone }}
-        </p>
-      </section>
+      <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+        <div class="space-y-6">
+          <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
+            <h3 class="font-medium text-stone-900">
+              Customer
+            </h3>
+            <p class="mt-2 text-stone-600">
+              {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Unknown customer' }}
+            </p>
+            <p
+              v-if="rental.customer?.phone"
+              class="text-stone-500"
+            >
+              {{ rental.customer.phone }}
+            </p>
+          </section>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
-        <h3 class="font-medium text-stone-900">
-          Schedule
-        </h3>
-        <p class="mt-2 text-stone-600">
-          {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
-        </p>
-      </section>
+          <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
+            <h3 class="font-medium text-stone-900">
+              Schedule
+            </h3>
+            <p class="mt-2 text-stone-600">
+              {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
+            </p>
+          </section>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
-        <h3 class="text-sm font-medium text-stone-900">
-          Equipment
-        </h3>
-        <ul class="mt-3 divide-y divide-stone-100">
-          <li
-            v-for="item in rental.items"
-            :key="item.uuid"
-            class="flex justify-between gap-4 py-3 text-sm"
-          >
-            <span>{{ item.product.name }} × {{ item.quantity }}</span>
-            <span>{{ formatMoney(item.lineTotal) }}</span>
-          </li>
-        </ul>
-        <p class="mt-3 text-sm font-medium">
-          Total {{ formatMoney(rental.totalAmount) }}
-        </p>
-      </section>
+          <section class="rounded-xl border border-stone-200 bg-white p-5">
+            <h3 class="text-sm font-medium text-stone-900">
+              Equipment
+            </h3>
+            <ul class="mt-3 divide-y divide-stone-100">
+              <li
+                v-for="item in rental.items"
+                :key="item.uuid"
+                class="flex justify-between gap-4 py-3 text-sm"
+              >
+                <span>{{ item.product.name }} × {{ item.quantity }}</span>
+                <span>{{ formatMoney(item.lineTotal) }}</span>
+              </li>
+            </ul>
+            <p class="mt-3 text-sm font-medium">
+              Total {{ formatMoney(rental.totalAmount) }}
+            </p>
+          </section>
+        </div>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
-        <h3 class="font-medium text-stone-900">
-          Rental agreement
-        </h3>
+        <div class="space-y-6">
+          <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
+            <h3 class="font-medium text-stone-900">
+              Rental agreement
+            </h3>
         <template v-if="rental.waiver">
           <dl class="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
@@ -271,23 +294,7 @@ async function approve() {
           No government ID or selfie has been submitted yet.
         </p>
       </section>
-
-      <div class="flex flex-wrap gap-2">
-        <UButton
-          v-if="canApprove"
-          :loading="approving"
-          @click="approve"
-        >
-          Approve
-        </UButton>
-        <UButton
-          v-if="rental.receipts[0]"
-          :to="`/receipts/${rental.receipts[0].receiptNumber}`"
-          color="neutral"
-          variant="outline"
-        >
-          Receipt
-        </UButton>
+        </div>
       </div>
     </template>
   </div>

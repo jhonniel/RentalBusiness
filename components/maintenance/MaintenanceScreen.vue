@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import type { PublicMaintenanceImage } from '~/types/maintenance'
+import type { PublicMaintenanceImage, PublicMaintenanceProduct } from '~/types/maintenance'
 import { APP_NAME, BUSINESS_EMAIL } from '~/utils/constants'
+import { resolvedProductImage } from '~/utils/storefront'
 
 defineProps<{
   title: string
   message: string
   images: PublicMaintenanceImage[]
+  products: PublicMaintenanceProduct[]
 }>()
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-4 py-8 sm:px-6 sm:py-12">
+  <div class="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-8 sm:px-6 sm:py-12">
     <div class="flex justify-center">
       <AppLogo />
     </div>
@@ -25,6 +27,26 @@ defineProps<{
       <p class="mt-5 max-w-2xl whitespace-pre-line text-base leading-7 text-[#3b4a44] sm:text-lg">
         {{ message }}
       </p>
+
+      <div
+        v-if="products.length"
+        class="mt-12 grid w-full grid-cols-3 items-end gap-3 sm:gap-8"
+      >
+        <figure
+          v-for="product in products"
+          :key="product.slug"
+          class="min-w-0"
+        >
+          <img
+            :src="resolvedProductImage(product.slug, product.categorySlug, product.imageUrl)"
+            :alt="product.name"
+            class="mx-auto max-h-40 w-full object-contain sm:max-h-56 lg:max-h-64"
+          >
+          <figcaption class="mt-3 text-xs font-medium text-[#12201a] sm:text-sm">
+            {{ product.name }}
+          </figcaption>
+        </figure>
+      </div>
 
       <div
         v-if="images.length"

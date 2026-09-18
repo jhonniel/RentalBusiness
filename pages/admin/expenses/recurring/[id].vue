@@ -102,7 +102,7 @@ async function onPost() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-6">
+  <div class="w-full space-y-6">
     <UButton
       to="/admin/expenses/recurring"
       color="neutral"

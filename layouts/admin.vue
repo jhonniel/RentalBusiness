@@ -29,7 +29,7 @@ watch(() => route.fullPath, () => {
         />
         <p
           v-if="maintenance?.enabled"
-          class="border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 sm:px-6"
+          class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-950 sm:px-6 lg:px-8"
         >
           The public website is in maintenance.
           <NuxtLink
@@ -39,7 +39,7 @@ watch(() => route.fullPath, () => {
         </p>
         <main
           id="main-content"
-          class="min-w-0 flex-1 px-3 py-5 sm:px-6 sm:py-6"
+          class="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
         >
           <slot />
         </main>

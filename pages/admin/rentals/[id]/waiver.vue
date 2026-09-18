@@ -50,7 +50,7 @@ useSiteMeta({
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl space-y-6">
+  <div class="w-full space-y-6">
     <UButton
       :to="`/admin/rentals/${identifier}`"
       color="neutral"
@@ -79,7 +79,7 @@ useSiteMeta({
     />
     <USkeleton
       v-else-if="pending"
-      class="h-[80vh] w-full"
+      class="h-[calc(100dvh-11rem)] min-h-[36rem] w-full"
     />
     <AdminWaiverPdfViewer
       v-else-if="pdfUrl"

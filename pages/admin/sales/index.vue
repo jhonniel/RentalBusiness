@@ -40,7 +40,7 @@ const csvHref = computed(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-6">
+  <div class="w-full space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">

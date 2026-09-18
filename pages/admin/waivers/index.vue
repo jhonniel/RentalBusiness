@@ -57,7 +57,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl space-y-6">
+  <div class="w-full space-y-6">
     <div>
       <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
         Legal
@@ -77,11 +77,12 @@ async function onSubmit() {
     />
 
     <template v-else>
-      <form
-        class="rounded-xl border border-stone-200 bg-white p-5"
-        method="post"
-        @submit.prevent="onSubmit"
-      >
+      <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+        <form
+          class="rounded-xl border border-stone-200 bg-white p-5"
+          method="post"
+          @submit.prevent="onSubmit"
+        >
         <h3 class="text-sm font-medium text-stone-900">
           Publish new version
         </h3>
@@ -125,55 +126,58 @@ async function onSubmit() {
         </div>
       </form>
 
-      <div
-        v-if="pending && !versions"
-        class="space-y-3"
-      >
-        <USkeleton class="h-24 w-full" />
-        <USkeleton class="h-24 w-full" />
-      </div>
-
-      <AdminNotice
-        v-else-if="!versions?.length"
-        title="No waiver versions"
-        description="Publish the first current waiver before customers can sign."
-      />
-
-      <ul
-        v-else
-        class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
-      >
-        <li
-          v-for="item in versions"
-          :key="item.uuid"
-          class="px-4 py-4"
+      <div class="space-y-3">
+        <div
+          v-if="pending && !versions"
+          class="space-y-3"
         >
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p class="font-medium text-stone-900">
-                {{ item.title }}
-              </p>
-              <p class="text-sm text-stone-500">
-                Version {{ item.version }}
-              </p>
+          <USkeleton class="h-24 w-full" />
+          <USkeleton class="h-24 w-full" />
+        </div>
+
+        <AdminNotice
+          v-else-if="!versions?.length"
+          title="No waiver versions"
+          description="Publish the first current waiver before customers can sign."
+        />
+
+        <ul
+          v-else
+          class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
+        >
+          <li
+            v-for="item in versions"
+            :key="item.uuid"
+            class="px-4 py-4"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="font-medium text-stone-900">
+                  {{ item.title }}
+                </p>
+                <p class="text-sm text-stone-500">
+                  Version {{ item.version }}
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <StatusBadge :status="item.isCurrent ? 'active' : 'archived'" />
+                <UButton
+                  :to="`/admin/waivers/${item.uuid}`"
+                  color="neutral"
+                  variant="outline"
+                  size="xs"
+                >
+                  View PDF
+                </UButton>
+              </div>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <StatusBadge :status="item.isCurrent ? 'active' : 'archived'" />
-              <UButton
-                :to="`/admin/waivers/${item.uuid}`"
-                color="neutral"
-                variant="outline"
-                size="xs"
-              >
-                View PDF
-              </UButton>
-            </div>
-          </div>
-          <p class="mt-3 line-clamp-3 whitespace-pre-wrap text-sm text-stone-600">
-            {{ item.body }}
-          </p>
-        </li>
-      </ul>
+            <p class="mt-3 line-clamp-3 whitespace-pre-wrap text-sm text-stone-600">
+              {{ item.body }}
+            </p>
+          </li>
+        </ul>
+      </div>
+      </div>
     </template>
   </div>
 </template>

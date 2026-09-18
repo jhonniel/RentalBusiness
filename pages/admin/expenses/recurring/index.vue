@@ -42,7 +42,7 @@ watch([search, category, status], () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-6">
+  <div class="w-full space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
@@ -141,7 +141,7 @@ watch([search, category, status], () => {
       >
         <NuxtLink
           :to="`/admin/expenses/recurring/${item.uuid}`"
-          class="flex flex-col gap-3 px-4 py-4 hover:bg-stone-50 sm:flex-row sm:items-center sm:justify-between"
+          class="grid gap-3 px-4 py-4 hover:bg-stone-50 lg:grid-cols-[minmax(0,2fr)_auto_auto] lg:items-center"
         >
           <div class="min-w-0">
             <p class="font-medium text-stone-900">
@@ -153,10 +153,8 @@ watch([search, category, status], () => {
               · {{ item.occurrenceCount }} posted
             </p>
           </div>
-          <div class="flex items-center gap-3">
-            <span class="text-sm">{{ formatMoney(item.amount) }}</span>
-            <StatusBadge :status="item.status" />
-          </div>
+          <span class="text-sm">{{ formatMoney(item.amount) }}</span>
+          <StatusBadge :status="item.status" />
         </NuxtLink>
       </li>
     </ul>

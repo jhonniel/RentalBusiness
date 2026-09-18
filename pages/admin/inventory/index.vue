@@ -107,7 +107,7 @@ async function saveAsset() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-6">
+  <div class="w-full space-y-6">
     <div>
       <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
         Catalog

@@ -184,7 +184,7 @@ Site maintenance additions:
 
 - `site_maintenance` and `maintenance_images` are forced RLS; anon and authenticated may select, only admins write
 - Maintenance image uploads require `requireAdmin` plus a 40/min rate limit
-- Public `GET /api/maintenance` never returns storage paths
+- Public `GET /api/maintenance` never returns storage paths. It may include up to three catalog kits by public slug.
 - When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, and payment webhook routes stay open
 - Administrators can still sign in and use `/admin` to turn the page off
 

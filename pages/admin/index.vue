@@ -37,7 +37,7 @@ const cards = computed(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-8">
+  <div class="w-full space-y-8">
     <div>
       <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
         Operations
@@ -45,7 +45,7 @@ const cards = computed(() => {
       <h2 class="mt-2 text-2xl font-medium text-stone-900">
         Dashboard
       </h2>
-      <p class="mt-2 max-w-2xl text-sm text-stone-600">
+      <p class="mt-2 text-sm text-stone-600">
         Sales, rental load, and most-rented equipment. Totals are computed on the server in Asia/Manila.
       </p>
     </div>
@@ -66,7 +66,7 @@ const cards = computed(() => {
     <template v-else>
       <div
         v-if="remote.loading"
-        class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
         role="status"
         aria-busy="true"
       >
@@ -79,7 +79,7 @@ const cards = computed(() => {
 
       <div
         v-else
-        class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
       >
         <article
           v-for="card in cards"
@@ -95,7 +95,7 @@ const cards = computed(() => {
         </article>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <section class="rounded-xl border border-stone-200 bg-white p-5">
           <h3 class="text-sm font-medium text-stone-900">
             Sales · 14 days
@@ -148,39 +148,39 @@ const cards = computed(() => {
             No rentals yet.
           </p>
         </section>
-      </div>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
-        <h3 class="text-sm font-medium text-stone-900">
-          Most-rented products
-        </h3>
-        <ul
-          v-if="data?.topProducts.length"
-          class="mt-4 divide-y divide-stone-100"
-        >
-          <li
-            v-for="product in data.topProducts"
-            :key="product.uuid"
-            class="flex items-center justify-between gap-3 py-3 text-sm"
+        <section class="rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2 xl:col-span-1">
+          <h3 class="text-sm font-medium text-stone-900">
+            Most-rented products
+          </h3>
+          <ul
+            v-if="data?.topProducts.length"
+            class="mt-4 divide-y divide-stone-100"
           >
-            <div class="min-w-0">
-              <p class="font-medium break-words text-stone-900">
-                {{ product.name }}
-              </p>
-              <p class="text-stone-500">
-                {{ product.sku }}
-              </p>
-            </div>
-            <p>{{ product.quantity }} rented</p>
-          </li>
-        </ul>
-        <p
-          v-else
-          class="mt-4 text-sm text-stone-500"
-        >
-          Product demand will appear after rentals are created.
-        </p>
-      </section>
+            <li
+              v-for="product in data.topProducts"
+              :key="product.uuid"
+              class="flex items-center justify-between gap-3 py-3 text-sm"
+            >
+              <div class="min-w-0">
+                <p class="font-medium break-words text-stone-900">
+                  {{ product.name }}
+                </p>
+                <p class="text-stone-500">
+                  {{ product.sku }}
+                </p>
+              </div>
+              <p>{{ product.quantity }} rented</p>
+            </li>
+          </ul>
+          <p
+            v-else
+            class="mt-4 text-sm text-stone-500"
+          >
+            Product demand will appear after rentals are created.
+          </p>
+        </section>
+      </div>
     </template>
   </div>
 </template>

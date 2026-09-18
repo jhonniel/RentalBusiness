@@ -141,7 +141,10 @@ async function removeImage(image: PublicMaintenanceImage) {
       class="h-64 w-full"
     />
 
-    <template v-else>
+    <div
+      v-else
+      class="grid gap-6 xl:grid-cols-2 xl:items-start"
+    >
       <form
         class="space-y-6"
         method="post"
@@ -242,7 +245,7 @@ async function removeImage(image: PublicMaintenanceImage) {
         />
 
         <form
-          class="mt-4 grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-[1fr_1fr_auto]"
+          class="mt-4 grid gap-3 sm:grid-cols-2 sm:items-end"
           method="post"
           @submit.prevent="uploadImages"
         >
@@ -267,6 +270,7 @@ async function removeImage(image: PublicMaintenanceImage) {
           </label>
           <UButton
             type="submit"
+            class="sm:col-span-2"
             :loading="imagePending"
           >
             Upload
@@ -275,7 +279,7 @@ async function removeImage(image: PublicMaintenanceImage) {
 
         <div
           v-if="data?.images.length"
-          class="mt-4 grid gap-3 sm:grid-cols-3"
+          class="mt-4 grid gap-3 sm:grid-cols-2"
         >
           <figure
             v-for="image in data.images"
@@ -301,6 +305,6 @@ async function removeImage(image: PublicMaintenanceImage) {
           </figure>
         </div>
       </section>
-    </template>
+    </div>
   </div>
 </template>

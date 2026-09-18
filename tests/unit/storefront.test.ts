@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  STOREFRONT_KIT_PRODUCTS,
   categoryBlurb,
   categoryVisual,
   preferredCategories,
@@ -10,6 +11,7 @@ import {
 
 describe('storefront visuals', () => {
   it('maps known categories and products to local images', () => {
+    expect(STOREFRONT_KIT_PRODUCTS).toHaveLength(3)
     expect(categoryVisual('drones')).toBe('/storefront/drone.png?v=10')
     expect(productVisual('starlink-mini')).toBe('/storefront/starlink.png?v=10')
     expect(productVisual('unknown', 'lenses')).toBe('/storefront/lens.jpg')

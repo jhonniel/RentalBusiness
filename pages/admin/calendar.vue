@@ -44,7 +44,7 @@ function dayNumber(date: string) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-6">
+  <div class="w-full space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
@@ -79,7 +79,7 @@ function dayNumber(date: string) {
     </div>
 
     <form
-      class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:max-w-xs"
+      class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:max-w-sm"
       method="get"
       @submit.prevent
     >

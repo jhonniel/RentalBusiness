@@ -40,7 +40,7 @@ watch([search, status], () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-6">
+  <div class="w-full space-y-6">
     <div>
       <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
         Operations
@@ -110,7 +110,7 @@ watch([search, status], () => {
       >
         <NuxtLink
           :to="`/admin/rentals/${rental.code}`"
-          class="flex flex-col gap-3 px-4 py-4 hover:bg-stone-50 sm:flex-row sm:items-center sm:justify-between"
+          class="grid gap-3 px-4 py-4 hover:bg-stone-50 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)_auto_auto] lg:items-center"
         >
           <div class="min-w-0">
             <p class="font-medium text-stone-900">
@@ -120,14 +120,12 @@ watch([search, status], () => {
               {{ rental.code }}
               · {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Customer' }}
             </p>
-            <p class="mt-1 text-sm text-stone-500">
-              {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
-            </p>
           </div>
-          <div class="flex shrink-0 items-center gap-3">
-            <span class="text-sm">{{ formatMoney(rental.totalAmount) }}</span>
-            <StatusBadge :status="rental.status" />
-          </div>
+          <p class="text-sm text-stone-500">
+            {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
+          </p>
+          <span class="text-sm">{{ formatMoney(rental.totalAmount) }}</span>
+          <StatusBadge :status="rental.status" />
         </NuxtLink>
       </li>
     </ul>
