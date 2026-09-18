@@ -15,6 +15,7 @@ export default defineEventHandler((event) => {
     'Disallow: /rentals',
     'Disallow: /receipts',
     'Disallow: /payments',
+    'Disallow: /maintenance',
     'Disallow: /confirm',
     'Disallow: /accept-policies',
     'Disallow: /reset-password',

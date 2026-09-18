@@ -1,5 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { dirname, resolve as resolvePath } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { supabaseModuleKey, supabaseModuleUrl } from './utils/supabase-config'
+
+const rootDir = dirname(fileURLToPath(import.meta.url))
 
 const publicSupabaseUrl = process.env.NUXT_PUBLIC_SUPABASE_URL || ''
 const publicSupabaseKey = process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY
@@ -91,6 +95,7 @@ export default defineNuxtConfig({
     '/rentals/**': { headers: { 'cache-control': 'private, no-store' } },
     '/receipts/**': { headers: { 'cache-control': 'private, no-store' } },
     '/payments/**': { headers: { 'cache-control': 'private, no-store' } },
+    '/maintenance': { headers: { 'cache-control': 'private, no-store' } },
     '/confirm': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
     '/accept-policies': { headers: { 'cache-control': 'private, no-store' } },
     '/reset-password': { ssr: false },
@@ -106,7 +111,7 @@ export default defineNuxtConfig({
     serverAssets: [
       {
         baseName: 'legal',
-        dir: 'supabase',
+        dir: resolvePath(rootDir, 'supabase'),
         pattern: '*-jry-v1.txt',
       },
     ],

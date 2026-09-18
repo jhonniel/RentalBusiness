@@ -55,6 +55,16 @@ const { isAuthenticated } = useAuth()
               About
             </NuxtLink>
           </li>
+          <li>
+            <NuxtLink to="/terms" class="hover:text-white">
+              Terms & Conditions
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink to="/privacy" class="hover:text-white">
+              Privacy Policy
+            </NuxtLink>
+          </li>
         </ul>
       </div>
 

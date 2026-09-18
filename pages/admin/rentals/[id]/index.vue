@@ -201,6 +201,15 @@ async function approve() {
               {{ waiverSnapshot }}
             </p>
           </details>
+          <div class="mt-4">
+            <UButton
+              :to="`/admin/rentals/${rental.uuid}/waiver`"
+              color="neutral"
+              variant="outline"
+            >
+              View PDF
+            </UButton>
+          </div>
         </template>
         <p
           v-else

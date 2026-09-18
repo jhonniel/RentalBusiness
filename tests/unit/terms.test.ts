@@ -15,4 +15,11 @@ describe('terms and conditions', () => {
     expect(source).not.toContain('[INSERT YOUR ACTUAL POLICY HERE]')
     expect(source).not.toContain('Do not publish the example values')
   })
+
+  it('bundles the Terms file from the project supabase folder', () => {
+    const config = readFileSync(resolve(process.cwd(), 'nuxt.config.ts'), 'utf8')
+    expect(config).toContain('resolvePath(rootDir, \'supabase\')')
+    expect(config).toContain('baseName: \'legal\'')
+    expect(config).toContain('*-jry-v1.txt')
+  })
 })

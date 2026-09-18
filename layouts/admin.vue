@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import type { PublicMaintenanceStatus } from '~/types/maintenance'
+
 const route = useRoute()
 const mobileOpen = ref(false)
+const { data: maintenance } = await useFetch<PublicMaintenanceStatus>('/api/maintenance', {
+  key: 'site-maintenance',
+})
 
 watch(() => route.fullPath, () => {
   mobileOpen.value = false
@@ -22,6 +27,16 @@ watch(() => route.fullPath, () => {
           title="Operations"
           @open-menu="mobileOpen = true"
         />
+        <p
+          v-if="maintenance?.enabled"
+          class="border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 sm:px-6"
+        >
+          The public website is in maintenance.
+          <NuxtLink
+            to="/admin/maintenance"
+            class="font-medium underline underline-offset-2"
+          >Edit message</NuxtLink>
+        </p>
         <main
           id="main-content"
           class="min-w-0 flex-1 px-3 py-5 sm:px-6 sm:py-6"

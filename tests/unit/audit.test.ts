@@ -32,6 +32,9 @@ describe('audit logs', () => {
   it('links known entities and accepts list filters', () => {
     expect(auditTargetHref('rental_requests', 'LUM-20260913-00001')).toBe('/admin/rentals/LUM-20260913-00001')
     expect(auditTargetHref('business_profiles', 'business')).toBe('/admin/settings')
+    expect(auditTargetHref('site_maintenance', '11111111-1111-1111-1111-111111111111')).toBe('/admin/maintenance')
+    expect(auditTargetHref('maintenance_images', '22222222-2222-4222-8222-222222222222')).toBe('/admin/maintenance')
+    expect(auditTargetHref('waiver_versions', '88888888-8888-4888-8888-888888888888')).toBe('/admin/waivers')
     expect(auditTargetHref('reports', 'sales')).toBeNull()
     expect(adminAuditListQuerySchema.parse({ page: '2', entity: 'products' })).toMatchObject({
       page: 2,

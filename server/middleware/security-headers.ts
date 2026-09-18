@@ -27,6 +27,7 @@ const PRIVATE_PREFIXES = [
   '/rentals/',
   '/receipts/',
   '/payments/',
+  '/maintenance',
 ]
 
 export default defineEventHandler((event) => {

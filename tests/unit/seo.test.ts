@@ -12,7 +12,9 @@ describe('site robots', () => {
   it('marks account and admin paths as noindex', () => {
     expect(isPrivatePath('/admin/reports')).toBe(true)
     expect(isPrivatePath('/dashboard')).toBe(true)
+    expect(isPrivatePath('/maintenance')).toBe(true)
     expect(siteRobots('/login')).toBe('noindex, nofollow')
+    expect(siteRobots('/maintenance')).toBe('noindex, nofollow')
     expect(siteRobots('/accept-policies')).toBe('noindex, nofollow')
     expect(siteRobots('/products')).toBe('index, follow')
     expect(siteRobots('/')).toBe('index, follow')

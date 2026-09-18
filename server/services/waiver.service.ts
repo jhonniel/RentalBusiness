@@ -4,7 +4,7 @@ import type { Database } from '../../types/database.types'
 import type { AcceptWaiverInput, PublishWaiverInput } from '../../utils/waiver-validation'
 import { CURRENT_PRIVACY_POLICY_VERSION } from '../../utils/privacy-policy'
 import { CURRENT_TERMS_VERSION } from '../../utils/terms'
-import { toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
+import { renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
 import { stampPrivacyAcknowledgment, stampTermsAcceptance } from '../repositories/profile.repository'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
@@ -12,6 +12,7 @@ import { findRentalIdentity } from '../repositories/rental.repository'
 import {
   findCurrentWaiverVersion,
   findWaiverAcceptanceByRentalId,
+  findWaiverAcceptanceByUuid,
   findWaiverVersionByUuid,
   insertWaiverAcceptance,
   insertWaiverVersion,
@@ -20,6 +21,8 @@ import {
   unsetCurrentWaiverVersions,
 } from '../repositories/waiver.repository'
 import { getOwnRental } from './rental.service'
+import { getAdminRental } from './admin-rental.service'
+import { buildWaiverPdf, waiverPdfFilename } from '../utils/waiver-pdf'
 
 type Client = SupabaseClient<Database>
 
@@ -153,4 +156,77 @@ export async function publishWaiverVersion(event: H3Event, client: Client, input
     }
     throw error
   }
+}
+
+export async function sendAdminRentalWaiverPdf(
+  event: H3Event,
+  client: Client,
+  identifier: string,
+  download: boolean,
+) {
+  const rental = await getAdminRental(client, identifier)
+  if (!rental.waiver) {
+    throw new AppError('No waiver has been accepted on this rental yet.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const acceptance = await findWaiverAcceptanceByUuid(client, rental.waiver.uuid)
+  const filename = waiverPdfFilename(['JRY-waiver', rental.code, rental.waiver.version.version])
+  const pdf = await buildWaiverPdf({
+    title: rental.waiver.version.title,
+    version: rental.waiver.version.version,
+    body: renderWaiverBody(rental.waiver.version.body, rental.items),
+    filename,
+    rentalCode: rental.code,
+    startsOn: rental.startsOn,
+    endsOn: rental.endsOn,
+    signerName: rental.waiver.signerName,
+    signerEmail: rental.waiver.signerEmail,
+    signerPhone: rental.waiver.signerPhone,
+    acceptedAt: rental.waiver.acceptedAt,
+    privacyPolicyVersion: rental.waiver.privacyPolicyVersion,
+    termsVersion: rental.waiver.termsVersion,
+    signatureDataUrl: acceptance?.signature_data ?? null,
+  })
+
+  await recordAudit(event, client, {
+    action: 'waiver.pdf.download',
+    entity: 'waiver_acceptances',
+    entityId: rental.waiver.uuid,
+    next: { rentalCode: rental.code, filename },
+  })
+
+  setHeader(event, 'content-type', 'application/pdf')
+  setHeader(event, 'content-disposition', `${download ? 'attachment' : 'inline'}; filename="${filename}"`)
+  return pdf
+}
+
+export async function sendAdminWaiverVersionPdf(
+  event: H3Event,
+  client: Client,
+  uuid: string,
+  download: boolean,
+) {
+  const version = await findWaiverVersionByUuid(client, uuid)
+  if (!version) {
+    throw new AppError('Waiver version not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const filename = waiverPdfFilename(['JRY-waiver', version.version])
+  const pdf = await buildWaiverPdf({
+    title: version.title,
+    version: version.version,
+    body: version.body,
+    filename,
+  })
+
+  await recordAudit(event, client, {
+    action: 'waiver.pdf.download',
+    entity: 'waiver_versions',
+    entityId: version.uuid,
+    next: { version: version.version, filename },
+  })
+
+  setHeader(event, 'content-type', 'application/pdf')
+  setHeader(event, 'content-disposition', `${download ? 'attachment' : 'inline'}; filename="${filename}"`)
+  return pdf
 }

@@ -88,6 +88,8 @@ async function onSubmit() {
       </p>
     </div>
 
+    <AdminMaintenanceEditor />
+
     <AdminNotice
       v-if="unavailable"
       title="Settings are not connected"

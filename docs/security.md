@@ -58,7 +58,7 @@ Phase 2 additions:
 - Customers cannot write `payment_transactions`, `receipts`, `expenses`, `email_logs`, or `audit_logs`
 - Accepted waiver versions cannot be updated or deleted
 - `expense_occurrences` is unique on `(recurring_expense_id, occurs_on)` for idempotent cron
-- Storage: public `product-images`, public `payment-qr-images`, private `private-documents` (path prefixed by `auth.uid()`)
+- Storage: public `product-images`, public `payment-qr-images`, public `maintenance-images`, private `private-documents` (path prefixed by `auth.uid()`)
 
 Phase 3 additions:
 
@@ -178,6 +178,16 @@ Phase 17 additions:
 - Identity upload requires a signed waiver on that rental
 - Waiver email and phone are copied from the server-loaded profile
 
+Admin waiver PDFs are generated on the server. They may include the stored signature image. They never include `ip_address`, `user_agent`, or `signature_data` in JSON APIs.
+
+Site maintenance additions:
+
+- `site_maintenance` and `maintenance_images` are forced RLS; anon and authenticated may select, only admins write
+- Maintenance image uploads require `requireAdmin` plus a 40/min rate limit
+- Public `GET /api/maintenance` never returns storage paths
+- When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, and payment webhook routes stay open
+- Administrators can still sign in and use `/admin` to turn the page off
+
 Phase 16 additions:
 
 - `payment_methods` is forced RLS; customers may select active rows only
@@ -222,7 +232,7 @@ Admins may access operations data through policies that check `profiles.role = '
 
 ## Storage
 
-Private buckets for waivers, receipts, and customer documents. Catalog photos and payment QR images are stored in public Supabase Storage buckets (`product-images`, `payment-qr-images`) on S3. Private files are served through signed URLs. Pages never write image bytes to the local disk.
+Private buckets for waivers, receipts, and customer documents. Catalog photos, payment QR images, and maintenance images are stored in public Supabase Storage buckets (`product-images`, `payment-qr-images`, `maintenance-images`) on S3. Private files are served through signed URLs. Pages never write image bytes to the local disk.
 
 ## Logging and audit
 
@@ -234,7 +244,7 @@ Private buckets for waivers, receipts, and customer documents. Catalog photos an
 ## Search engines
 
 - Public catalog pages allow indexing (`index, follow`)
-- Auth, account, receipt, payment, and admin paths set `noindex, nofollow`
+- Auth, account, receipt, payment, admin, and maintenance paths set `noindex, nofollow`
 - `/robots.txt` disallows the same private prefixes
 - `/sitemap.xml` lists only public catalog and legal URLs and never includes `uuid` or database ids
 
@@ -252,7 +262,7 @@ Users see friendly messages. APIs return `{ message, code }` only. Stack traces 
 - [x] Cron secret verified with a timing-safe compare; query-string secrets are not read
 - [x] Rate limiting on auth profile/me, payments, catalog, rentals, identity uploads, waivers, privacy policy, terms, and notifications (in-memory / per isolate)
 - [x] Session cookies: `httpOnly`, `SameSite=Lax`, `Secure` in production
-- [x] Storage policies reviewed (`product-images` and `payment-qr-images` public read, `private-documents` owner/admin)
+- [x] Storage policies reviewed (`product-images`, `payment-qr-images`, and `maintenance-images` public read, `private-documents` owner/admin)
 - [x] Audit logging on admin mutations
 - [x] `npm audit` reviewed (`@nuxt/ui@3.3.7` reports GHSA-gj2h-2fpw-fhv9; do not use `UAuthForm`/`UForm` without an explicit POST method)
 - [x] Health readiness flags and production env warning; live Vercel/Supabase/Gmail SMTP values are still an operations step before go-live

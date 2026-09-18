@@ -4,11 +4,24 @@ import { AppError, ERROR_CODES } from './errors'
 
 export type LegalDocumentName = 'terms-jry-v1.txt' | 'privacy-jry-v1.txt'
 
+function asText(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+
+  if (Buffer.isBuffer(value) && value.byteLength) {
+    return value.toString('utf8').trim()
+  }
+
+  return null
+}
+
 export async function readLegalDocument(filename: LegalDocumentName): Promise<string> {
   const storage = useStorage('assets:legal')
-  const fromBundle = await storage.getItem<string>(filename)
-  if (typeof fromBundle === 'string' && fromBundle.trim()) {
-    return fromBundle.trim()
+  const bundled = asText(await storage.getItem(filename))
+    || asText(await storage.getItem(`legal/${filename}`))
+  if (bundled) {
+    return bundled
   }
 
   try {

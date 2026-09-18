@@ -49,6 +49,20 @@ export async function findWaiverVersionByUuid(client: Client, uuid: string) {
   return data
 }
 
+export async function findWaiverAcceptanceByUuid(client: Client, uuid: string) {
+  const { data, error } = await client
+    .from('waiver_acceptances')
+    .select(`${ACCEPTANCE_SELECT}, signature_data`)
+    .eq('uuid', uuid)
+    .maybeSingle()
+
+  if (error) {
+    throw new AppError('We could not load that waiver acceptance.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data
+}
+
 export async function findWaiverAcceptanceByRentalId(client: Client, rentalId: number) {
   const { data, error } = await client
     .from('waiver_acceptances')

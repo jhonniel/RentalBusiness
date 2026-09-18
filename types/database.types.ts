@@ -950,6 +950,51 @@ export interface Database {
         }
         Relationships: []
       }
+      site_maintenance: {
+        Row: {
+          id: number
+          uuid: string
+          is_enabled: boolean
+          title: string
+          message: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          uuid?: string
+          is_enabled?: boolean
+          title?: string
+          message?: string
+        }
+        Update: {
+          is_enabled?: boolean
+          title?: string
+          message?: string
+        }
+        Relationships: []
+      }
+      maintenance_images: {
+        Row: {
+          id: number
+          uuid: string
+          storage_path: string
+          alt: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          uuid?: string
+          storage_path: string
+          alt?: string
+          sort_order?: number
+        }
+        Update: {
+          storage_path?: string
+          alt?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {

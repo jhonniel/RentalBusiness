@@ -11,7 +11,7 @@ JRY Rentals is a production rental management and booking platform.
 | Frontend | Nuxt 3, Vue 3, TypeScript | SSR where useful, typed pages |
 | UI | Nuxt UI 3 + Tailwind CSS v4 | Lucide icons via Iconify. UI 4 requires Nuxt 4, so Phase 0 stays on UI 3. |
 | Utilities | VueUse, Zod | Client and server validation |
-| Backend data | Supabase (PostgreSQL, Auth, Storage, RLS) | Identity, catalog, rentals, finance, and platform tables are migrated. Admin catalog APIs write through repositories. Product photos, payment QR images, and other uploaded files live in Supabase Storage (S3). |
+| Backend data | Supabase (PostgreSQL, Auth, Storage, RLS) | Identity, catalog, rentals, finance, and platform tables are migrated. Admin catalog APIs write through repositories. Product photos, payment QR images, maintenance images, and other uploaded files live in Supabase Storage (S3). |
 | Server API | Nuxt server routes / Nitro | Secure operations, webhooks, cron |
 | Email | Gmail SMTP | Signup confirmation, receipt, and reminder templates. Signup confirmations are sent by the API, not by Supabase Auth. Sends are logged in `email_logs`. |
 | Payments | Provider-agnostic module (`server/services/payments`) plus admin QR methods | Sandbox adapter in Phase 8. Webhooks verify HMAC before any status change. Admins upload QR images in Phase 16. |
@@ -75,9 +75,11 @@ Protected business operations follow:
 | `default` | Public marketing and catalog |
 | `admin` | Operations console (desktop sidebar, mobile drawer) |
 | `auth` | Sign-in, register, password reset |
-| `blank` | Isolated flows such as print receipts |
+| `blank` | Isolated flows such as print receipts and the public maintenance page |
 
 After sign-in, the app loads `profiles.role` from `GET /api/auth/me` and sends the account to its home: administrators open the operations console, customers open `/dashboard`. The header Account control uses the same home. Administrators who open `/dashboard` are redirected. Admin pages still use the `admin` middleware, which allows access only when the database role is `admin`. Do not trust a role value from the client.
+
+When an administrator enables maintenance, visitors are sent to `/maintenance` and public storefront APIs return 503. Admins can still sign in and use `/admin`. Auth, health, cron, and payment webhook routes stay available.
 
 ## Design system
 

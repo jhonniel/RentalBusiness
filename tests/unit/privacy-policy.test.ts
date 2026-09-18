@@ -15,4 +15,10 @@ describe('privacy policy', () => {
     expect(source).toContain(CURRENT_PRIVACY_POLICY_VERSION)
     expect(source).toContain('promotional communications only if permitted')
   })
+
+  it('bundles the Privacy Policy file from the project supabase folder', () => {
+    const config = readFileSync(resolve(process.cwd(), 'nuxt.config.ts'), 'utf8')
+    expect(config).toContain('resolvePath(rootDir, \'supabase\')')
+    expect(config).toContain('*-jry-v1.txt')
+  })
 })

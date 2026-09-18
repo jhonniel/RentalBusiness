@@ -41,7 +41,7 @@ Booking rules (pricing, availability, payment status) live on the server. Pages 
 - Product archive, or permanent delete when there is no rental history
 - Customers, payments, sales ledger, expenses, and recurring expenses
 - Reports and CSV export (sales, expenses, profit, utilization)
-- Waiver versions, business settings, and append-only audit logs
+- Waiver versions with PDF view/download, business settings, site maintenance, and append-only audit logs
 - Scheduled jobs for recurring expenses, reminders, and overdue detection
 
 ## Requirements
@@ -92,7 +92,7 @@ In the Supabase SQL editor (or `psql`), run every file in `supabase/migrations/`
 
 Never run the seed against production. To create or repair only the admin account, use `supabase/seed-admin.sql` on a development project.
 
-Storage buckets for product photos, payment QR images, and private identity documents are created by the migrations.
+Storage buckets for product photos, payment QR images, maintenance images, and private identity documents are created by the migrations.
 
 ### 4. Auth redirects
 

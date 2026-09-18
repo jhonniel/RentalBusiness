@@ -8,7 +8,7 @@ Apply migrations in order, then seed only in development.
 2. `20260913180000_phase2_core_schema.sql` — catalog, rentals, finance, platform
 3. `20260913180001_phase2_rls.sql` — row level security
 4. `20260913180002_phase2_storage.sql` — storage buckets
-5. Later phase files through `20260913290000_phase17_rental_identity.sql` — availability, rental, waiver, payment, receipt, hardening, admin QR payment methods, availability calendar, privacy-policy acknowledgments, Terms & Conditions acknowledgments, Google OAuth profile names, existing-account policy versions, and rental identity documents
+5. Later phase files through `20260913300000_site_maintenance.sql` — availability, rental, waiver, payment, receipt, hardening, admin QR payment methods, availability calendar, privacy-policy acknowledgments, Terms & Conditions acknowledgments, Google OAuth profile names, existing-account policy versions, rental identity documents, and the public maintenance page
 
 Development seed (never production):
 

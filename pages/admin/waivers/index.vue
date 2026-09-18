@@ -157,7 +157,17 @@ async function onSubmit() {
                 Version {{ item.version }}
               </p>
             </div>
-            <StatusBadge :status="item.isCurrent ? 'active' : 'archived'" />
+            <div class="flex flex-wrap items-center gap-2">
+              <StatusBadge :status="item.isCurrent ? 'active' : 'archived'" />
+              <UButton
+                :to="`/admin/waivers/${item.uuid}`"
+                color="neutral"
+                variant="outline"
+                size="xs"
+              >
+                View PDF
+              </UButton>
+            </div>
           </div>
           <p class="mt-3 line-clamp-3 whitespace-pre-wrap text-sm text-stone-600">
             {{ item.body }}

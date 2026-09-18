@@ -71,5 +71,13 @@ export function auditTargetHref(entity: string, entityId: string) {
     return '/admin/settings'
   }
 
+  if (entity === 'site_maintenance' || entity === 'maintenance_images') {
+    return '/admin/maintenance'
+  }
+
+  if (entity === 'waiver_versions' || entity === 'waiver_acceptances') {
+    return '/admin/waivers'
+  }
+
   return null
 }

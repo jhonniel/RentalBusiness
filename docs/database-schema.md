@@ -1,6 +1,6 @@
 # Database schema
 
-**Status:** Phase 2 schema through Phase 17 rental identity proof live in `supabase/migrations/`, plus the availability calendar and privacy-policy acknowledgment columns. RLS, storage buckets, and the development seed are included.
+**Status:** Phase 2 schema through Phase 17 rental identity proof live in `supabase/migrations/`, plus the availability calendar, privacy-policy acknowledgment columns, and the site maintenance singleton. RLS, storage buckets, and the development seed are included.
 
 Public identifiers are `uuid` or `code`. Internal `bigint` primary keys are never returned from public APIs or placed in URLs.
 
@@ -219,6 +219,12 @@ Expense categories: `internet`, `electricity`, `maintenance`, `repairs`, `softwa
 - `timezone` default `Asia/Manila`
 - Late fees, deposit rules, cancellation rules, email settings
 
+**site_maintenance** / **maintenance_images**
+
+- Singleton `site_maintenance` row (`id = 1`) with `is_enabled`, `title`, and `message`
+- `maintenance_images.storage_path` in the public `maintenance-images` bucket
+- Public APIs return Storage URLs and `uuid` only
+
 ## Inventory quantities
 
 Product-level rollups (derived, not blindly trusted from the client):
@@ -250,6 +256,8 @@ Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental
 Phase 16: `payment_methods` stores admin QR payment options. Authenticated customers may select active rows. Writes are admin-only. QR files live in the public `payment-qr-images` bucket.
 
 Phase 17: `rental_identity_verifications` stores government ID and selfie-with-ID paths in `private-documents`. Customers write only their own open rentals. Public APIs never return storage paths.
+
+Site maintenance: `site_maintenance` is a singleton. `maintenance_images` are public objects in `maintenance-images`. Writes are admin-only. Public APIs never return storage paths.
 
 ## Seed data
 

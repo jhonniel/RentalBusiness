@@ -2,7 +2,7 @@
 
 All application APIs live under `/api`. Handlers validate input with Zod and authorize on the server. Public identifiers are `uuid` or `code`.
 
-**Current phase:** health through reports, public discovery, admin payment methods, rental identity proof, the operations calendar, sales ledger, business settings, audit logs, and production readiness flags.
+**Current phase:** health through reports, public discovery, admin payment methods, rental identity proof, the operations calendar, sales ledger, business settings, site maintenance, audit logs, and production readiness flags.
 
 ## Conventions
 
@@ -184,9 +184,11 @@ Current terms are public. Acceptance requires a signed-in owner of a `draft` or 
 | POST | `/api/waivers/accept` | Bind current version to a rental |
 | GET | `/api/admin/waivers` | All versions |
 | POST | `/api/admin/waivers` | Publish a new current version |
+| GET | `/api/admin/waivers/[uuid]/pdf` | Admin PDF of a published version. `download=1` attaches the file |
+| GET | `/api/admin/rentals/[id]/waiver-pdf` | Admin PDF of the signed rental waiver, including signature. `download=1` attaches the file |
 
 **Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents, then submits the draft request before checkout.  
-**Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 admin publishes / minute / admin
+**Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 admin publishes / minute / admin; 20 PDF downloads / minute / admin
 
 ### Privacy Policy
 
@@ -271,6 +273,10 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
 | GET | `/api/admin/settings` | Business profile for receipts |
 | PATCH | `/api/admin/settings` | Update name, contact, and policy copy. Currency and timezone stay PHP / Asia/Manila |
+| GET | `/api/admin/maintenance` | Maintenance toggle, title, explanation, and images |
+| PATCH | `/api/admin/maintenance` | Enable or disable the public maintenance page |
+| POST | `/api/admin/maintenance/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP, 5 MB) |
+| DELETE | `/api/admin/maintenance/images/[uuid]` | Remove image and storage object |
 | GET | `/api/admin/audit-logs` | Append-only audit trail. Search action/entity/public id. Paginated |
 | GET | `/api/admin/rentals` | All rentals, search code, status, pagination |
 | GET | `/api/admin/rentals/[id]` | By uuid or code |
@@ -280,6 +286,12 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | POST | `/api/notifications/[id]/read` | Mark own notification read |
 
 Approve is allowed only after payment is `paid`. The customer receives an in-app notification. Sales KPIs sum paid payment amounts in `Asia/Manila`. Inventory value is `quantity × replacement_value` for non-archived products.
+
+### Site maintenance
+
+Public `GET /api/maintenance` returns `{ enabled, title, message, images }` with public image URLs and `uuid` values — never storage paths or database ids. When `enabled` is true, visitors are sent to `/maintenance` and other public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, and payment webhook routes stay available.
+
+**Rate limit:** 20 setting writes / minute / admin; 40 image writes / minute / admin
 
 ### Expenses
 

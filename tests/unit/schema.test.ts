@@ -59,6 +59,10 @@ const rentalIdentity = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913290000_phase17_rental_identity.sql'),
   'utf8',
 )
+const siteMaintenance = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260913300000_site_maintenance.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -220,6 +224,20 @@ describe('rental identity verification', () => {
     expect(rentalIdentity).toContain('signer_email')
     expect(rentalIdentity).toContain('force row level security')
     expect(rentalIdentity).not.toContain('grant insert on public.rental_identity_verifications to anon')
+  })
+})
+
+describe('site maintenance', () => {
+  it('creates a singleton page, public images, and a public storage bucket', () => {
+    expect(siteMaintenance).toContain('create table if not exists public.site_maintenance')
+    expect(siteMaintenance).toContain('constraint site_maintenance_singleton check (id = 1)')
+    expect(siteMaintenance).toContain('create table if not exists public.maintenance_images')
+    expect(siteMaintenance).toContain('constraint maintenance_images_uuid_unique unique (uuid)')
+    expect(siteMaintenance).toContain('alter table public.site_maintenance force row level security')
+    expect(siteMaintenance).toContain('site_maintenance_public_read')
+    expect(siteMaintenance).toContain('maintenance_images_admin_write')
+    expect(siteMaintenance).toContain('maintenance-images')
+    expect(siteMaintenance).not.toContain('grant insert on public.site_maintenance to anon')
   })
 })
 

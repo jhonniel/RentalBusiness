@@ -25,6 +25,7 @@ const PRIVATE_PATHS = [
   '/receipts',
   '/rentals',
   '/payments',
+  '/maintenance',
 ]
 
 const PUBLIC_SITEMAP_PATHS = [
