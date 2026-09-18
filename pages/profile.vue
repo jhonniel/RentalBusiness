@@ -82,46 +82,50 @@ async function onSubmit() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
-    <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-      Profile
-    </h1>
-    <p class="mt-2 max-w-2xl text-stone-600">
-        Email comes from your signed-in account.
-    </p>
-
-    <div class="mt-8 max-w-xl rounded-xl border border-stone-200 bg-white p-4 sm:p-6">
-      <dl class="grid gap-3 text-sm">
-        <div class="flex justify-between gap-4">
-          <dt class="shrink-0 text-stone-500">
-            Email
-          </dt>
-          <dd class="min-w-0 break-all text-right text-stone-900">
-            {{ profile?.email || '—' }}
-          </dd>
-        </div>
-      </dl>
-
-      <AuthAlert
-        v-if="formError"
-        class="mt-6"
-        :description="formError"
-      />
+  <div class="flex min-w-0 flex-1 flex-col">
+    <section class="flex min-w-0 flex-1 flex-col px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <header class="min-w-0">
+        <p class="text-sm font-medium text-[#5c6a64]">
+          Account
+        </p>
+        <h1 class="mt-0.5 text-xl font-semibold break-words text-[#12201a] sm:text-2xl">
+          Profile
+        </h1>
+        <p class="mt-1 text-sm text-[#5c6a64]">
+          Email comes from your signed-in account.
+        </p>
+      </header>
 
       <form
-        class="mt-6 space-y-4"
+        class="account-panel mt-5 w-full min-w-0 p-4 sm:p-6"
         method="post"
         @submit.prevent="onSubmit"
       >
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
+        <dl class="grid gap-1 text-sm sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
+          <dt class="text-[#5c6a64]">
+            Email
+          </dt>
+          <dd class="min-w-0 break-all font-medium text-[#12201a]">
+            {{ profile?.email || '—' }}
+          </dd>
+        </dl>
+
+        <AuthAlert
+          v-if="formError"
+          class="mt-6"
+          :description="formError"
+        />
+
+        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+          <div class="min-w-0">
             <label
               for="firstName"
-              class="mb-1.5 block text-sm text-stone-700"
+              class="mb-1.5 block text-sm text-[#3b4a44]"
             >First name</label>
             <UInput
               id="firstName"
               v-model="form.firstName"
+              class="w-full"
               :disabled="pending"
             />
             <p
@@ -131,14 +135,15 @@ async function onSubmit() {
               {{ errors.firstName }}
             </p>
           </div>
-          <div>
+          <div class="min-w-0">
             <label
               for="lastName"
-              class="mb-1.5 block text-sm text-stone-700"
+              class="mb-1.5 block text-sm text-[#3b4a44]"
             >Last name</label>
             <UInput
               id="lastName"
               v-model="form.lastName"
+              class="w-full"
               :disabled="pending"
             />
             <p
@@ -148,87 +153,109 @@ async function onSubmit() {
               {{ errors.lastName }}
             </p>
           </div>
+          <div class="min-w-0 sm:col-span-2 sm:max-w-md">
+            <label
+              for="phone"
+              class="mb-1.5 block text-sm text-[#3b4a44]"
+            >Phone</label>
+            <UInput
+              id="phone"
+              v-model="form.phone"
+              type="tel"
+              autocomplete="tel"
+              class="w-full"
+              :disabled="pending"
+            />
+            <p
+              v-if="errors.phone"
+              class="mt-1 text-xs text-red-700"
+            >
+              {{ errors.phone }}
+            </p>
+          </div>
         </div>
 
-        <div class="rounded-lg border border-stone-100 bg-stone-50 p-3 text-sm">
-          <p class="text-stone-500">
-            Terms & Conditions
-          </p>
-          <p class="mt-1 text-stone-800">
-            {{ profile?.termsVersion
-              ? `${profile.termsVersion} · accepted ${profile.termsAcceptedAt ? formatBusinessDateTime(profile.termsAcceptedAt) : ''}`
-              : 'Not yet accepted' }}
-          </p>
-          <label
-            v-if="!profile?.termsVersion"
-            class="mt-3 flex items-start gap-3 text-stone-700"
-          >
-            <input
-              v-model="form.termsAccepted"
-              type="checkbox"
-              class="mt-1"
-              :disabled="pending"
+        <div class="mt-6 grid gap-4 lg:grid-cols-2">
+          <div class="rounded-xl bg-[#f7f8f7] p-4 text-sm">
+            <p class="text-[#5c6a64]">
+              Terms & Conditions
+            </p>
+            <p class="mt-1 break-words text-[#12201a]">
+              {{ profile?.termsVersion
+                ? `${profile.termsVersion} · accepted ${profile.termsAcceptedAt ? formatBusinessDateTime(profile.termsAcceptedAt) : ''}`
+                : 'Not yet accepted' }}
+            </p>
+            <label
+              v-if="!profile?.termsVersion"
+              class="mt-3 flex items-start gap-3 text-[#3b4a44]"
             >
-            <span>
-              I have read and agree to the
+              <input
+                v-model="form.termsAccepted"
+                type="checkbox"
+                class="mt-1"
+                :disabled="pending"
+              >
+              <span>
+                I have read and agree to the
+                <NuxtLink
+                  to="/terms"
+                  class="font-medium text-[#12201a] underline-offset-4 hover:underline"
+                >Terms & Conditions</NuxtLink>
+                ({{ CURRENT_TERMS_VERSION }}).
+              </span>
+            </label>
+            <p
+              v-else
+              class="mt-2"
+            >
               <NuxtLink
                 to="/terms"
                 class="font-medium text-[#12201a] underline-offset-4 hover:underline"
-              >Terms & Conditions</NuxtLink>
-              ({{ CURRENT_TERMS_VERSION }}).
-            </span>
-          </label>
-          <p
-            v-else
-            class="mt-2"
-          >
-            <NuxtLink
-              to="/terms"
-              class="font-medium text-[#12201a] underline-offset-4 hover:underline"
-            >Read the current Terms & Conditions</NuxtLink>
-          </p>
-        </div>
+              >Read the current Terms & Conditions</NuxtLink>
+            </p>
+          </div>
 
-        <div class="rounded-lg border border-stone-100 bg-stone-50 p-3 text-sm">
-          <p class="text-stone-500">
-            Privacy Policy
-          </p>
-          <p class="mt-1 text-stone-800">
-            {{ profile?.privacyPolicyVersion
-              ? `${profile.privacyPolicyVersion} · accepted ${profile.privacyAcceptedAt ? formatBusinessDateTime(profile.privacyAcceptedAt) : ''}`
-              : 'Not yet acknowledged' }}
-          </p>
-          <label
-            v-if="!profile?.privacyPolicyVersion"
-            class="mt-3 flex items-start gap-3 text-stone-700"
-          >
-            <input
-              v-model="form.privacyAcknowledged"
-              type="checkbox"
-              class="mt-1"
-              :disabled="pending"
+          <div class="rounded-xl bg-[#f7f8f7] p-4 text-sm">
+            <p class="text-[#5c6a64]">
+              Privacy Policy
+            </p>
+            <p class="mt-1 break-words text-[#12201a]">
+              {{ profile?.privacyPolicyVersion
+                ? `${profile.privacyPolicyVersion} · accepted ${profile.privacyAcceptedAt ? formatBusinessDateTime(profile.privacyAcceptedAt) : ''}`
+                : 'Not yet acknowledged' }}
+            </p>
+            <label
+              v-if="!profile?.privacyPolicyVersion"
+              class="mt-3 flex items-start gap-3 text-[#3b4a44]"
             >
-            <span>
-              I acknowledge the
+              <input
+                v-model="form.privacyAcknowledged"
+                type="checkbox"
+                class="mt-1"
+                :disabled="pending"
+              >
+              <span>
+                I acknowledge the
+                <NuxtLink
+                  to="/privacy"
+                  class="font-medium text-[#12201a] underline-offset-4 hover:underline"
+                >Privacy Policy</NuxtLink>
+                ({{ CURRENT_PRIVACY_POLICY_VERSION }}).
+              </span>
+            </label>
+            <p
+              v-else
+              class="mt-2"
+            >
               <NuxtLink
                 to="/privacy"
                 class="font-medium text-[#12201a] underline-offset-4 hover:underline"
-              >Privacy Policy</NuxtLink>
-              ({{ CURRENT_PRIVACY_POLICY_VERSION }}).
-            </span>
-          </label>
-          <p
-            v-else
-            class="mt-2"
-          >
-            <NuxtLink
-              to="/privacy"
-              class="font-medium text-[#12201a] underline-offset-4 hover:underline"
-            >Read the current Privacy Policy</NuxtLink>
-          </p>
+              >Read the current Privacy Policy</NuxtLink>
+            </p>
+          </div>
         </div>
 
-        <label class="flex items-start gap-3 text-sm text-stone-700">
+        <label class="mt-6 flex items-start gap-3 text-sm text-[#3b4a44]">
           <input
             v-model="form.marketingOptIn"
             type="checkbox"
@@ -238,33 +265,14 @@ async function onSubmit() {
           <span>I would like to receive promotions, rental announcements, and special offers from JRY Rentals.</span>
         </label>
 
-        <div>
-          <label
-            for="phone"
-            class="mb-1.5 block text-sm text-stone-700"
-          >Phone</label>
-          <UInput
-            id="phone"
-            v-model="form.phone"
-            type="tel"
-            autocomplete="tel"
-            :disabled="pending"
-          />
-          <p
-            v-if="errors.phone"
-            class="mt-1 text-xs text-red-700"
-          >
-            {{ errors.phone }}
-          </p>
-        </div>
-
         <UButton
           type="submit"
+          class="mt-6 w-full justify-center sm:w-auto"
           :loading="pending"
         >
           Save changes
         </UButton>
       </form>
-    </div>
-  </section>
+    </section>
+  </div>
 </template>
