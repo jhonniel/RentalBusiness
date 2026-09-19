@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
 import { isBookableProductStatus, isPublicCatalogProductStatus } from '../../utils/constants'
+import { catalogCardRate, parseHiddenPriceFields, visibleCatalogPrices } from '../../utils/price-visibility'
 import {
   categoryInputSchema,
   equipmentInputSchema,
@@ -207,6 +208,36 @@ describe('catalog mappers', () => {
     expect(catalog.comingSoon).toBe(false)
     expect(catalog.availableQuantity).toBe(2)
     expect(toCatalogProduct({ ...productRow, status: 'coming_soon' }, [], 'https://example.supabase.co').comingSoon).toBe(true)
+    expect(product.hiddenPriceFields).toEqual([])
+  })
+
+  it('hides selected catalog prices while admin payloads keep the amounts', () => {
+    const hiddenRow = {
+      ...productRow,
+      hidden_price_fields: ['weekly', 'late_fee', 'replacement_value'],
+    }
+    const admin = toPublicProduct(hiddenRow, [], 'https://example.supabase.co')
+    const catalog = toCatalogProduct(hiddenRow, [], 'https://example.supabase.co')
+
+    expect(admin.hiddenPriceFields).toEqual(['weekly', 'lateFee', 'replacementValue'])
+    expect(admin.weeklyPrice).toBe(14000)
+    expect(admin.lateFee).toBe(500)
+    expect(catalog.weeklyPrice).toBeNull()
+    expect(catalog.lateFee).toBeNull()
+    expect(catalog.replacementValue).toBeNull()
+    expect(catalog.dailyPrice).toBe(2500)
+    expect(catalog.depositAmount).toBe(10000)
+    expect(visibleCatalogPrices(catalog).map(row => row.key)).toEqual(['daily', 'deposit'])
+    expect(catalogCardRate({
+      dailyPrice: null,
+      weeklyPrice: 14000,
+      monthlyPrice: null,
+    })).toEqual({ amount: 14000, suffix: '/ week' })
+    expect(parseHiddenPriceFields(['deposit', 'late_fee', 'deposit'])).toEqual(['deposit', 'lateFee'])
+    expect(productInputSchema.parse({
+      ...validProduct,
+      hiddenPriceFields: ['lateFee', 'deposit', 'lateFee'],
+    }).hiddenPriceFields).toEqual(['deposit', 'lateFee'])
   })
 
   it('accepts coming soon as a product status', () => {

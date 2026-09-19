@@ -75,6 +75,7 @@ Phase 4 additions:
 - Public catalog APIs use the anon/session client so RLS limits reads to active or coming-soon products and active categories. Coming-soon kits cannot be quoted or booked.
 - Public list queries reject `status` and internal `id`
 - Public product payloads omit operational inventory counters
+- Public catalog payloads null out price amounts the admin marked hidden; quote and booking APIs still use the stored amounts
 - Catalog GETs are rate-limited at 80 requests / minute / IP
 
 Phase 5 additions:

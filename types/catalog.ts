@@ -1,4 +1,4 @@
-import type { EquipmentStatus, ProductStatus } from '~/utils/constants'
+import type { EquipmentStatus, PriceFieldKey, ProductStatus } from '~/utils/constants'
 
 export interface PublicCategory {
   uuid: string
@@ -31,6 +31,7 @@ export interface PublicProduct {
   depositAmount: number
   lateFee: number
   replacementValue: number | null
+  hiddenPriceFields: PriceFieldKey[]
   quantity: number
   reservedQuantity: number
   rentedQuantity: number
@@ -87,11 +88,11 @@ export interface CatalogProduct {
   description: string
   shortDescription: string
   category: PublicCategory
-  dailyPrice: number
+  dailyPrice: number | null
   weeklyPrice: number | null
   monthlyPrice: number | null
-  depositAmount: number
-  lateFee: number
+  depositAmount: number | null
+  lateFee: number | null
   replacementValue: number | null
   availableQuantity: number
   condition: string

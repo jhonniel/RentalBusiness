@@ -19,6 +19,7 @@ const PRODUCT_SELECT = `
   deposit_amount,
   late_fee,
   replacement_value,
+  hidden_price_fields,
   quantity,
   reserved_quantity,
   rented_quantity,

@@ -66,6 +66,16 @@ export function isBookableProductStatus(status: string) {
   return status === 'active'
 }
 
+export const PRICE_FIELD_KEYS = [
+  'daily',
+  'weekly',
+  'monthly',
+  'deposit',
+  'lateFee',
+  'replacementValue',
+] as const
+export type PriceFieldKey = (typeof PRICE_FIELD_KEYS)[number]
+
 export const EQUIPMENT_STATUSES = [
   'available',
   'reserved',

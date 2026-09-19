@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { PublicCategory, PublicProduct } from '~/types/catalog'
-import { PRODUCT_STATUSES } from '~/utils/constants'
+import { PRICE_FIELD_KEYS, PRODUCT_STATUSES, type PriceFieldKey } from '~/utils/constants'
 import { fieldErrors } from '~/utils/auth-validation'
+import { isPriceFieldHidden } from '~/utils/price-visibility'
 import { productInputSchema } from '~/utils/product-validation'
 import { slugify } from '~/utils/slug'
 
@@ -32,6 +33,9 @@ const form = reactive({
   depositAmount: props.product?.depositAmount ?? 0,
   lateFee: props.product?.lateFee ?? 0,
   replacementValue: props.product?.replacementValue ?? '',
+  hideOnStorefront: Object.fromEntries(
+    PRICE_FIELD_KEYS.map(key => [key, isPriceFieldHidden(props.product?.hiddenPriceFields ?? [], key)]),
+  ) as Record<PriceFieldKey, boolean>,
   quantity: props.product?.quantity ?? 0,
   reservedQuantity: props.product?.reservedQuantity ?? 0,
   rentedQuantity: props.product?.rentedQuantity ?? 0,
@@ -61,12 +65,13 @@ async function onSubmit() {
   formError.value = ''
   errors.value = {}
 
-  const { accessories, specifications, ...fields } = form
+  const { accessories, specifications, hideOnStorefront, ...fields } = form
   const parsed = productInputSchema.safeParse({
     ...fields,
     weeklyPrice: form.weeklyPrice === '' ? null : form.weeklyPrice,
     monthlyPrice: form.monthlyPrice === '' ? null : form.monthlyPrice,
     replacementValue: form.replacementValue === '' ? null : form.replacementValue,
+    hiddenPriceFields: PRICE_FIELD_KEYS.filter(key => hideOnStorefront[key]),
     includedAccessories: accessories.split(',').map(item => item.trim()).filter(Boolean),
     specifications: parseSpecifications(specifications),
     rentalRules: form.rentalRules,
@@ -214,92 +219,43 @@ async function onSubmit() {
         Pricing
       </h3>
       <p class="mt-1 text-sm text-stone-500">
-        Daily, weekly, and monthly rates are what customers see at checkout. Amounts are PHP.
+        Amounts stay in PHP and still apply to quotes. Hide a field to keep it off the public catalog.
       </p>
       <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Daily (₱)</span>
+        <label
+          v-for="field in [
+            ['dailyPrice', 'daily', 'Daily (₱)'],
+            ['weeklyPrice', 'weekly', 'Weekly (₱)'],
+            ['monthlyPrice', 'monthly', 'Monthly (₱)'],
+            ['depositAmount', 'deposit', 'Deposit (₱)'],
+            ['lateFee', 'lateFee', 'Late fee (₱)'],
+            ['replacementValue', 'replacementValue', 'Replacement value (₱)'],
+          ] as const"
+          :key="field[0]"
+          class="block text-sm"
+        >
+          <span class="mb-1.5 flex items-center justify-between gap-3 text-stone-700">
+            {{ field[2] }}
+            <span class="inline-flex items-center gap-1.5 text-xs font-normal text-stone-500">
+              <input
+                v-model="form.hideOnStorefront[field[1]]"
+                type="checkbox"
+                :disabled="pending"
+              >
+              Hide
+            </span>
+          </span>
           <UInput
-            v-model="form.dailyPrice"
+            v-model="form[field[0]]"
             type="number"
             min="0"
             step="0.01"
             :disabled="pending"
           />
           <span
-            v-if="errors.dailyPrice"
+            v-if="errors[field[0]]"
             class="mt-1 block text-xs text-red-700"
-          >{{ errors.dailyPrice }}</span>
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Weekly (₱)</span>
-          <UInput
-            v-model="form.weeklyPrice"
-            type="number"
-            min="0"
-            step="0.01"
-            :disabled="pending"
-          />
-          <span
-            v-if="errors.weeklyPrice"
-            class="mt-1 block text-xs text-red-700"
-          >{{ errors.weeklyPrice }}</span>
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Monthly (₱)</span>
-          <UInput
-            v-model="form.monthlyPrice"
-            type="number"
-            min="0"
-            step="0.01"
-            :disabled="pending"
-          />
-          <span
-            v-if="errors.monthlyPrice"
-            class="mt-1 block text-xs text-red-700"
-          >{{ errors.monthlyPrice }}</span>
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Deposit (₱)</span>
-          <UInput
-            v-model="form.depositAmount"
-            type="number"
-            min="0"
-            step="0.01"
-            :disabled="pending"
-          />
-          <span
-            v-if="errors.depositAmount"
-            class="mt-1 block text-xs text-red-700"
-          >{{ errors.depositAmount }}</span>
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Late fee (₱)</span>
-          <UInput
-            v-model="form.lateFee"
-            type="number"
-            min="0"
-            step="0.01"
-            :disabled="pending"
-          />
-          <span
-            v-if="errors.lateFee"
-            class="mt-1 block text-xs text-red-700"
-          >{{ errors.lateFee }}</span>
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Replacement value (₱)</span>
-          <UInput
-            v-model="form.replacementValue"
-            type="number"
-            min="0"
-            step="0.01"
-            :disabled="pending"
-          />
-          <span
-            v-if="errors.replacementValue"
-            class="mt-1 block text-xs text-red-700"
-          >{{ errors.replacementValue }}</span>
+          >{{ errors[field[0]] }}</span>
         </label>
       </div>
     </section>

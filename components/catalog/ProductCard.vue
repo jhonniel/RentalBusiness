@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CatalogProduct } from '~/types/catalog'
+import { catalogCardRate } from '~/utils/price-visibility'
 import { productHighlights, productVisual, resolvedProductImage } from '~/utils/storefront'
 
 const props = defineProps<{
@@ -9,6 +10,7 @@ const props = defineProps<{
 const { formatMoney } = useCurrency()
 const image = computed(() => props.product.images[0])
 const highlights = computed(() => productHighlights(props.product))
+const cardRate = computed(() => catalogCardRate(props.product))
 const fallback = computed(() => productVisual(props.product.slug, props.product.category.slug))
 const src = ref(resolvedProductImage(props.product.slug, props.product.category.slug, image.value?.url))
 
@@ -64,9 +66,12 @@ function useFallback() {
         >
           {{ product.shortDescription || product.description }}
         </p>
-        <p class="mt-4 text-sm font-semibold text-[#12201a]">
-          {{ formatMoney(product.dailyPrice) }}
-          <span class="font-normal text-[#5b6b64]">/ day</span>
+        <p
+          v-if="cardRate"
+          class="mt-4 text-sm font-semibold text-[#12201a]"
+        >
+          {{ formatMoney(cardRate.amount) }}
+          <span class="font-normal text-[#5b6b64]">{{ cardRate.suffix }}</span>
         </p>
       </div>
     </NuxtLink>

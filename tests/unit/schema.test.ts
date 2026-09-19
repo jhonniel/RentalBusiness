@@ -71,6 +71,10 @@ const productComingSoon = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260919120000_product_coming_soon.sql'),
   'utf8',
 )
+const hiddenPriceFields = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260919130000_product_hidden_price_fields.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -272,6 +276,15 @@ describe('product coming soon', () => {
     expect(productComingSoon).toContain("'coming_soon'")
     expect(productComingSoon).toContain("status in ('active', 'coming_soon')")
     expect(productComingSoon).toContain('products_public_read')
+  })
+})
+
+describe('hidden product prices', () => {
+  it('lets admins hide listed price fields without dropping stored amounts', () => {
+    expect(hiddenPriceFields).toContain('hidden_price_fields')
+    expect(hiddenPriceFields).toContain('late_fee')
+    expect(hiddenPriceFields).toContain('replacement_value')
+    expect(hiddenPriceFields).toContain("default '{}'")
   })
 })
 

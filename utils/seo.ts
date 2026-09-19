@@ -119,7 +119,7 @@ export function productJsonLd(origin: string, product: {
   name: string
   description: string
   sku: string
-  dailyPrice: number
+  dailyPrice: number | null
   availableQuantity: number
   images: Array<{ url: string }>
 }) {
@@ -141,7 +141,7 @@ export function productJsonLd(origin: string, product: {
       '@type': 'Offer',
       'url': url,
       'priceCurrency': BUSINESS_CURRENCY,
-      'price': product.dailyPrice,
+      ...(product.dailyPrice === null ? {} : { price: product.dailyPrice }),
       'availability': product.availableQuantity > 0
         ? 'https://schema.org/InStock'
         : 'https://schema.org/OutOfStock',

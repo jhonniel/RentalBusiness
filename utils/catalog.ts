@@ -6,6 +6,7 @@ import type {
   PublicProductImage,
 } from '~/types/catalog'
 import type { EquipmentStatus, ProductStatus } from './constants'
+import { isPriceFieldHidden, parseHiddenPriceFields } from './price-visibility'
 import { STORAGE_BUCKETS, publicStorageUrl } from './storage'
 
 interface CategoryRow {
@@ -31,6 +32,7 @@ interface ProductRow {
   deposit_amount: number
   late_fee: number
   replacement_value: number | null
+  hidden_price_fields?: string[] | null
   quantity: number
   reserved_quantity: number
   rented_quantity: number
@@ -139,6 +141,7 @@ export function toPublicProduct(row: ProductRow, images: ImageRow[], supabaseUrl
     depositAmount: Number(row.deposit_amount),
     lateFee: Number(row.late_fee),
     replacementValue: row.replacement_value === null ? null : Number(row.replacement_value),
+    hiddenPriceFields: parseHiddenPriceFields(row.hidden_price_fields),
     quantity: row.quantity,
     reservedQuantity: row.reserved_quantity,
     rentedQuantity: row.rented_quantity,
@@ -159,6 +162,7 @@ export function toPublicProduct(row: ProductRow, images: ImageRow[], supabaseUrl
 
 export function toCatalogProduct(row: ProductRow, images: ImageRow[], supabaseUrl: string): CatalogProduct {
   const product = toPublicProduct(row, images, supabaseUrl)
+  const hidden = product.hiddenPriceFields
   return {
     uuid: product.uuid,
     slug: product.slug,
@@ -167,12 +171,12 @@ export function toCatalogProduct(row: ProductRow, images: ImageRow[], supabaseUr
     description: product.description,
     shortDescription: product.shortDescription,
     category: product.category,
-    dailyPrice: product.dailyPrice,
-    weeklyPrice: product.weeklyPrice,
-    monthlyPrice: product.monthlyPrice,
-    depositAmount: product.depositAmount,
-    lateFee: product.lateFee,
-    replacementValue: product.replacementValue,
+    dailyPrice: isPriceFieldHidden(hidden, 'daily') ? null : product.dailyPrice,
+    weeklyPrice: isPriceFieldHidden(hidden, 'weekly') ? null : product.weeklyPrice,
+    monthlyPrice: isPriceFieldHidden(hidden, 'monthly') ? null : product.monthlyPrice,
+    depositAmount: isPriceFieldHidden(hidden, 'deposit') ? null : product.depositAmount,
+    lateFee: isPriceFieldHidden(hidden, 'lateFee') ? null : product.lateFee,
+    replacementValue: isPriceFieldHidden(hidden, 'replacementValue') ? null : product.replacementValue,
     availableQuantity: product.availableQuantity,
     condition: product.condition,
     specifications: product.specifications,

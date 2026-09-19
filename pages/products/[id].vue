@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CatalogProduct } from '~/types/catalog'
+import { visibleCatalogPrices } from '~/utils/price-visibility'
 import { breadcrumbJsonLd, productJsonLd } from '~/utils/seo'
 
 const route = useRoute()
@@ -49,6 +50,7 @@ useHead({
 })
 
 const specEntries = computed(() => Object.entries(product.value?.specifications ?? {}))
+const priceRows = computed(() => product.value ? visibleCatalogPrices(product.value) : [])
 </script>
 
 <template>
@@ -110,51 +112,21 @@ const specEntries = computed(() => Object.entries(product.value?.specifications 
           {{ product.shortDescription || product.description }}
         </p>
 
-        <dl class="mt-8 grid gap-3 text-sm">
-          <div class="flex justify-between gap-4 border-b border-stone-200 pb-3">
-            <dt class="text-stone-500">
-              Daily
-            </dt>
-            <dd class="font-medium text-stone-900">
-              {{ formatMoney(product.dailyPrice) }}
-            </dd>
-          </div>
+        <dl
+          v-if="priceRows.length"
+          class="mt-8 grid gap-3 text-sm"
+        >
           <div
-            v-if="product.weeklyPrice !== null"
-            class="flex justify-between gap-4 border-b border-stone-200 pb-3"
+            v-for="(row, index) in priceRows"
+            :key="row.key"
+            class="flex justify-between gap-4 border-b border-stone-200 pb-3 last:border-0 last:pb-0"
+            :class="index === 0 ? 'font-medium' : ''"
           >
             <dt class="text-stone-500">
-              Weekly
+              {{ row.label }}
             </dt>
             <dd class="text-stone-900">
-              {{ formatMoney(product.weeklyPrice) }}
-            </dd>
-          </div>
-          <div
-            v-if="product.monthlyPrice !== null"
-            class="flex justify-between gap-4 border-b border-stone-200 pb-3"
-          >
-            <dt class="text-stone-500">
-              Monthly
-            </dt>
-            <dd class="text-stone-900">
-              {{ formatMoney(product.monthlyPrice) }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-4 border-b border-stone-200 pb-3">
-            <dt class="text-stone-500">
-              Deposit
-            </dt>
-            <dd class="text-stone-900">
-              {{ formatMoney(product.depositAmount) }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-stone-500">
-              Late fee
-            </dt>
-            <dd class="text-stone-900">
-              {{ formatMoney(product.lateFee) }}
+              {{ formatMoney(row.amount) }}
             </dd>
           </div>
         </dl>

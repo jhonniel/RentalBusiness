@@ -33,7 +33,7 @@ watch(() => route.fullPath, () => {
         >
           The public website is in maintenance.
           <NuxtLink
-            to="/admin/maintenance"
+            to="/admin/settings#maintenance"
             class="font-medium underline underline-offset-2"
           >Edit message</NuxtLink>
         </p>

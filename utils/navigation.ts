@@ -21,7 +21,6 @@ export const customerNavItems: NavItem[] = [
 
 export const adminNavItems: NavItem[] = [
   { label: 'Dashboard', to: '/admin', icon: 'i-lucide-layout-dashboard', enabled: true },
-  { label: 'Maintenance', to: '/admin/maintenance', icon: 'i-lucide-construction', enabled: true },
   { label: 'Rentals', to: '/admin/rentals', icon: 'i-lucide-clipboard-list', enabled: true },
   { label: 'Calendar', to: '/admin/calendar', icon: 'i-lucide-calendar', enabled: true },
   { label: 'Products', to: '/admin/products', icon: 'i-lucide-package', enabled: true },

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '../../types/database.types'
 import type { CategoryInput, EquipmentInput, ProductInput } from '../../utils/product-validation'
 import { PUBLIC_CATALOG_PRODUCT_STATUSES, isPublicCatalogProductStatus } from '../../utils/constants'
+import { toHiddenPriceFieldDb } from '../../utils/price-visibility'
 import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
 import { isUuid, normalizeSku, slugify } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -152,6 +153,7 @@ function toProductWrite(input: ProductInput, categoryId: number, slug: string) {
     deposit_amount: input.depositAmount,
     late_fee: input.lateFee,
     replacement_value: input.replacementValue,
+    hidden_price_fields: toHiddenPriceFieldDb(input.hiddenPriceFields),
     quantity: input.quantity,
     reserved_quantity: input.reservedQuantity,
     rented_quantity: input.rentedQuantity,

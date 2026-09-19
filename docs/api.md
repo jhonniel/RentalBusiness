@@ -103,7 +103,7 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | GET | `/api/admin/products` | Search, status, category, pagination |
 | POST | `/api/admin/products` | Create product |
 | GET | `/api/admin/products/[uuid]` | Product with images |
-| PATCH | `/api/admin/products/[uuid]` | Update product info and prices (name, descriptions, daily/weekly/monthly, deposit, late fee, inventory, status) |
+| PATCH | `/api/admin/products/[uuid]` | Update product info and prices (name, descriptions, daily/weekly/monthly, deposit, late fee, hidden price fields, inventory, status) |
 | POST | `/api/admin/products/[uuid]/archive` | Set status to `archived` |
 | DELETE | `/api/admin/products/[uuid]` | Permanently delete a product with no rental or asset-assignment history. Returns 409 if history exists — archive instead. |
 | POST | `/api/admin/products/[uuid]/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP, 5 MB). Extra photos appear under the main image on the product page. |
@@ -112,11 +112,11 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | POST | `/api/admin/products/[uuid]/assets` | Create asset |
 | PATCH | `/api/admin/assets/[uuid]` | Update asset |
 
-**Product body:** name, sku, categoryUuid, prices, deposit, quantities, status (`draft` / `active` / `coming_soon` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` is generated from `name` on the server. Extra fields such as `id` or `slug` are rejected. `coming_soon` kits appear in the public catalog with a Coming soon label and cannot be quoted or booked.
+**Product body:** name, sku, categoryUuid, prices, deposit, `hiddenPriceFields` (`daily` / `weekly` / `monthly` / `deposit` / `lateFee` / `replacementValue`), quantities, status (`draft` / `active` / `coming_soon` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` is generated from `name` on the server. Extra fields such as `id` or `slug` are rejected. `coming_soon` kits appear in the public catalog with a Coming soon label and cannot be quoted or booked. Hidden price fields stay on the admin product and in quote math; the public catalog omits those amounts.
 
 ### Public catalog
 
-Unauthenticated. Uses the anon Supabase client so RLS only returns active or coming-soon categories and products. Responses never include database primary keys or reserved/rented/damaged counters. Public catalog items include `comingSoon` instead of the internal status.
+Unauthenticated. Uses the anon Supabase client so RLS only returns active or coming-soon categories and products. Responses never include database primary keys or reserved/rented/damaged counters. Public catalog items include `comingSoon` instead of the internal status. Amounts listed in `hidden_price_fields` are returned as `null` and are not shown on the storefront.
 
 | Method | Path | Notes |
 | --- | --- | --- |

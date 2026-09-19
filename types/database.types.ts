@@ -136,6 +136,7 @@ export interface Database {
           deposit_amount: number
           late_fee: number
           replacement_value: number | null
+          hidden_price_fields: string[]
           quantity: number
           reserved_quantity: number
           rented_quantity: number
@@ -167,6 +168,7 @@ export interface Database {
           deposit_amount?: number
           late_fee?: number
           replacement_value?: number | null
+          hidden_price_fields?: string[]
           quantity?: number
           status?: ProductStatus
           condition?: string
@@ -189,6 +191,7 @@ export interface Database {
           deposit_amount?: number
           late_fee?: number
           replacement_value?: number | null
+          hidden_price_fields?: string[]
           quantity?: number
           reserved_quantity?: number
           rented_quantity?: number

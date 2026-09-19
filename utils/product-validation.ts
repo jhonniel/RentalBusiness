@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { EQUIPMENT_STATUSES, PRODUCT_STATUSES } from './constants'
+import { EQUIPMENT_STATUSES, PRICE_FIELD_KEYS, PRODUCT_STATUSES } from './constants'
 
 const money = z.coerce.number().finite().min(0, 'Amount cannot be negative.')
 const optionalMoney = z.preprocess(
@@ -28,6 +28,9 @@ export const productInputSchema = z.object({
   depositAmount: money.default(0),
   lateFee: money.default(0),
   replacementValue: optionalMoney,
+  hiddenPriceFields: z.array(z.enum(PRICE_FIELD_KEYS)).default([]).transform(fields => (
+    PRICE_FIELD_KEYS.filter(key => fields.includes(key))
+  )),
   quantity: quantity.default(0),
   reservedQuantity: quantity.default(0),
   rentedQuantity: quantity.default(0),

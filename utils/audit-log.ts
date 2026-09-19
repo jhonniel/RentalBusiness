@@ -72,7 +72,7 @@ export function auditTargetHref(entity: string, entityId: string) {
   }
 
   if (entity === 'site_maintenance' || entity === 'maintenance_images') {
-    return '/admin/maintenance'
+    return '/admin/settings#maintenance'
   }
 
   if (entity === 'waiver_versions' || entity === 'waiver_acceptances') {
