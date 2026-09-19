@@ -184,7 +184,7 @@ async function onSubmit() {
               :key="item"
               :value="item"
             >
-              {{ item }}
+              {{ item === 'coming_soon' ? 'Coming soon' : item.replaceAll('_', ' ') }}
             </option>
           </select>
         </label>

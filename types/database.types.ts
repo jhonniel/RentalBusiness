@@ -11,7 +11,7 @@ export type Json
     | Json[]
 
 export type ProfileRole = 'admin' | 'customer'
-export type ProductStatus = 'draft' | 'active' | 'hidden' | 'archived'
+export type ProductStatus = 'draft' | 'active' | 'coming_soon' | 'hidden' | 'archived'
 export type EquipmentStatus = 'available' | 'reserved' | 'rented' | 'maintenance' | 'damaged' | 'lost' | 'retired'
 export type RentalStatus
   = | 'draft'

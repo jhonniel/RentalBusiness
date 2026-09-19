@@ -99,6 +99,7 @@ export interface CatalogProduct {
   includedAccessories: string[]
   rentalRules: string | null
   isFeatured: boolean
+  comingSoon: boolean
   images: PublicProductImage[]
 }
 

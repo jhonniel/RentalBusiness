@@ -179,6 +179,7 @@ export function toCatalogProduct(row: ProductRow, images: ImageRow[], supabaseUr
     includedAccessories: product.includedAccessories,
     rentalRules: product.rentalRules,
     isFeatured: product.isFeatured,
+    comingSoon: product.status === 'coming_soon',
     images: product.images,
   }
 }

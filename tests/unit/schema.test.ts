@@ -67,6 +67,10 @@ const waiverDownPayment = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913310000_waiver_v1_1_nonrefundable_downpayment.sql'),
   'utf8',
 )
+const productComingSoon = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260919120000_product_coming_soon.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -260,6 +264,14 @@ describe('privacy policy acknowledgments', () => {
     expect(privacyPolicy).toContain('marketing_opt_in')
     expect(privacyPolicy).toContain('raw_user_meta_data ->> \'privacy_policy_version\'')
     expect(privacyPolicy).not.toContain('grant insert on public.profiles to anon')
+  })
+})
+
+describe('product coming soon', () => {
+  it('publishes coming soon kits without opening them for booking', () => {
+    expect(productComingSoon).toContain("'coming_soon'")
+    expect(productComingSoon).toContain("status in ('active', 'coming_soon')")
+    expect(productComingSoon).toContain('products_public_read')
   })
 })
 

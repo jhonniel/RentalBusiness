@@ -45,7 +45,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `category_id` → product_categories
 - `name`, `description`, `short_description`
 - `daily_price`, `weekly_price`, `monthly_price`, `deposit_amount`, `late_fee`, `replacement_value`
-- `quantity`, `status` (`draft` \| `active` \| `hidden` \| `archived`)
+- `quantity`, `status` (`draft` \| `active` \| `coming_soon` \| `hidden` \| `archived`). `coming_soon` is public and labeled, but not bookable.
 - `condition`, `specifications` (jsonb), `included_accessories` (jsonb), `rental_rules`
 - `model_path` (optional 3D), `is_featured`
 - `created_at`, `updated_at`

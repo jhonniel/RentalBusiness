@@ -53,8 +53,18 @@ export const PAYMENT_STATUSES = [
 ] as const
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 
-export const PRODUCT_STATUSES = ['draft', 'active', 'hidden', 'archived'] as const
+export const PRODUCT_STATUSES = ['draft', 'active', 'coming_soon', 'hidden', 'archived'] as const
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
+export const PUBLIC_CATALOG_PRODUCT_STATUSES = ['active', 'coming_soon'] as const
+export type PublicCatalogProductStatus = (typeof PUBLIC_CATALOG_PRODUCT_STATUSES)[number]
+
+export function isPublicCatalogProductStatus(status: string): status is PublicCatalogProductStatus {
+  return (PUBLIC_CATALOG_PRODUCT_STATUSES as readonly string[]).includes(status)
+}
+
+export function isBookableProductStatus(status: string) {
+  return status === 'active'
+}
 
 export const EQUIPMENT_STATUSES = [
   'available',

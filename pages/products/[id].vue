@@ -97,6 +97,12 @@ const specEntries = computed(() => Object.entries(product.value?.specifications 
         <p class="text-xs uppercase tracking-wider text-lumen-700">
           {{ product.category.name }}
         </p>
+        <span
+          v-if="product.comingSoon"
+          class="mt-3 inline-flex rounded-full bg-[#12201a] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white"
+        >
+          Coming soon
+        </span>
         <h1 class="font-display mt-2 text-2xl break-words text-stone-900 sm:text-4xl">
           {{ product.name }}
         </h1>
@@ -153,17 +159,26 @@ const specEntries = computed(() => Object.entries(product.value?.specifications 
           </div>
         </dl>
 
-        <p class="mt-6 text-sm leading-6 text-[#5b6b64]">
-          {{ product.availableQuantity }} {{ product.availableQuantity === 1 ? 'unit is' : 'units are' }} listed right now. Check dates below before you request it.
-        </p>
-
-        <AvailabilityChecker
+        <CatalogNotice
+          v-if="product.comingSoon"
           class="mt-6"
-          :product-uuid="product.uuid"
-          :product-slug="product.slug"
-          :initial-starts-on="typeof route.query.startsOn === 'string' ? route.query.startsOn : undefined"
-          :initial-ends-on="typeof route.query.endsOn === 'string' ? route.query.endsOn : undefined"
+          title="Coming soon"
+          description="This kit is not open for booking yet. Check back when it is listed as available."
         />
+
+        <template v-else>
+          <p class="mt-6 text-sm leading-6 text-[#5b6b64]">
+            {{ product.availableQuantity }} {{ product.availableQuantity === 1 ? 'unit is' : 'units are' }} listed right now. Check dates below before you request it.
+          </p>
+
+          <AvailabilityChecker
+            class="mt-6"
+            :product-uuid="product.uuid"
+            :product-slug="product.slug"
+            :initial-starts-on="typeof route.query.startsOn === 'string' ? route.query.startsOn : undefined"
+            :initial-ends-on="typeof route.query.endsOn === 'string' ? route.query.endsOn : undefined"
+          />
+        </template>
       </div>
 
       <div class="space-y-8 lg:col-span-2">

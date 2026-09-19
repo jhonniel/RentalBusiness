@@ -12,7 +12,8 @@ const productSlug = ref('')
 const startsOn = ref(today)
 const endsOn = ref(today)
 
-const selected = computed(() => props.products.find(product => product.slug === productSlug.value))
+const bookableProducts = computed(() => props.products.filter(product => !product.comingSoon))
+const selected = computed(() => bookableProducts.value.find(product => product.slug === productSlug.value))
 
 function onSubmit() {
   if (selected.value) {
@@ -47,7 +48,7 @@ function onSubmit() {
               Select equipment
             </option>
             <option
-              v-for="product in products"
+              v-for="product in bookableProducts"
               :key="product.uuid"
               :value="product.slug"
             >

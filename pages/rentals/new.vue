@@ -85,8 +85,12 @@ async function refreshQuote() {
 }
 
 watchDebounced(
-  () => [form.startsOn, form.endsOn, form.quantity, form.productSlug],
+  () => [form.startsOn, form.endsOn, form.quantity, form.productSlug, product.value?.comingSoon],
   () => {
+    if (product.value?.comingSoon) {
+      quote.value = null
+      return
+    }
     void refreshQuote()
   },
   { debounce: 300, immediate: true },
@@ -153,6 +157,21 @@ async function onSubmit() {
     >
       <UButton to="/products">
         Browse equipment
+      </UButton>
+    </CatalogNotice>
+
+    <CatalogNotice
+      v-else-if="product?.comingSoon"
+      class="mt-8"
+      title="Coming soon"
+      description="This kit is not open for booking yet. Check back when it is listed as available."
+    >
+      <UButton
+        :to="`/products/${form.productSlug}`"
+        color="neutral"
+        variant="outline"
+      >
+        View kit
       </UButton>
     </CatalogNotice>
 

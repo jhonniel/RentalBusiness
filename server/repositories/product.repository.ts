@@ -46,6 +46,7 @@ const PRODUCT_SELECT = `
 export async function listProducts(client: Client, filters: {
   search?: string
   status?: ProductStatus
+  statuses?: ProductStatus[]
   categoryId?: number
   featured?: boolean
   from: number
@@ -58,7 +59,10 @@ export async function listProducts(client: Client, filters: {
     .order('name')
     .range(filters.from, filters.to)
 
-  if (filters.status) {
+  if (filters.statuses?.length) {
+    query = query.in('status', filters.statuses)
+  }
+  else if (filters.status) {
     query = query.eq('status', filters.status)
   }
 

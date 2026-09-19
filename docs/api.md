@@ -112,17 +112,17 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | POST | `/api/admin/products/[uuid]/assets` | Create asset |
 | PATCH | `/api/admin/assets/[uuid]` | Update asset |
 
-**Product body:** name, sku, categoryUuid, prices, deposit, quantities, status (`draft` / `active` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` is generated from `name` on the server. Extra fields such as `id` or `slug` are rejected.
+**Product body:** name, sku, categoryUuid, prices, deposit, quantities, status (`draft` / `active` / `coming_soon` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` is generated from `name` on the server. Extra fields such as `id` or `slug` are rejected. `coming_soon` kits appear in the public catalog with a Coming soon label and cannot be quoted or booked.
 
 ### Public catalog
 
-Unauthenticated. Uses the anon Supabase client so RLS only returns active categories and products. Responses never include database primary keys or reserved/rented/damaged counters.
+Unauthenticated. Uses the anon Supabase client so RLS only returns active or coming-soon categories and products. Responses never include database primary keys or reserved/rented/damaged counters. Public catalog items include `comingSoon` instead of the internal status.
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/categories` | Active categories |
 | GET | `/api/products` | Search, `categorySlug` or `categoryUuid`, `featured`, pagination |
-| GET | `/api/products/[id]` | Active product by `uuid` or `slug` |
+| GET | `/api/products/[id]` | Active or coming-soon product by `uuid` or `slug` |
 
 **Rate limit:** 80 requests / minute / IP
 

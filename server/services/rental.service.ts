@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { CreateRentalInput, RentalQuoteQuery } from '../../utils/rental-validation'
 import type { PublicRental, RentalQuote } from '../../types/rental'
-import { RENTAL_REQUEST_NOTIFY_EMAIL } from '../../utils/constants'
+import { RENTAL_REQUEST_NOTIFY_EMAIL, isBookableProductStatus } from '../../utils/constants'
 import { evaluateAvailability } from '../../utils/availability'
 import { EMAIL_TEMPLATES } from '../../utils/email'
 import { rentalSubmittedStaffEmail } from '../../utils/email-templates'
@@ -89,7 +89,15 @@ async function loadActiveProduct(client: Client, query: { productUuid?: string, 
     ? await findProductByUuid(client, query.productUuid || identifier)
     : await findProductBySlug(client, identifier)
 
-  if (!row || row.status !== 'active' || !row.id) {
+  if (!row || !row.id) {
+    throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (row.status === 'coming_soon') {
+    throw new AppError('That kit is coming soon and cannot be booked yet.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  if (!isBookableProductStatus(row.status)) {
     throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 

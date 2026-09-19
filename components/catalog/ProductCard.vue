@@ -27,7 +27,13 @@ function useFallback() {
       :to="`/products/${product.slug}`"
       class="flex flex-1 flex-col"
     >
-      <div class="flex min-h-44 items-center justify-center bg-white px-4 py-6 sm:min-h-56 sm:px-6 sm:py-8">
+      <div class="relative flex min-h-44 items-center justify-center bg-white px-4 py-6 sm:min-h-56 sm:px-6 sm:py-8">
+        <span
+          v-if="product.comingSoon"
+          class="absolute left-4 top-4 rounded-full bg-[#12201a] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white"
+        >
+          Coming soon
+        </span>
         <img
           :src="src"
           :alt="product.name"
@@ -72,9 +78,9 @@ function useFallback() {
         block
         class="rounded-full"
       >
-        Rent
+        {{ product.comingSoon ? 'View details' : 'Rent' }}
         <UIcon
-          name="i-lucide-plus"
+          :name="product.comingSoon ? 'i-lucide-arrow-right' : 'i-lucide-plus'"
           class="size-4"
         />
       </UButton>

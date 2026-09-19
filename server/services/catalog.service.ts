@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '../../types/database.types'
 import type { CategoryInput, EquipmentInput, ProductInput } from '../../utils/product-validation'
+import { PUBLIC_CATALOG_PRODUCT_STATUSES, isPublicCatalogProductStatus } from '../../utils/constants'
 import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
 import { isUuid, normalizeSku, slugify } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -446,7 +447,7 @@ export async function getPublicProducts(client: Client, query: {
   const from = (query.page - 1) * query.pageSize
   const { rows, total } = await listProducts(client, {
     search: sanitizeSearch(query.search),
-    status: 'active',
+    statuses: [...PUBLIC_CATALOG_PRODUCT_STATUSES],
     categoryId,
     featured: query.featured,
     from,
@@ -477,7 +478,7 @@ export async function getPublicProduct(client: Client, identifier: string) {
     ? await findProductByUuid(client, identifier)
     : await findProductBySlug(client, identifier)
 
-  if (!row || row.status !== 'active') {
+  if (!row || !isPublicCatalogProductStatus(row.status)) {
     throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 

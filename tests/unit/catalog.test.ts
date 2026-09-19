@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
+import { isBookableProductStatus, isPublicCatalogProductStatus } from '../../utils/constants'
 import {
   categoryInputSchema,
   equipmentInputSchema,
@@ -203,7 +204,20 @@ describe('catalog mappers', () => {
     expect(catalog).not.toHaveProperty('id')
     expect(catalog).not.toHaveProperty('reservedQuantity')
     expect(catalog).not.toHaveProperty('status')
+    expect(catalog.comingSoon).toBe(false)
     expect(catalog.availableQuantity).toBe(2)
+    expect(toCatalogProduct({ ...productRow, status: 'coming_soon' }, [], 'https://example.supabase.co').comingSoon).toBe(true)
+  })
+
+  it('accepts coming soon as a product status', () => {
+    expect(productInputSchema.parse({
+      ...validProduct,
+      status: 'coming_soon',
+    }).status).toBe('coming_soon')
+    expect(isPublicCatalogProductStatus('coming_soon')).toBe(true)
+    expect(isPublicCatalogProductStatus('hidden')).toBe(false)
+    expect(isBookableProductStatus('coming_soon')).toBe(false)
+    expect(isBookableProductStatus('active')).toBe(true)
   })
 
   it('blocks product delete when rental or asset history exists', () => {

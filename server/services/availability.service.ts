@@ -4,6 +4,7 @@ import type { Database } from '../../types/database.types'
 import { evaluateAvailability, unavailableDates } from '../../utils/availability'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone, inclusiveDayCount } from '../../utils/datetime'
+import { isBookableProductStatus } from '../../utils/constants'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { getBookedQuantity, listOccupyingRanges } from '../repositories/availability.repository'
@@ -17,7 +18,15 @@ async function loadActiveProduct(client: Client, productUuid?: string, productSl
     ? await findProductByUuid(client, productUuid || identifier)
     : await findProductBySlug(client, identifier)
 
-  if (!row || row.status !== 'active' || !row.id) {
+  if (!row || !row.id) {
+    throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (row.status === 'coming_soon') {
+    throw new AppError('That kit is coming soon and cannot be booked yet.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  if (!isBookableProductStatus(row.status)) {
     throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 

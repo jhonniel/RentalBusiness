@@ -30,7 +30,7 @@ Wait for: `Proceed to Phase 4`
 
 ## Phase 4 — Public catalog (completed)
 
-Landing page, catalog, product details, search, filters.
+Landing page, catalog, product details, search, filters. Admins can publish a kit as `coming_soon` so it appears with a Coming soon label and cannot be booked until the status is `active`.
 
 Wait for: `Proceed to Phase 5`
 
