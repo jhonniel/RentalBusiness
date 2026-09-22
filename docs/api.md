@@ -111,8 +111,11 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | GET | `/api/admin/inventory` | Serialized assets |
 | POST | `/api/admin/products/[uuid]/assets` | Create asset |
 | PATCH | `/api/admin/assets/[uuid]` | Update asset |
+| GET | `/api/admin/products/[uuid]/blocked-dates` | Admin-blocked date ranges for one product |
+| POST | `/api/admin/products/[uuid]/blocked-dates` | Block inclusive `startsOn`–`endsOn` (optional `reason`). Past dates, `coming_soon`, and other non-active kits are rejected. |
+| DELETE | `/api/admin/blocked-dates/[uuid]` | Remove a blocked-date range |
 
-**Product body:** name, sku, categoryUuid, prices, deposit, `hiddenPriceFields` (`daily` / `weekly` / `monthly` / `deposit` / `lateFee` / `replacementValue`), quantities, status (`draft` / `active` / `coming_soon` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` is generated from `name` on the server. Extra fields such as `id` or `slug` are rejected. `coming_soon` kits appear in the public catalog with a Coming soon label and cannot be quoted or booked. Hidden price fields stay on the admin product and in quote math; the public catalog omits those amounts.
+**Product body:** name, categoryUuid, prices, deposit, `hiddenPriceFields` (`daily` / `weekly` / `monthly` / `deposit` / `lateFee` / `replacementValue`), quantities, status (`draft` / `active` / `coming_soon` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` and unique `sku` are generated from `name` on the server. Extra fields such as `id`, `slug`, or `sku` are rejected. `coming_soon` kits appear in the public catalog with a Coming soon label and cannot be quoted, booked, or given blocked dates. Hidden price fields stay on the admin product and in quote math; the public catalog omits those amounts.
 
 ### Public catalog
 
@@ -128,9 +131,9 @@ Unauthenticated. Uses the anon Supabase client so RLS only returns active or com
 
 ### `GET /api/availability`
 
-Overlap-aware stock for one active product. Booked quantity comes from occupying rentals whose dates inclusively overlap the requested range. Capacity subtracts damaged, maintenance, and lost units.
+Overlap-aware stock for one active product. Booked quantity comes from occupying rentals whose dates inclusively overlap the requested range. Capacity subtracts damaged, maintenance, and lost units. `canFulfill` is also false when an admin-blocked range overlaps the requested dates.
 
-**Query:** `productUuid` or `productSlug`, `startsOn`, `endsOn`, `quantity` (default 1)  
+**Query:** `productUuid` or `productSlug`, `startsOn`, `endsOn`, `quantity` (default 1). `startsOn` must be today or later in Asia/Manila.  
 **Rate limit:** 80 requests / minute / IP
 
 ```json
@@ -148,7 +151,7 @@ Overlap-aware stock for one active product. Booked quantity comes from occupying
 
 ### `GET /api/availability/calendar`
 
-Returns `unavailableDates` for one active product. A day is listed when remaining stock cannot fulfill the requested quantity. Date pickers use this list so booked days cannot be selected.
+Returns `unavailableDates` for one active product. A day is listed when any occupying rental already covers it or an admin blocked that day. Date pickers disable those days so they cannot be selected. Free days stay bookable.
 
 **Query:** `productUuid` or `productSlug`, `quantity` (default 1), optional `from` / `to` (default today through 180 days, max 366)  
 **Rate limit:** 80 requests / minute / IP
@@ -162,17 +165,19 @@ Authenticated. Customers read and create only their own rows. Totals come from `
 | Method | Path | Notes |
 | --- | --- | --- |
 | POST | `/api/rentals/quote` | Server quote + availability |
-| POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Dates must still have free stock after occupying (`pending` and later) rentals. |
+| POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Dates must be today or later in Asia/Manila, still have free stock after occupying (`pending` and later) rentals, and must not overlap admin-blocked days. |
 | GET | `/api/rentals` | Own rentals, optional status, pagination |
 | GET | `/api/rentals/[id]` | By `uuid` or `code` |
 | POST | `/api/rentals/[id]/submit` | Own `draft` with a signed waiver and identity documents. Becomes `pending`, occupies inventory, and emails `contactmejry@gmail.com`. |
 | POST | `/api/rentals/[id]/cancel` | Own `draft` or `pending` only |
 | POST | `/api/rentals/[id]/identity` | Multipart `governmentId` and `selfie` (JPG/PNG/WebP, 5 MB). Owner of a `draft`/`pending` rental with a signed waiver. |
+| POST | `/api/rentals/[id]/voucher` | Apply an admin voucher code to an own `draft`, `pending`, or `awaiting_payment` rental. Discount is quoted on the server from the rental subtotal. One voucher per rental; a new code replaces the previous one. |
+| DELETE | `/api/rentals/[id]/voucher` | Remove the applied voucher and restore the rental total to the subtotal. |
 
 **Create body:** product uuid/slug, dates, quantity, firstName, lastName, phone?, notes?, status? (`draft` default)  
-**Rate limit:** 20 creates / minute / user; 20 submits / minute / user; 12 identity uploads / minute / user
+**Rate limit:** 20 creates / minute / user; 20 submits / minute / user; 12 identity uploads / minute / user; 20 voucher apply/remove / minute / user
 
-Rental payloads include `waiver` when the customer has signed (`uuid`, `signerName`, `signerEmail`, `signerPhone`, `acceptedAt`, `privacyPolicyVersion`, `termsVersion`, bound version). They include `identity.submittedAt` after ID documents are uploaded. They never include `id`, `ip_address`, `signature_data`, or storage paths.
+Rental payloads include `waiver` when the customer has signed (`uuid`, `signerName`, `signerEmail`, `signerPhone`, `acceptedAt`, `privacyPolicyVersion`, `termsVersion`, bound version). They include `identity.submittedAt` after ID documents are uploaded. They include `voucher` (`uuid`, `code`, `name`, `discountAmount`) when a code is applied, plus `discountAmount` on the rental. Rental items include the product `depositAmount`, `lateFee`, and `replacementValue` used on the waiver. They never include `id`, `ip_address`, `signature_data`, or storage paths. The signed waiver body fills `{{RENTAL_EQUIPMENT}}` with those amounts. Voucher discounts reduce the rental total (down payment), not the deposit hold.
 
 ### Waivers
 
@@ -223,7 +228,7 @@ Rental payloads include `payments` (`uuid`, amount, currency, provider, status, 
 
 ### Payments
 
-Customers see active bank and QR methods from `GET /api/payment-methods` and send the rental total there. Server-created intents remain available for a future live adapter. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver, submitted identity documents, and a submitted (`pending` or `awaiting_payment`) request are required. Status changes only from a verified webhook or a server-side provider retrieve.
+Customers see active bank and QR methods from `GET /api/payment-methods` and send the rental total there. Server-created intents remain available for a future live adapter. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request are required. Status changes only from a verified webhook or a server-side provider retrieve.
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -279,7 +284,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products |
-| GET | `/api/admin/calendar` | Rentals overlapping a `YYYY-MM` month in Asia/Manila |
+| GET | `/api/admin/calendar` | Rentals and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila |
 | GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
 | GET | `/api/admin/settings` | Business profile for receipts |
 | PATCH | `/api/admin/settings` | Update name, contact, and policy copy. Currency and timezone stay PHP / Asia/Manila |
@@ -290,12 +295,19 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | GET | `/api/admin/audit-logs` | Append-only audit trail. Search action/entity/public id. Paginated |
 | GET | `/api/admin/rentals` | All rentals, search code, status, pagination |
 | GET | `/api/admin/rentals/[id]` | By uuid or code |
-| POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, audited |
+| DELETE | `/api/admin/rentals/[id]` | Permanently delete a rental by uuid or code. Removes items, payments, receipts, waiver, identity files, and status history. Admin only, audited |
+| GET | `/api/admin/vouchers` | Search code/name, status, pagination |
+| POST | `/api/admin/vouchers` | Create a percent or fixed discount code. Blank `code` is generated as `JRY-XXXXXX` |
+| PATCH | `/api/admin/vouchers/[uuid]` | Update name, code, amounts, limits, dates, or status |
+| POST | `/api/admin/rentals/[id]/confirm` | `pending` → `awaiting_payment`, or `approved` when a voucher covers the full total. Dates stay reserved. Audited |
+| POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, or `awaiting_payment` when a voucher covers the full total. Audited |
 | GET | `/api/admin/customers` | Customer profiles and rental counts |
 | GET | `/api/notifications` | Signed-in recipient |
 | POST | `/api/notifications/[id]/read` | Mark own notification read |
 
-Approve is allowed only after payment is `paid`. The customer receives an in-app notification. Sales KPIs sum paid payment amounts in `Asia/Manila`. Inventory value is `quantity × replacement_value` for non-archived products.
+Approve is allowed after payment is `paid`, or when a voucher brings the rental total to ₱0. The customer receives an in-app notification. Sales KPIs sum paid payment amounts in `Asia/Manila`. Inventory value is `quantity × replacement_value` for non-archived products.
+
+**Voucher body:** name, code? (generated when blank), discountType (`percent` \| `fixed`), discountValue, maxRedemptions?, minSubtotal, startsOn?, endsOn?, status (`draft` \| `active` \| `disabled`). Percent values cannot exceed 100. Customers never list vouchers; they submit a code only.
 
 ### Site maintenance
 
@@ -334,12 +346,14 @@ No user session. Present `Authorization: Bearer $CRON_SECRET` or `x-cron-secret`
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET/POST | `/api/cron/daily` | Runs recurring expenses, reminders, and overdue in one scheduled job |
+| GET/POST | `/api/cron/daily` | Pings Supabase when 3 days have passed, expires unconfirmed requests, then runs recurring expenses, reminders, and overdue |
+| GET/POST | `/api/cron/keep-alive` | Service-role ping so a paused-idle Supabase project stays awake |
+| GET/POST | `/api/cron/expire-pending` | `pending` → `cancelled` when the shop has not confirmed within 24 hours |
 | GET/POST | `/api/cron/recurring-expenses` | Post due recurring expenses |
 | GET/POST | `/api/cron/reminders` | Pickup and return emails for tomorrow in Asia/Manila |
 | GET/POST | `/api/cron/overdue` | `active` → `overdue` when `ends_on` is before today |
 
-`vercel.json` schedules only `/api/cron/daily` at `0 16 * * *` (midnight Asia/Manila) so Hobby accounts stay within the two-cron limit. The three single-job paths stay available for manual runs. Reminder emails reuse `(template, payload_hash)`. Occurrences reuse `(recurring_expense_id, occurs_on)`. Overdue only transitions `active` rentals.
+`vercel.json` schedules `/api/cron/daily` at `0 16 * * *` (midnight Asia/Manila) and `/api/cron/expire-pending` hourly. That uses the Hobby two-cron limit. The daily job pings Supabase at most once every 3 days and stores `settings.supabase_keep_alive`. The single-job paths stay available for manual runs. Reminder emails reuse `(template, payload_hash)`. Occurrences reuse `(recurring_expense_id, occurs_on)`. Overdue only transitions `active` rentals. Unconfirmed requests are also expired when availability or a quote is checked.
 
 ### Reports
 

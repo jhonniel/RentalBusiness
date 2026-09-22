@@ -54,7 +54,7 @@ Replace placeholder Supabase values before using authentication. Apply every fil
 4. Add environment variables for preview and production.
 5. Deploy.
 
-`vercel.json` sets security headers and one daily cron path (`/api/cron/daily`). Vercel auto-detects Nuxt 3.
+`vercel.json` sets security headers and two cron paths (`/api/cron/daily` and `/api/cron/expire-pending`). Vercel auto-detects Nuxt 3.
 
 Terms, Privacy, and Cookie Policy text live in `supabase/terms-jry-v1.txt`, `supabase/privacy-jry-v1.txt`, and `supabase/cookies-jry-v1.txt`. Nitro bundles those files from an absolute project path so `/api/terms/current`, `/api/privacy/current`, and `/api/cookie-policy/current` work on Vercel. Do not rely on `process.cwd()` at runtime.
 
@@ -113,11 +113,12 @@ Customers pay by sending the rental total to the active bank or QR methods publi
 
 ## Cron
 
-`vercel.json` schedules one path at `0 16 * * *` (midnight `Asia/Manila`, UTC+8):
+`vercel.json` schedules two paths (Hobby limit):
 
-- `/api/cron/daily` — recurring expenses, pickup/return reminders, then overdue detection
+- `/api/cron/daily` at `0 16 * * *` (midnight `Asia/Manila`, UTC+8) — keep Supabase awake every 3 days, expire unconfirmed requests, recurring expenses, reminders, overdue
+- `/api/cron/expire-pending` hourly — `pending` requests older than 24 hours become `cancelled`
 
-The three individual `/api/cron/*` paths stay available for manual runs. A Hobby project can register at most two cron jobs; three separate daily entries made the production deploy fail before a build started.
+The individual `/api/cron/*` paths stay available for manual runs.
 
 Vercel sends `Authorization: Bearer $CRON_SECRET`. Local or manual runs may use the same header or `x-cron-secret`. Missing or placeholder secrets return 503. Wrong secrets return 401. Jobs are idempotent and use the service-role client.
 

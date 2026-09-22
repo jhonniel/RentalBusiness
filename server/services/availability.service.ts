@@ -1,13 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AvailabilityCalendar, AvailabilityResponse } from '../../types/availability'
 import type { Database } from '../../types/database.types'
-import { evaluateAvailability, unavailableDates } from '../../utils/availability'
+import {
+  blockedDatesFromRanges,
+  evaluateAvailability,
+  mergeUnavailableDates,
+  toCalendarDate,
+  unavailableDates,
+} from '../../utils/availability'
 import { addCalendarDays } from '../../utils/expense'
-import { calendarDateInZone, inclusiveDayCount } from '../../utils/datetime'
+import { calendarDateInZone, inclusiveDayCount, isPastBusinessDate } from '../../utils/datetime'
 import { isBookableProductStatus } from '../../utils/constants'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
-import { getBookedQuantity, listOccupyingRanges } from '../repositories/availability.repository'
+import { getBookedQuantity, listBlockedRanges, listOccupyingRanges } from '../repositories/availability.repository'
 import { findProductBySlug, findProductByUuid } from '../repositories/product.repository'
 
 type Client = SupabaseClient<Database>
@@ -41,8 +47,12 @@ export async function getProductAvailability(client: Client, query: {
   quantity: number
 }): Promise<AvailabilityResponse> {
   const row = await loadActiveProduct(client, query.productUuid, query.productSlug)
+  if (isPastBusinessDate(query.startsOn)) {
+    throw new AppError('Those dates are in the past.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
 
   const booked = await getBookedQuantity(client, row.id, query.startsOn, query.endsOn)
+  const blockedRanges = await listBlockedRanges(client, row.id, query.startsOn, query.endsOn)
   const result = evaluateAvailability({
     quantity: row.quantity,
     damagedQuantity: row.damaged_quantity,
@@ -50,6 +60,7 @@ export async function getProductAvailability(client: Client, query: {
     lostQuantity: row.lost_quantity,
     bookedQuantity: booked,
     requestedQuantity: query.quantity,
+    hasBlockedDates: blockedRanges.length > 0,
   })
 
   return {
@@ -81,7 +92,8 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
   }
 
   const ranges = await listOccupyingRanges(client, row.id, from, to)
-  const dates = unavailableDates({
+  const blockedRanges = await listBlockedRanges(client, row.id, from, to)
+  const bookedDates = unavailableDates({
     stock: {
       quantity: row.quantity,
       damagedQuantity: row.damaged_quantity,
@@ -91,8 +103,8 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
     bookings: ranges.map(range => ({
       productUuid: row.uuid,
       quantity: range.quantity,
-      startsOn: range.starts_on,
-      endsOn: range.ends_on,
+      startsOn: toCalendarDate(range.starts_on),
+      endsOn: toCalendarDate(range.ends_on),
       status: 'approved',
     })),
     productUuid: row.uuid,
@@ -100,6 +112,17 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
     from,
     to,
   })
+  const dates = mergeUnavailableDates(
+    bookedDates,
+    blockedDatesFromRanges(
+      blockedRanges.map(range => ({
+        startsOn: toCalendarDate(range.starts_on),
+        endsOn: toCalendarDate(range.ends_on),
+      })),
+      from,
+      to,
+    ),
+  )
 
   return {
     product: {

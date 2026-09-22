@@ -79,5 +79,9 @@ export function auditTargetHref(entity: string, entityId: string) {
     return '/admin/waivers'
   }
 
+  if (entity === 'vouchers' || entity === 'voucher_redemptions') {
+    return '/admin/vouchers'
+  }
+
   return null
 }

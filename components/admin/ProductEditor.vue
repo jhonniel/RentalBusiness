@@ -23,7 +23,6 @@ const errors = ref<Record<string, string>>({})
 
 const form = reactive({
   name: props.product?.name ?? '',
-  sku: props.product?.sku ?? '',
   categoryUuid: props.product?.category.uuid ?? '',
   shortDescription: props.product?.shortDescription ?? '',
   description: props.product?.description ?? '',
@@ -145,17 +144,6 @@ async function onSubmit() {
           </span>
         </label>
         <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">SKU</span>
-          <UInput
-            v-model="form.sku"
-            :disabled="pending"
-          />
-          <span
-            v-if="errors.sku"
-            class="mt-1 block text-xs text-red-700"
-          >{{ errors.sku }}</span>
-        </label>
-        <label class="block text-sm">
           <span class="mb-1.5 block text-stone-700">Category</span>
           <select
             v-model="form.categoryUuid"
@@ -222,7 +210,7 @@ async function onSubmit() {
         Amounts stay in PHP and still apply to quotes. Hide a field to keep it off the public catalog.
       </p>
       <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <label
+        <div
           v-for="field in [
             ['dailyPrice', 'daily', 'Daily (₱)'],
             ['weeklyPrice', 'weekly', 'Weekly (₱)'],
@@ -232,20 +220,24 @@ async function onSubmit() {
             ['replacementValue', 'replacementValue', 'Replacement value (₱)'],
           ] as const"
           :key="field[0]"
-          class="block text-sm"
+          class="text-sm"
         >
-          <span class="mb-1.5 flex items-center justify-between gap-3 text-stone-700">
-            {{ field[2] }}
-            <span class="inline-flex items-center gap-1.5 text-xs font-normal text-stone-500">
+          <div class="mb-1.5 flex flex-wrap items-center gap-2">
+            <label
+              class="text-stone-700"
+              :for="`price-${field[0]}`"
+            >{{ field[2] }}</label>
+            <label class="inline-flex items-center gap-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600">
               <input
                 v-model="form.hideOnStorefront[field[1]]"
                 type="checkbox"
                 :disabled="pending"
               >
               Hide
-            </span>
-          </span>
+            </label>
+          </div>
           <UInput
+            :id="`price-${field[0]}`"
             v-model="form[field[0]]"
             type="number"
             min="0"
@@ -256,7 +248,7 @@ async function onSubmit() {
             v-if="errors[field[0]]"
             class="mt-1 block text-xs text-red-700"
           >{{ errors[field[0]] }}</span>
-        </label>
+        </div>
       </div>
     </section>
 

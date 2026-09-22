@@ -118,7 +118,7 @@ function printReceipt() {
       <ul class="mt-6 divide-y divide-stone-100 border-y border-stone-100">
         <li
           v-for="item in snapshot.items"
-          :key="item.sku"
+          :key="`${item.name}-${item.quantity}`"
           class="flex justify-between gap-4 py-3 text-sm"
         >
           <div>
@@ -126,7 +126,7 @@ function printReceipt() {
               {{ item.name }}
             </p>
             <p class="text-stone-500">
-              {{ item.quantity }} × {{ item.sku }}
+              Qty {{ item.quantity }}
             </p>
           </div>
           <p>{{ formatMoney(item.lineTotal, snapshot.currency) }}</p>

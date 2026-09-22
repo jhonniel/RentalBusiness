@@ -7,6 +7,7 @@ import { RENTAL_REQUEST_NOTIFY_EMAIL, isBookableProductStatus } from '../../util
 import { evaluateAvailability } from '../../utils/availability'
 import { EMAIL_TEMPLATES } from '../../utils/email'
 import { rentalSubmittedStaffEmail } from '../../utils/email-templates'
+import { isPastBusinessDate } from '../../utils/datetime'
 import { inclusiveRentalDays, quoteRentalLine } from '../../utils/pricing'
 import { isRentalCode, toPublicRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
@@ -14,7 +15,8 @@ import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
 import { logger } from '../utils/logger'
-import { getBookedQuantity } from '../repositories/availability.repository'
+import { expireUnconfirmedRentals } from './cron.service'
+import { getBookedQuantity, listBlockedRanges } from '../repositories/availability.repository'
 import { findProductBySlug, findProductByUuid } from '../repositories/product.repository'
 import { findProfileById, updateOwnProfile } from '../repositories/profile.repository'
 import {
@@ -104,9 +106,18 @@ async function loadActiveProduct(client: Client, query: { productUuid?: string, 
   return row
 }
 
-async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<RentalQuote & { productId: number }> {
+async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<RentalQuote & {
+  productId: number
+  hasBlockedDates: boolean
+}> {
   const product = await loadActiveProduct(client, query)
+  if (isPastBusinessDate(query.startsOn)) {
+    throw new AppError('Those dates are in the past.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+
   const booked = await getBookedQuantity(client, product.id, query.startsOn, query.endsOn)
+  const blockedRanges = await listBlockedRanges(client, product.id, query.startsOn, query.endsOn)
+  const hasBlockedDates = blockedRanges.length > 0
   const availability = evaluateAvailability({
     quantity: product.quantity,
     damagedQuantity: product.damaged_quantity,
@@ -114,6 +125,7 @@ async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<Rent
     lostQuantity: product.lost_quantity,
     bookedQuantity: booked,
     requestedQuantity: query.quantity,
+    hasBlockedDates,
   })
   const days = inclusiveRentalDays(query.startsOn, query.endsOn)
   const line = quoteRentalLine({
@@ -144,11 +156,12 @@ async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<Rent
     available: availability.available,
     canFulfill: availability.canFulfill,
     productId: product.id,
+    hasBlockedDates,
   }
 }
 
 export async function quoteRental(client: Client, query: RentalQuoteQuery) {
-  const { productId: _productId, ...quote } = await buildQuote(client, query)
+  const { productId: _productId, hasBlockedDates: _hasBlockedDates, ...quote } = await buildQuote(client, query)
   return quote
 }
 
@@ -158,11 +171,14 @@ export async function createRental(
   profile: { userId: string, profileId: number },
   input: CreateRentalInput,
 ) {
+  await expireUnconfirmedRentals(event).catch(() => undefined)
   const quote = await buildQuote(client, input)
 
   if (!quote.canFulfill) {
     throw new AppError(
-      'Those dates are not available. Another request already holds that kit.',
+      quote.hasBlockedDates
+        ? 'Those dates are blocked by the shop.'
+        : 'Those dates are not available. Another request already holds that kit.',
       409,
       ERROR_CODES.CONFLICT,
     )
@@ -283,6 +299,7 @@ export async function submitOwnRental(event: H3Event, client: Client, profileId:
     throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
   }
 
+  await expireUnconfirmedRentals(event).catch(() => undefined)
   const quote = await buildQuote(client, {
     productUuid: item.product.uuid,
     startsOn: rental.startsOn,
@@ -292,7 +309,9 @@ export async function submitOwnRental(event: H3Event, client: Client, profileId:
 
   if (!quote.canFulfill) {
     throw new AppError(
-      'That quantity is not available for the selected dates.',
+      quote.hasBlockedDates
+        ? 'Those dates are blocked by the shop.'
+        : 'That quantity is not available for the selected dates.',
       409,
       ERROR_CODES.CONFLICT,
     )

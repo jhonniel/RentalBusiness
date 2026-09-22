@@ -193,9 +193,6 @@ async function onSubmit() {
         <p class="mt-2 text-stone-700">
           {{ product?.name || form.productSlug }}
         </p>
-        <p class="mt-1 text-sm text-stone-500">
-          {{ product?.sku }}
-        </p>
       </section>
 
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
@@ -208,6 +205,7 @@ async function onSubmit() {
             label="Start date"
             :product-slug="form.productSlug || undefined"
             :quantity="1"
+            :until="form.endsOn || undefined"
             :disabled="pending"
           />
           <BookingDateField

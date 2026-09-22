@@ -61,6 +61,7 @@ function onSubmit() {
           v-model="startsOn"
           label="Start date"
           :product-slug="productSlug || undefined"
+          :until="endsOn || undefined"
         />
         <BookingDateField
           v-model="endsOn"

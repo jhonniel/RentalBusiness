@@ -66,6 +66,10 @@ export function isBookableProductStatus(status: string) {
   return status === 'active'
 }
 
+export function canBlockProductDates(status: string) {
+  return isBookableProductStatus(status)
+}
+
 export const PRICE_FIELD_KEYS = [
   'daily',
   'weekly',
@@ -75,6 +79,11 @@ export const PRICE_FIELD_KEYS = [
   'replacementValue',
 ] as const
 export type PriceFieldKey = (typeof PRICE_FIELD_KEYS)[number]
+
+export const VOUCHER_STATUSES = ['draft', 'active', 'disabled'] as const
+export type VoucherStatus = (typeof VOUCHER_STATUSES)[number]
+export const VOUCHER_DISCOUNT_TYPES = ['percent', 'fixed'] as const
+export type VoucherDiscountType = (typeof VOUCHER_DISCOUNT_TYPES)[number]
 
 export const EQUIPMENT_STATUSES = [
   'available',

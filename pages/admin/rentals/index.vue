@@ -26,7 +26,11 @@ const query = computed(() => ({
   pageSize: 20,
 }))
 
-const { data, error, pending } = await useFetch<RentalListResponse>('/api/admin/rentals', {
+const toast = useToast()
+const deleteCode = ref('')
+const deletePending = ref(false)
+
+const { data, error, pending, refresh } = await useFetch<RentalListResponse>('/api/admin/rentals', {
   query,
   watch: [query],
 })
@@ -37,6 +41,28 @@ const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0)
 watch([search, status], () => {
   page.value = 1
 })
+
+async function removeRental(uuid: string) {
+  deletePending.value = true
+  try {
+    await $fetch(`/api/admin/rentals/${uuid}`, { method: 'DELETE' })
+    toast.add({ title: 'Rental deleted', color: 'success' })
+    deleteCode.value = ''
+    await refresh()
+  }
+  catch (caught) {
+    const payload = typeof caught === 'object' && caught && 'data' in caught
+      ? (caught as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not delete that rental.',
+      color: 'error',
+    })
+  }
+  finally {
+    deletePending.value = false
+  }
+}
 </script>
 
 <template>
@@ -49,7 +75,7 @@ watch([search, status], () => {
         Rentals
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Review requests, payment state, and approve paid rentals.
+        Confirm new requests, review payment, approve paid rentals, or delete a request.
       </p>
     </div>
 
@@ -107,10 +133,11 @@ watch([search, status], () => {
       <li
         v-for="rental in data.items"
         :key="rental.uuid"
+        class="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
       >
         <NuxtLink
           :to="`/admin/rentals/${rental.code}`"
-          class="grid gap-3 px-4 py-4 hover:bg-stone-50 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)_auto_auto] lg:items-center"
+          class="grid min-w-0 gap-3 hover:opacity-80 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)_auto_auto] lg:items-center"
         >
           <div class="min-w-0">
             <p class="font-medium text-stone-900">
@@ -127,6 +154,36 @@ watch([search, status], () => {
           <span class="text-sm">{{ formatMoney(rental.totalAmount) }}</span>
           <StatusBadge :status="rental.status" />
         </NuxtLink>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <template v-if="deleteCode === rental.code">
+            <UButton
+              color="error"
+              size="sm"
+              :loading="deletePending"
+              @click="removeRental(rental.uuid)"
+            >
+              Confirm
+            </UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :disabled="deletePending"
+              @click="deleteCode = ''"
+            >
+              Cancel
+            </UButton>
+          </template>
+          <UButton
+            v-else
+            color="error"
+            variant="ghost"
+            size="sm"
+            @click="deleteCode = rental.code"
+          >
+            Delete
+          </UButton>
+        </div>
       </li>
     </ul>
 

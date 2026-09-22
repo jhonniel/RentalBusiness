@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { adminCalendarQuerySchema } from '../../utils/admin-validation'
 import {
+  applyCalendarPick,
+  blocksOnDate,
   calendarAgenda,
   eventCoversDate,
   eventsOnDate,
+  isDateInRange,
   monthBounds,
   monthCells,
   monthKey,
@@ -53,6 +56,38 @@ describe('admin calendar', () => {
       '2026-09-11',
       '2026-09-12',
     ])
+  })
+
+  it('lets an admin pick a day or a range and shows blocked kits on those days', () => {
+    expect(applyCalendarPick('2026-09-22', '', '', '2026-09-22')).toEqual({
+      startsOn: '2026-09-22',
+      endsOn: '2026-09-22',
+    })
+    expect(applyCalendarPick('2026-09-24', '2026-09-22', '2026-09-22', '2026-09-22')).toEqual({
+      startsOn: '2026-09-22',
+      endsOn: '2026-09-24',
+    })
+    expect(applyCalendarPick('2026-09-20', '2026-09-22', '2026-09-22', '2026-09-22')).toEqual({
+      startsOn: '2026-09-22',
+      endsOn: '2026-09-22',
+    })
+    expect(applyCalendarPick('2026-09-21', '', '', '2026-09-22')).toEqual({
+      startsOn: '',
+      endsOn: '',
+    })
+    expect(isDateInRange('2026-09-23', '2026-09-22', '2026-09-24')).toBe(true)
+
+    const blocks = [{
+      uuid: 'block-1',
+      startsOn: '2026-09-18',
+      endsOn: '2026-09-18',
+      reason: 'Holiday',
+      productUuid: 'p1',
+      productName: 'Starlink Mini',
+    }]
+
+    expect(blocksOnDate(blocks, '2026-09-18')).toHaveLength(1)
+    expect(calendarAgenda([], '2026-09', blocks).map(day => day.date)).toEqual(['2026-09-18'])
   })
 
   it('accepts a month query and rejects an invalid month', () => {

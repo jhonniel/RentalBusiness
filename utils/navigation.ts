@@ -27,6 +27,7 @@ export const adminNavItems: NavItem[] = [
   { label: 'Inventory', to: '/admin/inventory', icon: 'i-lucide-boxes', enabled: true },
   { label: 'Customers', to: '/admin/customers', icon: 'i-lucide-users', enabled: true },
   { label: 'Payments', to: '/admin/payments', icon: 'i-lucide-credit-card', enabled: true },
+  { label: 'Vouchers', to: '/admin/vouchers', icon: 'i-lucide-ticket', enabled: true },
   { label: 'Sales', to: '/admin/sales', icon: 'i-lucide-trending-up', enabled: true },
   { label: 'Expenses', to: '/admin/expenses', icon: 'i-lucide-wallet', enabled: true },
   { label: 'Recurring Expenses', to: '/admin/expenses/recurring', icon: 'i-lucide-repeat', enabled: true },

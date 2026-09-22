@@ -115,6 +115,7 @@ async function goRent() {
         :product-uuid="productUuid"
         :product-slug="productSlug"
         :quantity="1"
+        :until="endsOn || undefined"
         :disabled="pending"
       />
       <BookingDateField

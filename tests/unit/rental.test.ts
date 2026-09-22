@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canSubmitRentalRequest, customerRentalNextLabel, customerRentalNextPath, isRentalCode, toPublicRental } from '../../utils/rental'
+import { addCalendarDays } from '../../utils/expense'
+import { calendarDateInZone } from '../../utils/datetime'
 import { createRentalSchema, rentalQuoteQuerySchema } from '../../utils/rental-validation'
 
 describe('rental validation', () => {
   it('accepts a customer request and rejects priced or privileged fields', () => {
+    const startsOn = addCalendarDays(calendarDateInZone(), 1)
+    const endsOn = addCalendarDays(startsOn, 2)
+
     expect(createRentalSchema.parse({
       productSlug: 'sony-a7-iv',
-      startsOn: '2026-09-11',
-      endsOn: '2026-09-13',
+      startsOn,
+      endsOn,
       quantity: 1,
       firstName: 'Ana',
       lastName: 'Reyes',
@@ -16,8 +21,8 @@ describe('rental validation', () => {
 
     expect(createRentalSchema.safeParse({
       productSlug: 'sony-a7-iv',
-      startsOn: '2026-09-11',
-      endsOn: '2026-09-13',
+      startsOn,
+      endsOn,
       firstName: 'Ana',
       lastName: 'Reyes',
       status: 'approved',
@@ -25,20 +30,28 @@ describe('rental validation', () => {
 
     expect(createRentalSchema.safeParse({
       productSlug: 'sony-a7-iv',
-      startsOn: '2026-09-11',
-      endsOn: '2026-09-13',
+      startsOn,
+      endsOn,
       firstName: 'Ana',
       lastName: 'Reyes',
       id: 9,
       totalAmount: 1,
+    }).success).toBe(false)
+
+    expect(createRentalSchema.safeParse({
+      productSlug: 'sony-a7-iv',
+      startsOn: addCalendarDays(calendarDateInZone(), -1),
+      endsOn: addCalendarDays(calendarDateInZone(), -1),
+      firstName: 'Ana',
+      lastName: 'Reyes',
     }).success).toBe(false)
   })
 
   it('rejects a quote that includes an internal product id', () => {
     expect(rentalQuoteQuerySchema.safeParse({
       productId: 3,
-      startsOn: '2026-09-11',
-      endsOn: '2026-09-13',
+      startsOn: addCalendarDays(calendarDateInZone(), 1),
+      endsOn: addCalendarDays(calendarDateInZone(), 3),
     }).success).toBe(false)
   })
 })
@@ -80,6 +93,10 @@ describe('rental mapper', () => {
     expect(rental.customer).toBeNull()
     expect(rental.items[0]).not.toHaveProperty('id')
     expect(rental.items[0]?.product).not.toHaveProperty('id')
+    expect(rental.items[0]?.product.depositAmount).toBe(0)
+    expect(rental.items[0]?.product.lateFee).toBe(0)
+    expect(rental.items[0]?.product.replacementValue).toBeNull()
+    expect(rental.voucher).toBeNull()
     expect(isRentalCode(rental.code)).toBe(true)
   })
 })
@@ -125,6 +142,17 @@ describe('customer rental transitions', () => {
     })).toBe('/rentals/LUM-20260913-00001/waiver')
     expect(customerRentalNextLabel({
       status: 'pending',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe('Waiting for confirmation')
+    expect(customerRentalNextPath({
+      code: 'LUM-20260913-00001',
+      status: 'pending',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe('/rentals/LUM-20260913-00001')
+    expect(customerRentalNextLabel({
+      status: 'awaiting_payment',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
     })).toBe('Pay now')

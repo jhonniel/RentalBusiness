@@ -26,3 +26,12 @@ export interface AvailabilityCalendar {
   quantity: number
   unavailableDates: string[]
 }
+
+export interface PublicBlockedDate {
+  uuid: string
+  startsOn: string
+  endsOn: string
+  reason: string | null
+  productUuid: string
+  productName: string
+}

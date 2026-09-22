@@ -43,7 +43,11 @@ const canSubmit = computed(() => rental.value ? canSubmitRentalRequest(rental.va
 const canPay = computed(() =>
   Boolean(rental.value?.waiver)
   && Boolean(rental.value?.identity)
-  && ['pending', 'awaiting_payment'].includes(rental.value?.status ?? ''),
+  && rental.value?.status === 'awaiting_payment',
+)
+const waitingForConfirm = computed(() => rental.value?.status === 'pending')
+const canApplyVoucher = computed(() =>
+  ['draft', 'pending', 'awaiting_payment'].includes(rental.value?.status ?? ''),
 )
 const latestPayment = computed(() => rental.value?.payments[0] ?? null)
 const latestReceipt = computed(() => rental.value?.receipts[0] ?? null)
@@ -59,8 +63,8 @@ async function submitRental() {
       method: 'POST',
       headers: authHeaders(),
     })
-    toast.add({ title: 'Request submitted', color: 'success' })
-    await navigateTo(`/rentals/${rental.value.code}/pay`)
+    toast.add({ title: 'Request submitted. Waiting for the shop to confirm.', color: 'success' })
+    await refresh()
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
@@ -126,6 +130,12 @@ async function cancelRental() {
         </div>
       </div>
 
+      <CatalogNotice
+        v-if="waitingForConfirm"
+        title="Waiting for the shop"
+        description="Your dates are reserved for 24 hours. If the shop does not confirm this booking in that time, the request is cancelled."
+      />
+
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 class="text-sm font-medium text-stone-900">
           Schedule
@@ -152,7 +162,7 @@ async function cancelRental() {
                 {{ item.product.name }}
               </p>
               <p class="text-stone-500">
-                {{ item.quantity }} × {{ item.product.sku }}
+                Qty {{ item.quantity }}
               </p>
             </div>
             <p>{{ formatMoney(item.lineTotal) }}</p>
@@ -171,6 +181,15 @@ async function cancelRental() {
             </dt>
             <dd>{{ formatMoney(rental.subtotal) }}</dd>
           </div>
+          <div
+            v-if="rental.discountAmount > 0"
+            class="flex justify-between"
+          >
+            <dt class="text-stone-500">
+              Voucher{{ rental.voucher ? ` ${rental.voucher.code}` : '' }}
+            </dt>
+            <dd>−{{ formatMoney(rental.discountAmount) }}</dd>
+          </div>
           <div class="flex justify-between">
             <dt class="text-stone-500">
               Deposit
@@ -183,6 +202,14 @@ async function cancelRental() {
           </div>
         </dl>
       </section>
+
+      <AccountRentalVoucherForm
+        v-if="canApplyVoucher"
+        :rental-uuid="rental.uuid"
+        :voucher="rental.voucher"
+        :editable="true"
+        @applied="refresh()"
+      />
 
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 class="text-sm font-medium text-stone-900">

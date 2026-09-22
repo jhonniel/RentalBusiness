@@ -226,7 +226,7 @@ async function onSaved() {
         {{ product?.name || 'Edit product' }}
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Update the name, prices, About this kit copy, specifications, accessories, rental rules, images, and serialized equipment.
+        Update the name, prices, About this kit copy, specifications, accessories, rental rules, images, and serialized equipment. Block dates from the Calendar.
       </p>
     </div>
 
@@ -252,6 +252,23 @@ async function onSaved() {
         :categories="categories"
         @saved="onSaved"
       />
+
+      <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <h3 class="text-sm font-medium text-stone-900">
+          Blocked dates
+        </h3>
+        <p class="mt-1 text-sm text-stone-500">
+          Lock days from the Calendar so customers cannot book this kit.
+        </p>
+        <UButton
+          class="mt-4"
+          to="/admin/calendar"
+          color="neutral"
+          variant="outline"
+        >
+          Open calendar
+        </UButton>
+      </section>
 
       <section class="rounded-xl border border-stone-200 bg-white p-5">
         <h3 class="text-sm font-medium text-stone-900">

@@ -64,6 +64,10 @@ export function isInclusiveDateRange(startsOn: string, endsOn: string): boolean 
   return startsOn <= endsOn
 }
 
+export function isPastBusinessDate(value: string, today: string = calendarDateInZone()): boolean {
+  return value < today
+}
+
 export function inclusiveDayCount(startsOn: string, endsOn: string): number {
   if (startsOn > endsOn) {
     return 0

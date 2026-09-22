@@ -75,6 +75,18 @@ const hiddenPriceFields = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260919130000_product_hidden_price_fields.sql'),
   'utf8',
 )
+const adminRentalDelete = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260919140000_admin_rental_delete.sql'),
+  'utf8',
+)
+const vouchers = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260919150000_vouchers.sql'),
+  'utf8',
+)
+const productBlockedDates = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260922100000_product_blocked_dates.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -276,6 +288,40 @@ describe('product coming soon', () => {
     expect(productComingSoon).toContain("'coming_soon'")
     expect(productComingSoon).toContain("status in ('active', 'coming_soon')")
     expect(productComingSoon).toContain('products_public_read')
+  })
+})
+
+describe('admin rental delete', () => {
+  it('lets admins delete a rental and cascaded payment and waiver rows', () => {
+    expect(adminRentalDelete).toContain('rental_requests_admin_delete')
+    expect(adminRentalDelete).toContain('on delete cascade')
+    expect(adminRentalDelete).toContain('waiver_acceptances_admin_delete')
+    expect(adminRentalDelete).toContain('payment_transactions_admin_delete')
+    expect(adminRentalDelete).toContain('receipts_admin_delete')
+    expect(adminRentalDelete).not.toContain('grant delete on public.rental_requests to anon')
+  })
+})
+
+describe('product blocked dates', () => {
+  it('lets admins lock days without exposing product ids on the public calendar', () => {
+    expect(productBlockedDates).toContain('create table if not exists public.product_blocked_dates')
+    expect(productBlockedDates).toContain('product_blocked_ranges')
+    expect(productBlockedDates).toContain('product_blocked_dates_admin_all')
+    expect(productBlockedDates).toContain('grant execute on function public.product_blocked_ranges')
+    expect(productBlockedDates).not.toContain('grant select on public.product_blocked_dates to anon')
+    expect(productBlockedDates).toContain('Does not expose product_id, reason, or other identifiers')
+  })
+})
+
+describe('vouchers', () => {
+  it('stores admin-only codes and keeps rental discounts when items sync', () => {
+    expect(vouchers).toContain('create table if not exists public.vouchers')
+    expect(vouchers).toContain('create table if not exists public.voucher_redemptions')
+    expect(vouchers).toContain('constraint voucher_redemptions_rental_unique unique (rental_id)')
+    expect(vouchers).toContain('vouchers_admin_all')
+    expect(vouchers).toContain('voucher_redemptions_select_own_or_admin')
+    expect(vouchers).toContain('total_amount = greatest(0, round(v_subtotal - v_discount, 2))')
+    expect(vouchers).not.toContain('grant select on public.vouchers to anon')
   })
 })
 

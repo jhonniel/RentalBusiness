@@ -105,7 +105,7 @@ async function deleteProduct(uuid: string) {
       <input
         v-model="searchInput"
         type="search"
-        placeholder="Search name or SKU"
+        placeholder="Search name"
         class="rounded-md border border-stone-200 px-3 py-2 text-sm"
       >
       <select
@@ -176,9 +176,6 @@ async function deleteProduct(uuid: string) {
                 Product
               </th>
               <th class="px-4 py-3 font-medium">
-                SKU
-              </th>
-              <th class="px-4 py-3 font-medium">
                 Price
               </th>
               <th class="px-4 py-3 font-medium">
@@ -203,9 +200,6 @@ async function deleteProduct(uuid: string) {
                 <p class="text-xs text-stone-500">
                   {{ product.category.name }}
                 </p>
-              </td>
-              <td class="px-4 py-3 text-stone-600">
-                {{ product.sku }}
               </td>
               <td class="px-4 py-3 text-stone-600">
                 {{ money(product.dailyPrice) }}/day
@@ -273,7 +267,7 @@ async function deleteProduct(uuid: string) {
           <StatusBadge :status="product.status" />
         </div>
         <p class="mt-1 text-sm text-stone-500">
-          {{ product.category.name }} · {{ product.sku }} · {{ money(product.dailyPrice) }}/day
+          {{ product.category.name }} · {{ money(product.dailyPrice) }}/day
         </p>
         <p class="mt-1 text-sm text-stone-500">
           {{ product.availableQuantity }} of {{ product.quantity }} available

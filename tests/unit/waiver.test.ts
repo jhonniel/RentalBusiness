@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { formatMoney } from '../../utils/currency'
 import { firstWaiverAcceptance, isSignatureDataUrl, renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
 import { acceptWaiverSchema, publishWaiverSchema } from '../../utils/waiver-validation'
 
@@ -110,6 +111,30 @@ describe('waiver mapper', () => {
     expect(published).toContain('- DJI Air 3 × 1')
     expect(published).not.toContain('Starlink Mini')
     expect(published).not.toContain('DJI Osmo 360')
+  })
+
+  it('lists deposit, late fee, and replacement value with the rental equipment', () => {
+    const body = renderWaiverBody(
+      'Equipment on this rental:\n{{RENTAL_EQUIPMENT}}\n',
+      [{
+        quantity: 1,
+        product: {
+          name: 'Starlink Mini',
+          depositAmount: 8000,
+          lateFee: 500,
+          replacementValue: 28000,
+        },
+      }],
+    )
+
+    expect(body).toContain('- Starlink Mini × 1')
+    expect(body).toContain('Deposit:')
+    expect(body).toContain(formatMoney(8000))
+    expect(body).toContain('Late fee:')
+    expect(body).toContain(formatMoney(500))
+    expect(body).toContain('per day')
+    expect(body).toContain('Replacement value:')
+    expect(body).toContain(formatMoney(28000))
   })
 })
 

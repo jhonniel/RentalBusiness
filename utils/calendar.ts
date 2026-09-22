@@ -1,3 +1,4 @@
+import type { PublicBlockedDate } from '~/types/availability'
 import type { AdminCalendarEvent } from '~/types/calendar'
 import { calendarDateInZone } from './datetime'
 
@@ -45,9 +46,52 @@ export function eventsOnDate(items: AdminCalendarEvent[], date: string) {
   return items.filter(item => eventCoversDate(item, date))
 }
 
-export function calendarAgenda(items: AdminCalendarEvent[], month: string) {
+export function blocksOnDate(blocks: PublicBlockedDate[], date: string) {
+  return blocks.filter(block => eventCoversDate(block, date))
+}
+
+export function applyCalendarPick(
+  date: string,
+  startsOn: string,
+  endsOn: string,
+  today: string = calendarDateInZone(),
+) {
+  if (date < today) {
+    return { startsOn, endsOn }
+  }
+
+  if (!startsOn || (startsOn !== endsOn && endsOn)) {
+    return { startsOn: date, endsOn: date }
+  }
+
+  if (date < startsOn) {
+    return { startsOn: date, endsOn: startsOn }
+  }
+
+  return { startsOn, endsOn: date }
+}
+
+export function isDateInRange(date: string, startsOn?: string, endsOn?: string) {
+  if (!startsOn) {
+    return false
+  }
+
+  const start = startsOn <= (endsOn || startsOn) ? startsOn : (endsOn || startsOn)
+  const end = startsOn <= (endsOn || startsOn) ? (endsOn || startsOn) : startsOn
+  return start <= date && date <= end
+}
+
+export function calendarAgenda(
+  items: AdminCalendarEvent[],
+  month: string,
+  blocks: PublicBlockedDate[] = [],
+) {
   return monthCells(month)
     .filter((date): date is string => Boolean(date))
-    .map(date => ({ date, items: eventsOnDate(items, date) }))
-    .filter(day => day.items.length > 0)
+    .map(date => ({
+      date,
+      items: eventsOnDate(items, date),
+      blocks: blocksOnDate(blocks, date),
+    }))
+    .filter(day => day.items.length > 0 || day.blocks.length > 0)
 }

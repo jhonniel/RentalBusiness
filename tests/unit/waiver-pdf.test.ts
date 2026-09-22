@@ -1,5 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildWaiverPdf, sanitizeWaiverPdfText, waiverPdfFilename, wrapWaiverPdfLines } from '../../server/utils/waiver-pdf'
+
+const securityHeaders = readFileSync(
+  resolve(process.cwd(), 'server/middleware/security-headers.ts'),
+  'utf8',
+)
 
 describe('waiver PDF', () => {
   it('builds a downloadable PDF and keeps WinAnsi-safe text', () => {
@@ -25,5 +32,11 @@ describe('waiver PDF', () => {
     const header = Buffer.from(bytes.slice(0, 5)).toString('utf8')
     expect(header).toBe('%PDF-')
     expect(bytes.byteLength).toBeGreaterThan(500)
+  })
+
+  it('allows the admin PDF preview to render a same-origin blob', () => {
+    expect(securityHeaders).toContain("frame-src \\'self\\' blob:")
+    expect(securityHeaders).toContain("object-src \\'self\\' blob:")
+    expect(securityHeaders).toContain("frame-ancestors \\'none\\'")
   })
 })

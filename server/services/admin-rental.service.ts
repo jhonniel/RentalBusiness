@@ -11,7 +11,9 @@ import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
+import { STORAGE_BUCKETS } from '../../utils/storage'
 import {
+  deleteRentalByUuid,
   findRentalByCode,
   findRentalByUuid,
   findRentalIdentity,
@@ -20,7 +22,10 @@ import {
   listRentalsOverlapping,
   updateRentalStatus,
 } from '../repositories/rental.repository'
+import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
+import { expireUnconfirmedRentals } from './cron.service'
+import { listAdminBlockedDatesOverlapping } from './blocked-date.service'
 import { attachAdminIdentityUrls } from './identity.service'
 
 type Client = SupabaseClient<Database>
@@ -97,6 +102,7 @@ export async function getAdminCalendar(client: Client, query: {
     endsOn,
     status: query.status,
   })
+  const blockedDates = await listAdminBlockedDatesOverlapping(client, startsOn, endsOn)
 
   return {
     month,
@@ -117,6 +123,7 @@ export async function getAdminCalendar(client: Client, query: {
         customerName: firstName(row.profiles),
       }
     }),
+    blockedDates,
   }
 }
 
@@ -124,13 +131,65 @@ export async function getAdminRental(client: Client, identifier: string) {
   return loadAdminRental(client, identifier)
 }
 
+export async function confirmAdminRental(event: H3Event, client: Client, profileId: number, identifier: string) {
+  await expireUnconfirmedRentals(event).catch(() => undefined)
+  const rental = await loadAdminRental(client, identifier)
+  if (rental.status !== 'pending') {
+    throw new AppError('Confirm a submitted request first.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const fullyCovered = rental.totalAmount === 0 && Boolean(rental.voucher)
+  const nextStatus: RentalStatus = fullyCovered ? 'approved' : 'awaiting_payment'
+  if (!canTransitionRentalStatus(rental.status, nextStatus)) {
+    throw new AppError('That rental cannot be confirmed yet.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const row = await updateRentalStatus(client, rental.uuid, nextStatus)
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: nextStatus,
+    changedBy: profileId,
+    note: fullyCovered
+      ? 'Admin confirmed a fully covered booking.'
+      : 'Admin confirmed the booking. Customer can pay.',
+  })
+
+  await insertNotification(client, {
+    recipient_id: identity.customer_id,
+    type: fullyCovered ? 'rental.approved' : 'rental.confirmed',
+    title: fullyCovered ? 'Booking confirmed' : 'Booking confirmed',
+    body: fullyCovered
+      ? `Your rental ${rental.code} is confirmed and will be prepared for pickup.`
+      : `The shop confirmed rental ${rental.code}. You can pay the down payment now.`,
+    metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
+  })
+
+  const next = toPublicRental(row)
+  await recordAudit(event, client, {
+    action: 'rental.confirm',
+    entity: 'rental_requests',
+    entityId: next.uuid,
+    previous: { status: rental.status },
+    next: { status: nextStatus },
+  })
+
+  return next
+}
+
 export async function approveAdminRental(event: H3Event, client: Client, profileId: number, identifier: string) {
   const rental = await loadAdminRental(client, identifier)
-  if (!canTransitionRentalStatus(rental.status, 'approved')) {
+  const fullyCovered = rental.totalAmount === 0 && Boolean(rental.voucher)
+  if (!canTransitionRentalStatus(rental.status, 'approved') && !fullyCovered) {
     throw new AppError('That rental cannot be approved yet.', 409, ERROR_CODES.CONFLICT)
   }
 
-  if (rental.status !== 'paid') {
+  if (rental.status !== 'paid' && !fullyCovered) {
     throw new AppError('Approve only after payment is confirmed.', 409, ERROR_CODES.CONFLICT)
   }
 
@@ -166,4 +225,37 @@ export async function approveAdminRental(event: H3Event, client: Client, profile
   })
 
   return next
+}
+
+export async function deleteAdminRental(event: H3Event, client: Client, identifier: string) {
+  const rental = await loadAdminRental(client, identifier)
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const documents = await findIdentityByRentalId(client, identity.id)
+  const paths = [documents?.government_id_path, documents?.selfie_path].filter((path): path is string => Boolean(path))
+  if (paths.length) {
+    await client.storage.from(STORAGE_BUCKETS.privateDocuments).remove(paths)
+  }
+
+  await deleteRentalByUuid(client, rental.uuid)
+
+  await recordAudit(event, client, {
+    action: 'rental.delete',
+    entity: 'rental_requests',
+    entityId: rental.uuid,
+    previous: {
+      uuid: rental.uuid,
+      code: rental.code,
+      status: rental.status,
+    },
+  })
+
+  return {
+    deleted: true,
+    uuid: rental.uuid,
+    code: rental.code,
+  }
 }

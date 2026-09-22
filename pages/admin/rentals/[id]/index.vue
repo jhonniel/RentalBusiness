@@ -13,6 +13,9 @@ const toast = useToast()
 const { formatMoney } = useCurrency()
 const identifier = computed(() => String(route.params.id))
 const approving = ref(false)
+const confirming = ref(false)
+const deleteOpen = ref(false)
+const deletePending = ref(false)
 
 const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/admin/rentals/${identifier.value}`,
@@ -37,7 +40,41 @@ useSiteMeta({
   path: `/admin/rentals/${identifier.value}`,
 })
 
-const canApprove = computed(() => rental.value?.status === 'paid')
+const canConfirm = computed(() => rental.value?.status === 'pending')
+const canApprove = computed(() =>
+  rental.value?.status === 'paid'
+  || Boolean(
+    rental.value
+    && rental.value.totalAmount === 0
+    && rental.value.voucher
+    && rental.value.status === 'awaiting_payment',
+  ),
+)
+
+async function confirmBooking() {
+  if (!rental.value) {
+    return
+  }
+
+  confirming.value = true
+  try {
+    await $fetch(`/api/admin/rentals/${rental.value.uuid}/confirm`, { method: 'POST' })
+    toast.add({ title: 'Booking confirmed', color: 'success' })
+    await refresh()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not confirm that booking.',
+      color: 'error',
+    })
+  }
+  finally {
+    confirming.value = false
+  }
+}
 
 async function approve() {
   if (!rental.value) {
@@ -61,6 +98,31 @@ async function approve() {
   }
   finally {
     approving.value = false
+  }
+}
+
+async function removeRental() {
+  if (!rental.value) {
+    return
+  }
+
+  deletePending.value = true
+  try {
+    await $fetch(`/api/admin/rentals/${rental.value.uuid}`, { method: 'DELETE' })
+    toast.add({ title: 'Rental deleted', color: 'success' })
+    await navigateTo('/admin/rentals')
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not delete that rental.',
+      color: 'error',
+    })
+  }
+  finally {
+    deletePending.value = false
   }
 }
 </script>
@@ -96,6 +158,13 @@ async function approve() {
           </div>
         </div>
         <div class="flex flex-wrap gap-2">
+          <UButton
+            v-if="canConfirm"
+            :loading="confirming"
+            @click="confirmBooking"
+          >
+            Confirm booking
+          </UButton>
           <UButton
             v-if="canApprove"
             :loading="approving"
@@ -154,6 +223,12 @@ async function approve() {
                 <span>{{ formatMoney(item.lineTotal) }}</span>
               </li>
             </ul>
+            <p
+              v-if="rental.voucher"
+              class="mt-3 text-sm text-stone-600"
+            >
+              Voucher {{ rental.voucher.code }} · −{{ formatMoney(rental.discountAmount) }}
+            </p>
             <p class="mt-3 text-sm font-medium">
               Total {{ formatMoney(rental.totalAmount) }}
             </p>
@@ -296,6 +371,46 @@ async function approve() {
       </section>
         </div>
       </div>
+
+      <section class="rounded-xl border border-red-200 bg-red-50 p-5">
+        <h3 class="text-sm font-medium text-red-900">
+          Delete
+        </h3>
+        <p class="mt-1 text-sm text-red-800">
+          Permanently removes this rental, its payments, receipts, waiver, and ID files.
+        </p>
+        <UButton
+          v-if="!deleteOpen"
+          class="mt-4"
+          color="error"
+          @click="deleteOpen = true"
+        >
+          Delete rental
+        </UButton>
+        <div
+          v-else
+          class="mt-4 flex flex-wrap items-center gap-2"
+        >
+          <p class="text-sm text-red-800">
+            Delete {{ rental.code }} forever?
+          </p>
+          <UButton
+            color="error"
+            :loading="deletePending"
+            @click="removeRental"
+          >
+            Confirm delete
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :disabled="deletePending"
+            @click="deleteOpen = false"
+          >
+            Cancel
+          </UButton>
+        </div>
+      </section>
     </template>
   </div>
 </template>

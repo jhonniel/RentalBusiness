@@ -1,6 +1,6 @@
 # Database schema
 
-**Status:** Phase 2 schema through Phase 17 rental identity proof live in `supabase/migrations/`, plus the availability calendar, privacy-policy acknowledgment columns, and the site maintenance singleton. RLS, storage buckets, and the development seed are included.
+**Status:** Phase 2 schema through Phase 17 rental identity proof live in `supabase/migrations/`, plus the availability calendar, privacy-policy acknowledgment columns, the site maintenance singleton, and admin-blocked product dates. RLS, storage buckets, and the development seed are included.
 
 Public identifiers are `uuid` or `code`. Internal `bigint` primary keys are never returned from public APIs or placed in URLs.
 
@@ -41,7 +41,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 **products**
 
-- `id`, `uuid`, `slug` (unique, generated from `name`), `sku` (unique)
+- `id`, `uuid`, `slug` (unique, generated from `name`), `sku` (unique, generated from `name`; not shown on product forms)
 - `category_id` → product_categories
 - `name`, `description`, `short_description`
 - `daily_price`, `weekly_price`, `monthly_price`, `deposit_amount`, `late_fee`, `replacement_value`
@@ -55,6 +55,12 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 - `id`, `uuid`, `product_id`, `storage_path`, `alt`, `sort_order`
 - `storage_path` is an object key in the public Supabase Storage `product-images` bucket (S3). Public APIs return the Storage URL, never a local file path.
+
+**product_blocked_dates**
+
+- `id`, `uuid`, `product_id` → products (`ON DELETE CASCADE`)
+- `starts_on`, `ends_on` (inclusive business dates), optional `reason` (max 200)
+- Admin-only table. Public calendar reads use `product_blocked_ranges(product_id, starts_on, ends_on)` (security definer) and receive only overlapping date ranges.
 
 **equipment_assets** (serialized units)
 
@@ -72,10 +78,12 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 **Relationships**
 
 - `products` 1 → many `product_images` (`ON DELETE CASCADE`)
+- `products` 1 → many `product_blocked_dates` (`ON DELETE CASCADE`)
 - `products` 1 → many `equipment_assets`
 - `products` 1 → many `rental_items` (no cascade — rental history stays)
 - Admin product delete is blocked when `rental_items` or `rental_asset_assignments` exist. Otherwise unused assets and storage objects are removed, then the product row is deleted.
 - `rental_requests` 1 → many `rental_asset_assignments`
+- Admin rental delete removes the request and cascaded children (`rental_items`, assignments, status history, identity, waiver acceptance, payments, receipts, and voucher redemptions). Identity files in `private-documents` are removed first.
 
 ### Rentals
 
@@ -118,6 +126,11 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - Same overlap and occupying-status rules as `product_booked_quantity`.
 - Does not return rental, customer, or other identifiers.
 
+**product_blocked_ranges(product_id, starts_on, ends_on)**
+
+- Returns admin-blocked `starts_on` and `ends_on` that overlap the window.
+- Does not return `product_id`, `reason`, or other identifiers.
+
 Rental statuses: `draft`, `pending`, `awaiting_payment`, `paid`, `approved`, `ready_for_pickup`, `active`, `returned`, `completed`, `cancelled`, `rejected`, `overdue`.
 
 Status changes are server-side only. Clients cannot write status columns. Customers may create `draft` or `pending` and cancel `draft`, `pending`, or unpaid `awaiting_payment` (Phase 6 and 8). Payment confirmation moves `awaiting_payment` → `paid`.
@@ -141,6 +154,26 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 
 - `rental_requests` 1 → 1 `waiver_acceptances` (for a completed flow)
 - `waiver_versions` 1 → many `waiver_acceptances`
+
+### Vouchers
+
+**vouchers**
+
+- `id`, `uuid`, `code` (unique, public identifier)
+- `name`, `discount_type` (`percent` \| `fixed`), `discount_value`
+- `max_redemptions` (null = unlimited), `redeemed_count`
+- `min_subtotal`, `starts_on`, `ends_on`
+- `status` (`draft` \| `active` \| `disabled`)
+- Admin-only select/write. Customers never list this table.
+
+**voucher_redemptions**
+
+- `id`, `uuid`, `voucher_id`, `rental_id` (unique), `customer_id`
+- Snapshot `code`, `name`, `discount_amount`, `redeemed_at`
+- Customers may select their own rows. Apply/remove goes through the service-role client so rental money columns can update.
+- `ON DELETE CASCADE` from `rental_requests`
+
+`sync_rental_request_totals` keeps `discount_amount` and sets `total_amount = greatest(0, subtotal - discount)`.
 
 ### Payments and receipts
 
@@ -219,6 +252,7 @@ Expense categories: `internet`, `electricity`, `maintenance`, `repairs`, `softwa
 - `currency` default `PHP`
 - `timezone` default `Asia/Manila`
 - Late fees, deposit rules, cancellation rules, email settings
+- `supabase_keep_alive` stores `{ lastPingedOn }` so the daily cron can ping the database at most once every 3 days
 
 **site_maintenance** / **maintenance_images**
 
@@ -257,6 +291,8 @@ Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental
 Phase 16: `payment_methods` stores admin QR payment options. Authenticated customers may select active rows. Writes are admin-only. QR files live in the public `payment-qr-images` bucket.
 
 Phase 17: `rental_identity_verifications` stores government ID and selfie-with-ID paths in `private-documents`. Customers write only their own open rentals. Public APIs never return storage paths.
+
+Vouchers: `vouchers` is admin-only. `voucher_redemptions` is one per rental and cascades on rental delete. Item-total sync preserves `discount_amount`.
 
 Site maintenance: `site_maintenance` is a singleton. `maintenance_images` are public objects in `maintenance-images`. Writes are admin-only. Public APIs never return storage paths.
 

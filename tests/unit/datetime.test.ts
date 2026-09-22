@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calendarDateInZone, formatBookingDate, formatBusinessDate, isInclusiveDateRange, isStartBeforeEnd } from '../../utils/datetime'
+import { calendarDateInZone, formatBookingDate, formatBusinessDate, isInclusiveDateRange, isPastBusinessDate, isStartBeforeEnd } from '../../utils/datetime'
 
 describe('formatBookingDate', () => {
   it('keeps spaces between day, month, and year', () => {
@@ -27,5 +27,7 @@ describe('inclusive rental dates', () => {
     expect(isInclusiveDateRange('2026-09-12', '2026-09-12')).toBe(true)
     expect(isInclusiveDateRange('2026-09-13', '2026-09-12')).toBe(false)
     expect(calendarDateInZone('2026-01-15T16:00:00.000Z')).toBe('2026-01-16')
+    expect(isPastBusinessDate('2026-09-21', '2026-09-22')).toBe(true)
+    expect(isPastBusinessDate('2026-09-22', '2026-09-22')).toBe(false)
   })
 })

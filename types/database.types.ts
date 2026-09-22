@@ -628,6 +628,7 @@ export interface Database {
         }
         Update: {
           status?: PaymentStatus
+          amount?: number
           provider?: string
           provider_transaction_id?: string | null
           payment_method?: string | null
@@ -998,6 +999,109 @@ export interface Database {
         }
         Relationships: []
       }
+      vouchers: {
+        Row: {
+          id: number
+          uuid: string
+          code: string
+          name: string
+          discount_type: 'percent' | 'fixed'
+          discount_value: number
+          max_redemptions: number | null
+          redeemed_count: number
+          min_subtotal: number
+          starts_on: string | null
+          ends_on: string | null
+          status: 'draft' | 'active' | 'disabled'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          name: string
+          discount_type: 'percent' | 'fixed'
+          discount_value: number
+          uuid?: string
+          max_redemptions?: number | null
+          redeemed_count?: number
+          min_subtotal?: number
+          starts_on?: string | null
+          ends_on?: string | null
+          status?: 'draft' | 'active' | 'disabled'
+        }
+        Update: {
+          code?: string
+          name?: string
+          discount_type?: 'percent' | 'fixed'
+          discount_value?: number
+          max_redemptions?: number | null
+          redeemed_count?: number
+          min_subtotal?: number
+          starts_on?: string | null
+          ends_on?: string | null
+          status?: 'draft' | 'active' | 'disabled'
+        }
+        Relationships: []
+      }
+      product_blocked_dates: {
+        Row: {
+          id: number
+          uuid: string
+          product_id: number
+          starts_on: string
+          ends_on: string
+          reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          product_id: number
+          starts_on: string
+          ends_on: string
+          reason?: string | null
+          uuid?: string
+        }
+        Update: {
+          starts_on?: string
+          ends_on?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'product_blocked_dates_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      voucher_redemptions: {
+        Row: {
+          id: number
+          uuid: string
+          voucher_id: number
+          rental_id: number
+          customer_id: number
+          code: string
+          name: string
+          discount_amount: number
+          redeemed_at: string
+        }
+        Insert: {
+          voucher_id: number
+          rental_id: number
+          customer_id: number
+          code: string
+          name: string
+          discount_amount: number
+          uuid?: string
+        }
+        Update: {
+          discount_amount?: number
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -1027,6 +1131,17 @@ export interface Database {
           starts_on: string
           ends_on: string
           quantity: number
+        }[]
+      }
+      product_blocked_ranges: {
+        Args: {
+          p_product_id: number
+          p_starts_on: string
+          p_ends_on: string
+        }
+        Returns: {
+          starts_on: string
+          ends_on: string
         }[]
       }
       rental_occupies_inventory: {

@@ -4,7 +4,7 @@ import type { Database } from '../../types/database.types'
 import { isUsableSecret } from '../../utils/env'
 import { FREE_CHAT_AI, maintenanceAssistantPrompt, answerFromKnowledge } from '../../utils/maintenance-chat'
 import type { MaintenanceChatInput } from '../../utils/maintenance-chat-validation'
-import { calendarDateInZone } from '../../utils/datetime'
+import { calendarDateInZone, isPastBusinessDate } from '../../utils/datetime'
 import { STOREFRONT_KIT_PRODUCTS } from '../../utils/storefront'
 import {
   CHAT_KIT_PROMPT,
@@ -139,6 +139,10 @@ async function answerLiveQuote(client: SupabaseClient<Database>, question: strin
   }
 
   const range = chatQuoteRange(intent, today)
+  if (isPastBusinessDate(range.startsOn, today)) {
+    return 'Those dates are in the past and cannot be booked.'
+  }
+
   const slugs = intent.slugs.length
     ? intent.slugs
     : STOREFRONT_KIT_PRODUCTS.map(kit => kit.slug)

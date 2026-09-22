@@ -59,6 +59,19 @@ function uniqueSlug(base: string, existing: string[]) {
   return `${root}-${index}`
 }
 
+function uniqueSku(base: string, existing: string[]) {
+  const root = normalizeSku(base) || 'ITEM'
+  if (!existing.includes(root)) {
+    return root
+  }
+
+  let index = 2
+  while (existing.includes(`${root}-${index}`)) {
+    index += 1
+  }
+  return `${root}-${index}`
+}
+
 export async function getAdminCategories(client: Client) {
   const rows = await listCategories(client)
   return rows.map(toPublicCategory)
@@ -139,11 +152,11 @@ export async function getAdminProduct(client: Client, uuid: string) {
   return toPublicProduct(row, images, supabaseUrl())
 }
 
-function toProductWrite(input: ProductInput, categoryId: number, slug: string) {
+function toProductWrite(input: ProductInput, categoryId: number, slug: string, sku: string) {
   return {
     name: input.name,
     slug,
-    sku: normalizeSku(input.sku),
+    sku,
     category_id: categoryId,
     description: input.description,
     short_description: input.shortDescription,
@@ -177,10 +190,11 @@ export async function saveProduct(event: H3Event, client: Client, input: Product
   }
 
   const existing = await listProducts(client, { from: 0, to: 499 })
-  const slug = uniqueSlug(input.name, existing.rows.filter(row => row.uuid !== uuid).map(row => row.slug))
-  const values = toProductWrite(input, category.id, slug)
-
+  const others = existing.rows.filter(row => row.uuid !== uuid)
   const previous = uuid ? await findProductByUuid(client, uuid) : null
+  const slug = uniqueSlug(input.name, others.map(row => row.slug))
+  const sku = previous?.sku || uniqueSku(input.name, others.map(row => row.sku))
+  const values = toProductWrite(input, category.id, slug, sku)
   const row = uuid
     ? await updateProductByUuid(client, uuid, values)
     : await insertProduct(client, values)

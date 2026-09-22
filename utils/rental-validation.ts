@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { RENTAL_STATUSES } from './constants'
+import { calendarDateInZone, isPastBusinessDate } from './datetime'
 
 const productRef = z.object({
   productUuid: z.string().uuid().optional(),
@@ -13,6 +14,9 @@ const productRef = z.object({
 }).refine(data => data.startsOn <= data.endsOn, {
   message: 'End date must be on or after the start date.',
   path: ['endsOn'],
+}).refine(data => !isPastBusinessDate(data.startsOn, calendarDateInZone()), {
+  message: 'Choose today or a future date.',
+  path: ['startsOn'],
 })
 
 export const rentalQuoteQuerySchema = productRef
@@ -34,6 +38,9 @@ export const createRentalSchema = z.object({
 }).refine(data => data.startsOn <= data.endsOn, {
   message: 'End date must be on or after the start date.',
   path: ['endsOn'],
+}).refine(data => !isPastBusinessDate(data.startsOn, calendarDateInZone()), {
+  message: 'Choose today or a future date.',
+  path: ['startsOn'],
 })
 
 export const rentalListQuerySchema = z.object({

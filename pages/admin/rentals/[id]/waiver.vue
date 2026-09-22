@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { createPdfObjectUrl } from '~/utils/pdf-preview'
+
 definePageMeta({
   layout: 'admin',
   middleware: 'admin',
@@ -23,7 +25,7 @@ async function loadPdf() {
     if (pdfUrl.value) {
       URL.revokeObjectURL(pdfUrl.value)
     }
-    pdfUrl.value = URL.createObjectURL(blob)
+    pdfUrl.value = createPdfObjectUrl(blob)
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error

@@ -14,7 +14,7 @@ JRY Rentals is a production rental management and booking platform.
 | Backend data | Supabase (PostgreSQL, Auth, Storage, RLS) | Identity, catalog, rentals, finance, and platform tables are migrated. Admin catalog APIs write through repositories. Product photos, payment QR images, maintenance images, and other uploaded files live in Supabase Storage (S3). |
 | Server API | Nuxt server routes / Nitro | Secure operations, webhooks, cron |
 | Email | Gmail SMTP | Signup confirmation, receipt, and reminder templates. Signup confirmations are sent by the API, not by Supabase Auth. Sends are logged in `email_logs`. |
-| Payments | Provider-agnostic module (`server/services/payments`) plus admin QR methods | Sandbox adapter in Phase 8. Webhooks verify HMAC before any status change. Admins upload QR images in Phase 16. |
+| Payments | Provider-agnostic module (`server/services/payments`) plus admin QR methods | Sandbox adapter in Phase 8. Webhooks verify HMAC before any status change. Admins upload QR images in Phase 16. Admin voucher codes reduce the rental total at checkout. |
 | Hosting | Vercel | Cron at 16:00 UTC (midnight Asia/Manila) |
 
 React is not used.
@@ -49,9 +49,9 @@ Protected business operations follow:
 `Route / API handler → Service or Action → Repository → Supabase / PostgreSQL`
 
 - Controllers stay thin and coordinate validation, auth, and responses.
-- Services own business rules (availability, pricing, rental transitions, waiver acceptance, payments, receipts, analytics, expenses, scheduled jobs, reports). A rental is created as `draft` only when those dates still have free stock after occupying rentals (`pending` and later). Moving it to `pending` requires a signed waiver and identity documents and is the step that occupies inventory. That submit also emails `contactmejry@gmail.com`. KPI math lives in `utils/analytics.ts`. Recurring dates live in `utils/expense.ts`. Cron due-date rules live in `utils/cron.ts`. Report totals and CSV live in `utils/report.ts`. Payment HMAC, cron secret matching, and email payload hashes live in `server/utils` so Node `crypto` never enters the browser bundle. Payment, receipt, and cron writes use the service-role client because customers cannot insert those rows.
+- Services own business rules (availability, pricing, rental transitions, waiver acceptance, payments, receipts, analytics, expenses, scheduled jobs, reports). A rental is created as `draft` only when those dates are today or later in Asia/Manila, still have free stock after occupying rentals (`pending` and later), and do not overlap admin-blocked dates. Moving it to `pending` requires a signed waiver and identity documents and is the step that occupies inventory. An admin must confirm that request before payment. If it stays `pending` for 24 hours, it is cancelled and those dates open again. That submit also emails `contactmejry@gmail.com`. KPI math lives in `utils/analytics.ts`. Recurring dates live in `utils/expense.ts`. Cron due-date rules live in `utils/cron.ts`. Report totals and CSV live in `utils/report.ts`. Payment HMAC, cron secret matching, and email payload hashes live in `server/utils` so Node `crypto` never enters the browser bundle. Payment, receipt, and cron writes use the service-role client because customers cannot insert those rows.
 - Repositories own queries. They never expose internal primary keys in public payloads.
-- Vue components do not call Supabase service-role APIs or contain pricing/availability rules. The public chat asks the server; the chat service quotes through `quoteRental` and loads booked dates from the availability calendar so the assistant can say whether a date is booked or free.
+- Vue components do not call Supabase service-role APIs or contain pricing/availability rules. The public chat asks the server; the chat service quotes through `quoteRental` and loads unavailable dates from the availability calendar so the assistant can say whether a date is booked, blocked, or free.
 
 ## Runtime boundaries
 
@@ -93,7 +93,7 @@ When an administrator enables maintenance, visitors are sent to `/maintenance` a
 - Default Open Graph image is `/og.png`. Account, auth, and admin paths are `noindex, nofollow`
 - `/robots.txt` and `/sitemap.xml` list public URLs only (home, catalog, about, privacy, terms, cookies, and active product slugs when Supabase is connected)
 - Public pages include Open Graph, Twitter, canonical, and JSON-LD (`LocalBusiness`, `WebSite`, `HowTo`, `CollectionPage`, `AboutPage`, product `Offer`)
-- Responses set `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and a restrictive CSP. Vercel also sends HSTS.
+- Responses set `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and a restrictive CSP (`frame-src` / `object-src` allow `'self' blob:` for waiver PDF preview). Vercel also sends HSTS.
 
 ## Error handling
 

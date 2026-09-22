@@ -1,5 +1,6 @@
 import type { PublicPayment } from '~/types/payment'
 import type { PublicReceipt } from '~/types/receipt'
+import type { PublicRentalVoucher } from '~/types/voucher'
 import type { PublicWaiverAcceptance } from '~/types/waiver'
 import type { RentalStatus } from '~/utils/constants'
 
@@ -19,6 +20,9 @@ export interface PublicRentalItem {
     slug: string
     name: string
     sku: string
+    depositAmount: number
+    lateFee: number
+    replacementValue: number | null
   }
 }
 
@@ -34,6 +38,7 @@ export interface PublicRental {
   taxAmount: number
   totalAmount: number
   notes: string | null
+  voucher: PublicRentalVoucher | null
   items: PublicRentalItem[]
   waiver: PublicWaiverAcceptance | null
   identity: PublicRentalIdentity | null

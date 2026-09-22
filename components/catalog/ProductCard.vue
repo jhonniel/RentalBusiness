@@ -29,7 +29,7 @@ function useFallback() {
       :to="`/products/${product.slug}`"
       class="flex flex-1 flex-col"
     >
-      <div class="relative flex min-h-44 items-center justify-center bg-white px-4 py-6 sm:min-h-56 sm:px-6 sm:py-8">
+      <div class="relative flex h-44 shrink-0 items-center justify-center bg-white px-4 py-6 sm:h-56 sm:px-6 sm:py-8">
         <span
           v-if="product.comingSoon"
           class="absolute left-4 top-4 rounded-full bg-[#12201a] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white"
@@ -41,17 +41,17 @@ function useFallback() {
           :alt="product.name"
           loading="lazy"
           decoding="async"
-          class="max-h-56 w-full bg-white object-contain"
+          class="h-full w-full bg-white object-contain"
           @error="useFallback"
         >
       </div>
       <div class="flex flex-1 flex-col px-5 pb-5 pt-4">
-        <h3 class="font-semibold text-[#12201a]">
+        <h3 class="line-clamp-2 min-h-12 font-semibold leading-6 text-[#12201a]">
           {{ product.name }}
         </h3>
         <ul
           v-if="highlights.length"
-          class="mt-2 space-y-1 text-xs leading-5 text-[#5b6b64]"
+          class="mt-2 min-h-[3.75rem] space-y-1 text-xs leading-5 text-[#5b6b64]"
         >
           <li
             v-for="item in highlights"
@@ -62,13 +62,13 @@ function useFallback() {
         </ul>
         <p
           v-else
-          class="mt-2 line-clamp-2 text-xs leading-5 text-[#5b6b64]"
+          class="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-[#5b6b64]"
         >
           {{ product.shortDescription || product.description }}
         </p>
         <p
           v-if="cardRate"
-          class="mt-4 text-sm font-semibold text-[#12201a]"
+          class="mt-auto pt-4 text-sm font-semibold text-[#12201a]"
         >
           {{ formatMoney(cardRate.amount) }}
           <span class="font-normal text-[#5b6b64]">{{ cardRate.suffix }}</span>

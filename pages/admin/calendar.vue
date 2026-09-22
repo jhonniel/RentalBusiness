@@ -1,7 +1,17 @@
 <script setup lang="ts">
+import type { ProductListResponse } from '~/types/catalog'
 import type { AdminCalendar } from '~/types/calendar'
-import { CALENDAR_RENTAL_STATUSES } from '~/utils/constants'
-import { calendarAgenda, eventsOnDate, monthCells, monthKey, shiftMonth } from '~/utils/calendar'
+import { CALENDAR_RENTAL_STATUSES, canBlockProductDates } from '~/utils/constants'
+import {
+  applyCalendarPick,
+  blocksOnDate,
+  calendarAgenda,
+  eventsOnDate,
+  isDateInRange,
+  monthCells,
+  monthKey,
+  shiftMonth,
+} from '~/utils/calendar'
 import { calendarDateInZone, formatBusinessDate } from '~/utils/datetime'
 
 definePageMeta({
@@ -18,29 +28,86 @@ const month = ref(monthKey())
 const status = ref('')
 const today = calendarDateInZone()
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const draftStartsOn = ref('')
+const draftEndsOn = ref('')
+const viewedDate = ref('')
+const detailsOpen = ref(false)
 
 const query = computed(() => ({
   month: month.value,
   status: status.value || undefined,
 }))
 
-const { data, error, pending } = await useFetch<AdminCalendar>('/api/admin/calendar', {
+const { data, error, pending, refresh } = await useFetch<AdminCalendar>('/api/admin/calendar', {
   query,
   watch: [query],
+})
+const { data: catalog } = await useFetch<ProductListResponse>('/api/admin/products', {
+  query: { pageSize: 50 },
 })
 
 const unavailable = computed(() => error.value?.statusCode === 503)
 const items = computed(() => data.value?.items ?? [])
+const blockedDates = computed(() => data.value?.blockedDates ?? [])
+const products = computed(() => (
+  (catalog.value?.items ?? [])
+    .filter(item => canBlockProductDates(item.status))
+    .map(item => ({ uuid: item.uuid, name: item.name }))
+))
 const cells = computed(() => monthCells(month.value))
-const agenda = computed(() => calendarAgenda(items.value, month.value))
+const agenda = computed(() => calendarAgenda(items.value, month.value, blockedDates.value))
 const monthLabel = computed(() => formatBusinessDate(`${month.value}-01`, {
   month: 'long',
   year: 'numeric',
 }))
-
 function dayNumber(date: string) {
   return Number(date.slice(8))
 }
+
+const viewedItems = computed(() => viewedDate.value ? eventsOnDate(items.value, viewedDate.value) : [])
+const viewedBlocks = computed(() => viewedDate.value ? blocksOnDate(blockedDates.value, viewedDate.value) : [])
+const canBlockViewedDay = computed(() => Boolean(viewedDate.value && viewedDate.value >= today))
+
+function openDay(date: string) {
+  viewedDate.value = date
+  detailsOpen.value = true
+}
+
+function pickDay(date: string) {
+  const next = applyCalendarPick(date, draftStartsOn.value, draftEndsOn.value, today)
+  draftStartsOn.value = next.startsOn
+  draftEndsOn.value = next.endsOn
+  detailsOpen.value = false
+}
+
+function dayIsViewed(date: string) {
+  return viewedDate.value === date
+}
+
+function dayIsPast(date: string) {
+  return date < today
+}
+
+function dayIsSelected(date: string) {
+  return isDateInRange(date, draftStartsOn.value, draftEndsOn.value)
+}
+
+function onBlockSaved() {
+  draftStartsOn.value = ''
+  draftEndsOn.value = ''
+  return refresh()
+}
+
+watch(month, () => {
+  detailsOpen.value = false
+  viewedDate.value = ''
+})
+
+watch(detailsOpen, (open) => {
+  if (!open) {
+    viewedDate.value = ''
+  }
+})
 </script>
 
 <template>
@@ -54,7 +121,7 @@ function dayNumber(date: string) {
           Calendar
         </h2>
         <p class="mt-1 text-sm text-stone-600">
-          Rentals that overlap this month in Asia/Manila. Draft, cancelled, and rejected requests stay off the board.
+          Rentals and blocked dates for this month in Asia/Manila. Click a day to view details. Draft, cancelled, and rejected requests stay off the board.
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -117,16 +184,15 @@ function dayNumber(date: string) {
     </div>
 
     <template v-else>
-      <AdminNotice
-        v-if="!items.length"
-        title="No rentals this month"
-        description="Requests that overlap these dates will appear here."
+      <AdminCalendarBlocks
+        v-model:starts-on="draftStartsOn"
+        v-model:ends-on="draftEndsOn"
+        :products="products"
+        :blocks="blockedDates"
+        @saved="onBlockSaved"
       />
 
-      <div
-        v-else
-        class="hidden overflow-hidden rounded-xl border border-stone-200 bg-white md:block"
-      >
+      <div class="hidden overflow-hidden rounded-xl border border-stone-200 bg-white md:block">
         <div class="grid grid-cols-7 border-b border-stone-100 bg-stone-50 text-xs font-medium text-stone-500">
           <p
             v-for="label in weekdayLabels"
@@ -137,11 +203,24 @@ function dayNumber(date: string) {
           </p>
         </div>
         <div class="grid grid-cols-7">
-          <div
+          <button
             v-for="(date, index) in cells"
             :key="date || `empty-${index}`"
-            class="min-h-28 border-b border-r border-stone-100 p-2 last:border-r-0"
-            :class="date === today ? 'bg-lumen-50/60' : 'bg-white'"
+            type="button"
+            class="min-h-28 border-b border-r border-stone-100 p-2 text-left last:border-r-0 disabled:cursor-default"
+            :class="date && dayIsViewed(date)
+              ? 'bg-lumen-50 ring-2 ring-inset ring-lumen-600'
+              : date && dayIsPast(date)
+                ? 'bg-stone-50 text-stone-400'
+                : date === today
+                  ? 'bg-lumen-50/60'
+                  : date && dayIsSelected(date)
+                    ? 'bg-amber-50'
+                    : date && blocksOnDate(blockedDates, date).length
+                      ? 'bg-stone-100'
+                      : 'bg-white'"
+            :disabled="!date"
+            @click="date && openDay(date)"
           >
             <template v-if="date">
               <p
@@ -152,24 +231,66 @@ function dayNumber(date: string) {
               </p>
               <ul class="mt-2 space-y-1">
                 <li
+                  v-for="block in blocksOnDate(blockedDates, date)"
+                  :key="block.uuid"
+                  class="rounded-md bg-stone-200/80 px-1.5 py-1"
+                >
+                  <p class="truncate text-xs font-medium text-stone-800">
+                    Blocked · {{ block.productName }}
+                  </p>
+                </li>
+                <li
                   v-for="item in eventsOnDate(items, date)"
                   :key="item.uuid"
                 >
-                  <NuxtLink
-                    :to="`/admin/rentals/${item.code}`"
-                    class="block rounded-md px-1.5 py-1 hover:bg-stone-50"
-                  >
+                  <div class="rounded-md px-1.5 py-1">
                     <p class="truncate text-xs font-medium text-stone-900">
                       {{ item.productName }}
                     </p>
                     <p class="truncate text-[11px] text-stone-500">
                       {{ item.code }}
                     </p>
-                  </NuxtLink>
+                  </div>
                 </li>
               </ul>
             </template>
-          </div>
+          </button>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-stone-200 bg-white p-3 md:hidden">
+        <div class="grid grid-cols-7 text-center text-[11px] font-medium text-stone-500">
+          <p
+            v-for="label in weekdayLabels"
+            :key="`mobile-${label}`"
+          >
+            {{ label.slice(0, 1) }}
+          </p>
+        </div>
+        <div class="mt-2 grid grid-cols-7 gap-1">
+          <button
+            v-for="(date, index) in cells"
+            :key="date || `mobile-empty-${index}`"
+            type="button"
+            class="aspect-square rounded-md text-sm"
+            :class="!date
+              ? 'invisible'
+              : dayIsViewed(date)
+                ? 'bg-lumen-100 font-medium text-lumen-800'
+                : dayIsPast(date)
+                  ? 'text-stone-300'
+                  : date === today
+                    ? 'bg-lumen-100 font-medium text-lumen-800'
+                    : dayIsSelected(date)
+                      ? 'bg-amber-100 text-stone-900'
+                      : blocksOnDate(blockedDates, date).length
+                        ? 'bg-stone-200 text-stone-800'
+                        : 'text-stone-700'"
+            :disabled="!date"
+            @click="date && openDay(date)"
+          >
+            {{ date ? dayNumber(date) : '' }}
+          </button>
         </div>
       </div>
 
@@ -182,10 +303,31 @@ function dayNumber(date: string) {
           :key="day.date"
           class="rounded-xl border border-stone-200 bg-white p-4"
         >
-          <p class="text-sm font-medium text-stone-900">
-            {{ formatBusinessDate(day.date) }}
-          </p>
+          <button
+            type="button"
+            class="text-left"
+            @click="openDay(day.date)"
+          >
+            <p class="text-sm font-medium text-stone-900">
+              {{ formatBusinessDate(day.date) }}
+            </p>
+          </button>
           <ul class="mt-3 space-y-3">
+            <li
+              v-for="block in day.blocks"
+              :key="block.uuid"
+              class="rounded-lg bg-stone-100 px-3 py-2"
+            >
+              <p class="font-medium text-stone-900">
+                Blocked · {{ block.productName }}
+              </p>
+              <p
+                v-if="block.reason"
+                class="mt-1 text-sm text-stone-500"
+              >
+                {{ block.reason }}
+              </p>
+            </li>
             <li
               v-for="item in day.items"
               :key="item.uuid"
@@ -212,6 +354,16 @@ function dayNumber(date: string) {
           </ul>
         </article>
       </div>
+
+      <AdminCalendarDayDetails
+        v-model:open="detailsOpen"
+        :date="viewedDate"
+        :items="viewedItems"
+        :blocks="viewedBlocks"
+        :can-block="canBlockViewedDay"
+        @block="pickDay"
+        @removed="refresh()"
+      />
     </template>
   </div>
 </template>

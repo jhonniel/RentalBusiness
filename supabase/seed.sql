@@ -305,7 +305,7 @@ The Renter agrees to use and return the equipment listed in their booking, inclu
 Equipment on this rental:
 {{RENTAL_EQUIPMENT}}
 
-The exact equipment included in the Renter’s booking will be recorded in the rental order.
+The exact equipment included in the Renter’s booking will be recorded in the rental order, including the applicable security deposit, late fee, and replacement value for that equipment.
 
 3. RESPONSIBILITY FOR EQUIPMENT
 The Renter acknowledges that the equipment remains the property of JRY Rentals at all times.

@@ -6,6 +6,8 @@ import {
   isPickupReminderDue,
   isRecurringExpenseDue,
   isReturnReminderDue,
+  isSupabaseKeepAliveDue,
+  isUnconfirmedRequestExpired,
   reminderOn,
 } from '../../utils/cron'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
@@ -42,5 +44,21 @@ describe('cron due dates', () => {
     expect(isOverdueRental('returned', '2026-09-12', '2026-09-13')).toBe(false)
     expect(canTransitionRentalStatus('active', 'overdue')).toBe(true)
     expect(canTransitionRentalStatus('overdue', 'overdue')).toBe(false)
+  })
+
+  it('pings Supabase every 3 days to keep the project awake', () => {
+    expect(isSupabaseKeepAliveDue('2026-09-22')).toBe(true)
+    expect(isSupabaseKeepAliveDue('2026-09-22', '2026-09-22')).toBe(false)
+    expect(isSupabaseKeepAliveDue('2026-09-24', '2026-09-22')).toBe(false)
+    expect(isSupabaseKeepAliveDue('2026-09-25', '2026-09-22')).toBe(true)
+    expect(isSupabaseKeepAliveDue('2026-09-26', '2026-09-22')).toBe(true)
+  })
+
+  it('cancels a pending request after 24 hours without confirmation', () => {
+    const now = new Date('2026-09-22T16:00:00.000Z')
+    expect(isUnconfirmedRequestExpired('pending', '2026-09-21T15:59:59.000Z', now)).toBe(true)
+    expect(isUnconfirmedRequestExpired('pending', '2026-09-21T16:00:01.000Z', now)).toBe(false)
+    expect(isUnconfirmedRequestExpired('awaiting_payment', '2026-09-20T00:00:00.000Z', now)).toBe(false)
+    expect(canTransitionRentalStatus('pending', 'cancelled')).toBe(true)
   })
 })

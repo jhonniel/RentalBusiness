@@ -171,8 +171,8 @@ export async function createPayment(
     throw new AppError('Upload a government ID and a selfie holding that ID before paying.', 409, ERROR_CODES.CONFLICT)
   }
 
-  if (!['pending', 'awaiting_payment'].includes(rental.status)) {
-    throw new AppError('That rental cannot accept payment.', 409, ERROR_CODES.CONFLICT)
+  if (rental.status !== 'awaiting_payment') {
+    throw new AppError('The shop must confirm this booking before payment.', 409, ERROR_CODES.CONFLICT)
   }
 
   if (rental.totalAmount <= 0) {

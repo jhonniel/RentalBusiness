@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
-import { isBookableProductStatus, isPublicCatalogProductStatus } from '../../utils/constants'
+import { canBlockProductDates, isBookableProductStatus, isPublicCatalogProductStatus } from '../../utils/constants'
 import { catalogCardRate, parseHiddenPriceFields, visibleCatalogPrices } from '../../utils/price-visibility'
 import {
   categoryInputSchema,
@@ -52,7 +52,6 @@ const productRow = {
 
 const validProduct = {
   name: 'Sony A7 IV',
-  sku: 'CAM-A7IV',
   categoryUuid: '11111111-1111-4111-8111-111111111111',
   dailyPrice: 2500,
   depositAmount: 10000,
@@ -93,6 +92,10 @@ describe('product validation', () => {
     expect(productInputSchema.safeParse({
       ...validProduct,
       slug: 'custom-slug',
+    }).success).toBe(false)
+    expect(productInputSchema.safeParse({
+      ...validProduct,
+      sku: 'CAM-A7IV',
     }).success).toBe(false)
     expect(categoryInputSchema.safeParse({
       name: 'Cameras',
@@ -249,6 +252,8 @@ describe('catalog mappers', () => {
     expect(isPublicCatalogProductStatus('hidden')).toBe(false)
     expect(isBookableProductStatus('coming_soon')).toBe(false)
     expect(isBookableProductStatus('active')).toBe(true)
+    expect(canBlockProductDates('coming_soon')).toBe(false)
+    expect(canBlockProductDates('active')).toBe(true)
   })
 
   it('blocks product delete when rental or asset history exists', () => {

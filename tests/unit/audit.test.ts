@@ -35,6 +35,7 @@ describe('audit logs', () => {
     expect(auditTargetHref('site_maintenance', '11111111-1111-1111-1111-111111111111')).toBe('/admin/settings#maintenance')
     expect(auditTargetHref('maintenance_images', '22222222-2222-4222-8222-222222222222')).toBe('/admin/settings#maintenance')
     expect(auditTargetHref('waiver_versions', '88888888-8888-4888-8888-888888888888')).toBe('/admin/waivers')
+    expect(auditTargetHref('vouchers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).toBe('/admin/vouchers')
     expect(auditTargetHref('reports', 'sales')).toBeNull()
     expect(adminAuditListQuerySchema.parse({ page: '2', entity: 'products' })).toMatchObject({
       page: 2,

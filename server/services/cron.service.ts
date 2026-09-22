@@ -6,19 +6,24 @@ import { getSupabaseAdminClient } from '../utils/supabase'
 import { calendarDateInZone } from '../../utils/datetime'
 import {
   CRON_CATCH_UP_LIMIT,
+  SUPABASE_KEEP_ALIVE_SETTING,
   isOverdueRental,
   isPickupReminderDue,
   isRecurringExpenseDue,
   isReturnReminderDue,
+  isSupabaseKeepAliveDue,
+  isUnconfirmedRequestExpired,
   reminderOn,
 } from '../../utils/cron'
 import { canPostRecurringExpense } from '../../utils/expense'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { findRecurringExpenseIdentity, listDueRecurringIdentities } from '../repositories/expense.repository'
+import { findSettingByKey, upsertSetting } from '../repositories/setting.repository'
 import { insertNotification } from '../repositories/notification.repository'
 import {
   findRentalIdentity,
   insertRentalStatusHistory,
+  listPendingRentalIdentities,
   listRentalsByDate,
   updateRentalStatus,
 } from '../repositories/rental.repository'
@@ -188,8 +193,90 @@ export async function runOverdueJob(event: H3Event, today = jobDate()) {
   return { job: 'overdue', asOf: today, ...summary }
 }
 
+export async function expireUnconfirmedRentals(event: H3Event, now = new Date()) {
+  const client = getSupabaseAdminClient()
+  const rows = await listPendingRentalIdentities(client)
+  const summary = { considered: rows.length, cancelled: 0, skipped: 0, failed: 0 }
+
+  for (const rental of rows) {
+    if (!isUnconfirmedRequestExpired(rental.status, rental.updated_at, now)
+      || !canTransitionRentalStatus(rental.status, 'cancelled')) {
+      summary.skipped += 1
+      continue
+    }
+
+    try {
+      await updateRentalStatus(client, rental.uuid, 'cancelled')
+      await insertRentalStatusHistory(client, {
+        rentalId: rental.id,
+        fromStatus: rental.status,
+        toStatus: 'cancelled',
+        note: 'Cancelled after 24 hours without shop confirmation.',
+      })
+      await insertNotification(client, {
+        recipient_id: rental.customer_id,
+        type: 'rental.expired',
+        title: 'Booking request expired',
+        body: `Your rental ${rental.code} was cancelled because the shop did not confirm it within 24 hours.`,
+        metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
+      })
+      await recordAudit(event, client, {
+        action: 'rental.expire',
+        entity: 'rental_requests',
+        entityId: rental.uuid,
+        previous: { status: rental.status },
+        next: { status: 'cancelled' },
+      })
+      summary.cancelled += 1
+    }
+    catch (error) {
+      summary.failed += 1
+      logger.warn('Expire job skipped a rental', {
+        rentalUuid: rental.uuid,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      })
+    }
+  }
+
+  logger.info('Unconfirmed request expiry finished', summary)
+  return { job: 'expire-pending', asOf: now.toISOString(), ...summary }
+}
+
+function lastKeepAliveOn(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  const lastPingedOn = (value as { lastPingedOn?: unknown }).lastPingedOn
+  return typeof lastPingedOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(lastPingedOn)
+    ? lastPingedOn
+    : null
+}
+
+export async function keepSupabaseAwake(today = jobDate(), force = false) {
+  const client = getSupabaseAdminClient()
+  const setting = await findSettingByKey(client, SUPABASE_KEEP_ALIVE_SETTING)
+  const lastPingedOn = lastKeepAliveOn(setting?.value)
+
+  if (!force && !isSupabaseKeepAliveDue(today, lastPingedOn)) {
+    logger.info('Supabase keep-alive skipped', { asOf: today, lastPingedOn })
+    return { job: 'keep-alive', asOf: today, pinged: false, skipped: 1, lastPingedOn }
+  }
+
+  const { error } = await client.from('business_profiles').select('uuid').limit(1)
+  if (error) {
+    throw new AppError('We could not reach Supabase.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  await upsertSetting(client, SUPABASE_KEEP_ALIVE_SETTING, { lastPingedOn: today })
+  logger.info('Supabase keep-alive pinged', { asOf: today })
+  return { job: 'keep-alive', asOf: today, pinged: true, skipped: 0, lastPingedOn: today }
+}
+
 export async function runDailyJobs(event: H3Event, today = jobDate()) {
   const jobs = [
+    { name: 'keep-alive', run: () => keepSupabaseAwake(today) },
+    { name: 'expire-pending', run: () => expireUnconfirmedRentals(event) },
     { name: 'recurring-expenses', run: () => runRecurringExpenseJob(event, today) },
     { name: 'reminders', run: () => runReminderJob(event, today) },
     { name: 'overdue', run: () => runOverdueJob(event, today) },

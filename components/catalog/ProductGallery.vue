@@ -14,11 +14,9 @@ const photos = computed(() => props.images)
 
 const active = ref(0)
 const current = computed(() => photos.value[active.value] ?? null)
-const mainSrc = ref(resolvedProductImage(props.slug || '', props.categorySlug, current.value?.url))
-
-watch(current, (next) => {
-  mainSrc.value = resolvedProductImage(props.slug || '', props.categorySlug, next?.url)
-})
+const mainSrc = computed(() => (
+  current.value?.url || resolvedProductImage(props.slug || '', props.categorySlug)
+))
 
 function useFallback(event: Event) {
   const target = event.target as HTMLImageElement

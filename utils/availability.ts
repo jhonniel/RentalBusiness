@@ -12,6 +12,12 @@ export interface AvailabilityStock {
 export interface AvailabilityInput extends AvailabilityStock {
   bookedQuantity: number
   requestedQuantity: number
+  hasBlockedDates?: boolean
+}
+
+export interface BlockedDateRange {
+  startsOn: string
+  endsOn: string
 }
 
 export interface AvailabilityResult {
@@ -38,6 +44,19 @@ export function rentableCapacity(stock: AvailabilityStock): number {
   )
 }
 
+export function toCalendarDate(value: string | Date) {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10)
+  }
+
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/)
+  return match?.[1] || String(value).slice(0, 10)
+}
+
+export function dateHasBooking(bookedQuantity: number) {
+  return bookedQuantity > 0
+}
+
 export function bookedQuantityFromRentals(
   bookings: AvailabilityBooking[],
   productUuid: string,
@@ -50,7 +69,12 @@ export function bookedQuantityFromRentals(
       item.productUuid === productUuid
       && (!excludeRentalUuid || item.rentalUuid !== excludeRentalUuid)
       && rentalOccupiesInventory(item.status)
-      && datesOverlapInclusive(item.startsOn, item.endsOn, startsOn, endsOn)
+      && datesOverlapInclusive(
+        toCalendarDate(item.startsOn),
+        toCalendarDate(item.endsOn),
+        toCalendarDate(startsOn),
+        toCalendarDate(endsOn),
+      )
     ))
     .reduce((sum, item) => sum + item.quantity, 0)
 }
@@ -61,6 +85,52 @@ export function eachCalendarDate(startsOn: string, endsOn: string): string[] {
   return Array.from({ length: days }, (_, index) => {
     return new Date(Date.UTC(year, month - 1, day + index)).toISOString().slice(0, 10)
   })
+}
+
+export function rangeIncludesUnavailableDates(
+  startsOn: string,
+  endsOn: string,
+  unavailable: Iterable<string>,
+) {
+  if (!startsOn || !endsOn || startsOn > endsOn) {
+    return false
+  }
+
+  const blocked = unavailable instanceof Set ? unavailable : new Set(unavailable)
+  return eachCalendarDate(startsOn, endsOn).some(date => blocked.has(date))
+}
+
+export function rangeOverlapsBlockedDates(
+  startsOn: string,
+  endsOn: string,
+  ranges: BlockedDateRange[],
+) {
+  const start = toCalendarDate(startsOn)
+  const end = toCalendarDate(endsOn)
+
+  return ranges.some((range) => {
+    const blockStart = toCalendarDate(range.startsOn)
+    const blockEnd = toCalendarDate(range.endsOn)
+    return blockStart <= end && blockEnd >= start
+  })
+}
+
+export function blockedDatesFromRanges(
+  ranges: BlockedDateRange[],
+  from: string,
+  to: string,
+): string[] {
+  return eachCalendarDate(from, to).filter((date) => {
+    return ranges.some((range) => {
+      const start = toCalendarDate(range.startsOn)
+      const end = toCalendarDate(range.endsOn)
+      return date >= start && date <= end
+    })
+  })
+}
+
+export function mergeUnavailableDates(...lists: string[][]): string[] {
+  return [...new Set(lists.flat().map(toCalendarDate))].sort()
 }
 
 export function unavailableDates(input: {
@@ -78,11 +148,7 @@ export function unavailableDates(input: {
       date,
       date,
     )
-    return !evaluateAvailability({
-      ...input.stock,
-      bookedQuantity,
-      requestedQuantity: input.requestedQuantity,
-    }).canFulfill
+    return dateHasBooking(bookedQuantity)
   })
 }
 
@@ -97,6 +163,6 @@ export function evaluateAvailability(input: AvailabilityInput): AvailabilityResu
     booked,
     available,
     requested,
-    canFulfill: requested <= available,
+    canFulfill: requested <= available && booked === 0 && !input.hasBlockedDates,
   }
 }

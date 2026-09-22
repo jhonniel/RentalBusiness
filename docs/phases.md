@@ -30,13 +30,13 @@ Wait for: `Proceed to Phase 4`
 
 ## Phase 4 — Public catalog (completed)
 
-Landing page, catalog, product details, search, filters. Admins can publish a kit as `coming_soon` so it appears with a Coming soon label and cannot be booked until the status is `active`.
+Landing page, catalog, product details, search, filters. Admins can publish a kit as `coming_soon` so it appears with a Coming soon label and cannot be booked or given blocked dates until the status is `active`.
 
 Wait for: `Proceed to Phase 5`
 
 ## Phase 5 — Availability engine (completed)
 
-Overlap-aware availability. Tests for overlapping bookings, multi-unit stock, same-day rentals, cancellations, maintenance.
+Overlap-aware availability. Tests for overlapping bookings, multi-unit stock, same-day rentals, cancellations, maintenance. Admins block dates from the operations Calendar so customers cannot book those days.
 
 Wait for: `Proceed to Phase 6`
 
@@ -48,7 +48,7 @@ Wait for: `Proceed to Phase 7`
 
 ## Phase 7 — Waiver (completed)
 
-Versioned waivers, digital acceptance, signature, audit trail. Current published text is `JRY-WAIVER-v1.1` (Equipment Rental Agreement & Liability Waiver). It states that the down payment is not refundable once the rental is booked. Older signed copies stay bound to the version accepted at the time (`JRY-WAIVER-v1.0` remains frozen).
+Versioned waivers, digital acceptance, signature, audit trail. Current published text is `JRY-WAIVER-v1.1` (Equipment Rental Agreement & Liability Waiver). It states that the down payment is not refundable once the rental is booked. The equipment list on the waiver includes that kit’s deposit, late fee, and replacement value. Older signed copies stay bound to the version accepted at the time (`JRY-WAIVER-v1.0` remains frozen).
 
 Wait for: `Proceed to Phase 8`
 
@@ -110,7 +110,9 @@ Wait for: `Proceed to Phase 17`
 
 ## Phase 17 — Rental identity proof (completed)
 
-Customers sign the waiver with name, email, and phone filled from their account. They then upload a government ID and a selfie holding that ID. The request stays a draft until both are on file and the customer submits it. Files stay in `private-documents`. Admins review signed URLs on the rental. Payment is blocked until the request is submitted and both the waiver and identity documents are present.
+Customers sign the waiver with name, email, and phone filled from their account. They then upload a government ID and a selfie holding that ID. The request stays a draft until both are on file and the customer submits it. Files stay in `private-documents`. Admins review signed URLs on the rental and must confirm the booking before payment. A submitted request stays reserved for 24 hours; if the shop does not confirm it, the request is cancelled. Payment is blocked until that confirmation, the waiver, and identity documents are present.
+
+Admins generate voucher codes on `/admin/vouchers`. Customers enter a code on the rental or pay page before payment. The discount reduces the rental total, not the deposit hold. A ₱0 total after a voucher can be approved without a paid payment.
 
 ## Phase report template
 

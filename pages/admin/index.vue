@@ -166,9 +166,6 @@ const cards = computed(() => {
                 <p class="font-medium break-words text-stone-900">
                   {{ product.name }}
                 </p>
-                <p class="text-stone-500">
-                  {{ product.sku }}
-                </p>
               </div>
               <p>{{ product.quantity }} rented</p>
             </li>

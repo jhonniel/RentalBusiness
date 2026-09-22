@@ -1,3 +1,4 @@
+import type { PublicBlockedDate } from '~/types/availability'
 import type { CalendarRentalStatus } from '~/utils/constants'
 
 export interface AdminCalendarEvent {
@@ -16,4 +17,5 @@ export interface AdminCalendar {
   endsOn: string
   timezone: string
   items: AdminCalendarEvent[]
+  blockedDates: PublicBlockedDate[]
 }

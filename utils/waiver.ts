@@ -1,4 +1,15 @@
 import type { PublicWaiverAcceptance, PublicWaiverVersion } from '~/types/waiver'
+import { formatMoney } from './currency'
+
+export interface WaiverEquipmentItem {
+  quantity: number
+  product: {
+    name: string
+    depositAmount?: number | null
+    lateFee?: number | null
+    replacementValue?: number | null
+  }
+}
 
 const PNG_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/
 const MIN_SIGNATURE_LENGTH = 2500
@@ -88,20 +99,35 @@ export function firstWaiverAcceptance(
   return row ? toPublicWaiverAcceptance(row) : null
 }
 
-export function waiverEquipmentLines(
-  items: Array<{ quantity: number, product: { name: string } }>,
-): string {
+function waiverMoneyLine(label: string, amount: number | null | undefined, suffix = '') {
+  if (amount === null || amount === undefined) {
+    return `  ${label}: Not listed`
+  }
+
+  return `  ${label}: ${formatMoney(amount)}${suffix}`
+}
+
+export function waiverEquipmentLines(items: WaiverEquipmentItem[]): string {
   if (!items.length) {
     return '- None listed on this rental.'
   }
 
-  return items.map(item => `- ${item.product.name} × ${item.quantity}`).join('\n')
+  return items.map((item) => {
+    const lines = [`- ${item.product.name} × ${item.quantity}`]
+    if (item.product.depositAmount !== undefined) {
+      lines.push(waiverMoneyLine('Deposit', item.product.depositAmount))
+    }
+    if (item.product.lateFee !== undefined) {
+      lines.push(waiverMoneyLine('Late fee', item.product.lateFee, ' per day'))
+    }
+    if (item.product.replacementValue !== undefined) {
+      lines.push(waiverMoneyLine('Replacement value', item.product.replacementValue))
+    }
+    return lines.join('\n')
+  }).join('\n')
 }
 
-export function renderWaiverBody(
-  body: string,
-  items: Array<{ quantity: number, product: { name: string } }>,
-): string {
+export function renderWaiverBody(body: string, items: WaiverEquipmentItem[]): string {
   const list = waiverEquipmentLines(items)
 
   if (body.includes('{{RENTAL_EQUIPMENT}}')) {

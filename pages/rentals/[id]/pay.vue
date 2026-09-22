@@ -40,8 +40,10 @@ const canSubmit = computed(() =>
 const canPay = computed(() =>
   Boolean(rental.value?.waiver)
   && Boolean(rental.value?.identity)
-  && ['pending', 'awaiting_payment'].includes(rental.value?.status ?? ''),
+  && rental.value?.status === 'awaiting_payment',
 )
+const waitingForConfirm = computed(() => rental.value?.status === 'pending')
+const nothingDue = computed(() => Boolean(rental.value && rental.value.totalAmount === 0 && rental.value.voucher))
 
 async function submitRequest() {
   if (!rental.value) {
@@ -126,6 +128,13 @@ async function copyValue(value: string, label: string) {
       title="Submit this request first"
       description="Send the request to the shop. The bank and QR details appear after that."
     >
+      <AccountRentalVoucherForm
+        class="mb-4 text-left"
+        :rental-uuid="rental.uuid"
+        :voucher="rental.voucher"
+        :editable="true"
+        @applied="refresh()"
+      />
       <UButton
         :loading="submitting"
         @click="submitRequest"
@@ -135,11 +144,40 @@ async function copyValue(value: string, label: string) {
     </CatalogNotice>
 
     <CatalogNotice
+      v-else-if="rental && waitingForConfirm"
+      class="mt-8"
+      title="Waiting for the shop"
+      description="Your dates are reserved for 24 hours. Payment opens after the shop confirms this booking. If they do not, the request is cancelled."
+    >
+      <UButton :to="`/rentals/${rental.code}`">
+        Back to rental
+      </UButton>
+    </CatalogNotice>
+
+    <CatalogNotice
       v-else-if="rental && rental.status === 'paid'"
       class="mt-8"
       title="This rental is paid"
       description="A receipt is issued when payment is confirmed. Check your email or the rental page."
     >
+      <UButton :to="`/rentals/${rental.code}`">
+        Back to rental
+      </UButton>
+    </CatalogNotice>
+
+    <CatalogNotice
+      v-else-if="rental && canPay && nothingDue"
+      class="mt-8"
+      title="Nothing to pay"
+      description="The voucher covers this booking. The shop will review and approve it. The deposit hold is unchanged."
+    >
+      <AccountRentalVoucherForm
+        class="mb-4 text-left"
+        :rental-uuid="rental.uuid"
+        :voucher="rental.voucher"
+        :editable="true"
+        @applied="refresh()"
+      />
       <UButton :to="`/rentals/${rental.code}`">
         Back to rental
       </UButton>
@@ -159,6 +197,12 @@ async function copyValue(value: string, label: string) {
         <p class="mt-4 text-3xl text-stone-900">
           {{ formatMoney(rental.totalAmount) }}
         </p>
+        <p
+          v-if="rental.voucher"
+          class="mt-2 text-sm text-stone-600"
+        >
+          Voucher {{ rental.voucher.code }} saved {{ formatMoney(rental.discountAmount) }}.
+        </p>
         <p class="mt-2 text-sm text-stone-500">
           The amount due is the down payment for this booking and is not refundable once booked.
           Deposit {{ formatMoney(rental.depositAmount) }} is a hold and is not charged in this step.
@@ -170,6 +214,13 @@ async function copyValue(value: string, label: string) {
           Latest payment: {{ latestPayment.status.replaceAll('_', ' ') }}
         </p>
       </section>
+
+      <AccountRentalVoucherForm
+        :rental-uuid="rental.uuid"
+        :voucher="rental.voucher"
+        :editable="true"
+        @applied="refresh()"
+      />
 
       <CatalogNotice
         v-if="!paymentMethods?.length"

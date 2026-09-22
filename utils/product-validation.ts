@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { EQUIPMENT_STATUSES, PRICE_FIELD_KEYS, PRODUCT_STATUSES } from './constants'
+import { calendarDateInZone, isPastBusinessDate } from './datetime'
 
 const money = z.coerce.number().finite().min(0, 'Amount cannot be negative.')
 const optionalMoney = z.preprocess(
@@ -18,7 +19,6 @@ export const categoryInputSchema = z.object({
 
 export const productInputSchema = z.object({
   name: z.string().trim().min(1, 'Name is required.').max(120),
-  sku: z.string().trim().min(1, 'SKU is required.').max(40),
   categoryUuid: z.string().uuid('Choose a category.'),
   description: z.string().trim().max(8000).default(''),
   shortDescription: z.string().trim().max(280).default(''),
@@ -115,6 +115,9 @@ export const availabilityQuerySchema = z.object({
 }).refine(data => data.startsOn <= data.endsOn, {
   message: 'End date must be on or after the start date.',
   path: ['endsOn'],
+}).refine(data => !isPastBusinessDate(data.startsOn, calendarDateInZone()), {
+  message: 'Choose today or a future date.',
+  path: ['startsOn'],
 })
 
 export const availabilityCalendarQuerySchema = z.object({
@@ -131,6 +134,19 @@ export const availabilityCalendarQuerySchema = z.object({
   path: ['to'],
 })
 
+export const blockedDateInputSchema = z.object({
+  startsOn: z.string().date('Choose a start date.'),
+  endsOn: z.string().date('Choose an end date.'),
+  reason: z.string().trim().max(200).optional().or(z.literal('')),
+}).strict().refine(data => data.startsOn <= data.endsOn, {
+  message: 'End date must be on or after the start date.',
+  path: ['endsOn'],
+}).refine(data => !isPastBusinessDate(data.startsOn, calendarDateInZone()), {
+  message: 'Choose today or a future date.',
+  path: ['startsOn'],
+})
+
 export type CategoryInput = z.infer<typeof categoryInputSchema>
 export type ProductInput = z.infer<typeof productInputSchema>
 export type EquipmentInput = z.infer<typeof equipmentInputSchema>
+export type BlockedDateInput = z.infer<typeof blockedDateInputSchema>

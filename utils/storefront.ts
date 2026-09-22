@@ -48,7 +48,7 @@ export function resolvedProductImage(
   categorySlug?: string,
   remoteUrl?: string | null,
 ) {
-  return PRODUCT_VISUALS[slug] || remoteUrl || categoryVisual(categorySlug || '')
+  return remoteUrl || PRODUCT_VISUALS[slug] || categoryVisual(categorySlug || '')
 }
 
 export function categoryBlurb(slug: string, fallback?: string | null) {

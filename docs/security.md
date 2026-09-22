@@ -15,6 +15,10 @@ Never commit `.env`. Never send these values to the browser:
 
 The browser may receive `NUXT_PUBLIC_SUPABASE_URL` and the anon / publishable key only.
 
+## Headers
+
+Nitro sets `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy`, and CSP on every response. The site cannot be framed (`frame-ancestors 'none'`). CSP allows `frame-src` / `object-src` of `'self' blob:` so the admin waiver PDF preview can render a same-origin blob. Other plugins stay off the page.
+
 ## Authentication
 
 - Supabase Auth: email/password, Google OAuth, verification, password reset
@@ -83,8 +87,9 @@ Phase 5 additions:
 - `GET /api/availability` uses the anon/session client and `product_booked_quantity` (security definer)
 - Availability queries reject internal `id` and require `uuid` or `slug`
 - Pages display API results only; overlap math stays in `utils/availability.ts` and SQL
-- `GET /api/availability/calendar` uses security-definer `product_occupying_ranges` and returns dates only, never rental or customer identifiers
-- `GET /api/admin/calendar` requires an admin session and returns rental `uuid`/`code` only, never database primary keys
+- `GET /api/availability/calendar` uses security-definer `product_occupying_ranges` and `product_blocked_ranges` and returns dates only, never rental, customer, or blocked-date identifiers
+- Admin blocked dates are written only through admin APIs. The public table is not granted to `anon`
+- `GET /api/admin/calendar` requires an admin session and returns rental `uuid`/`code` plus blocked-date `uuid` / product `uuid` only, never database primary keys
 - `GET /api/admin/sales` requires an admin session, reuses paid-sales report rules, and returns payment `uuid` plus rental `uuid`/`code` only
 - `GET`/`PATCH /api/admin/settings` require an admin session. Clients cannot change `currency` or `timezone`. The payload uses `uuid` only
 - `GET /api/admin/audit-logs` is admin-only and read-only. Payloads use log `uuid` and actor profile `uuid`. Secrets in stored JSON are redacted. Rows are never updated or deleted from this API
@@ -95,6 +100,9 @@ Phase 6 additions:
 - Customers may insert only `draft` or `pending`, and may cancel those statuses
 - Quotes and totals are computed on the server; clients cannot send `totalAmount` or `status: approved`
 - Failed draft inserts can be deleted by the owner so incomplete rentals are not left behind
+- `DELETE /api/admin/rentals/[id]` is admin-only. Customers cannot delete another account's rental. The delete is audited and cascades dependent rental rows.
+- Voucher codes are admin-generated. Customers cannot list or enumerate `vouchers`. They submit a code to `POST /api/rentals/[id]/voucher`; lookup and money updates use the service-role client. Discount math stays on the server. Customers may select only their own `voucher_redemptions`.
+- A voucher may be applied or replaced only while the rental is `draft`, `pending`, or `awaiting_payment`. Paid rentals cannot change a discount. One redemption per rental.
 
 Phase 7 additions:
 
@@ -130,6 +138,7 @@ Phase 9 additions:
 Phase 10 additions:
 
 - Analytics, admin rental, and customer lists require an admin session
+- Confirm is server-side only from `pending` to `awaiting_payment` (or `approved` when a voucher covers the total) and writes an audit log
 - Approve is server-side only from `paid` to `approved` and writes an audit log
 - Notifications are readable and markable only by the recipient
 - KPI and ranking math stays in `utils/analytics.ts`; pages display API results
@@ -147,7 +156,7 @@ Phase 11 additions:
 Phase 12 additions:
 
 - `/api/cron/*` requires `CRON_SECRET` and never trusts a browser session
-- Due-date and reminder rules stay in `utils/cron.ts`
+- Due-date, reminder, and 24-hour unconfirmed-request expiry rules stay in `utils/cron.ts`
 - Failed items in a job do not abort the rest of the run
 
 Phase 13 additions:
@@ -175,7 +184,7 @@ Phase 17 additions:
 - `rental_identity_verifications` is forced RLS; customers insert/update only their own open rentals
 - Government ID and selfie files live in `private-documents` under `{auth.uid()}/rentals/{rentalUuid}/`
 - Public APIs never return storage paths. Admins receive short-lived signed URLs
-- Payment create requires a signed waiver, submitted identity documents, and a submitted (`pending` or `awaiting_payment`) request
+- Payment create requires a signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request
 - Customers create rentals as `draft` only. `POST /api/rentals/[id]/submit` moves a draft to `pending` after the waiver and identity documents are on file
 - Identity upload requires a signed waiver on that rental
 - Waiver email and phone are copied from the server-loaded profile
@@ -226,11 +235,13 @@ Admins may access operations data through policies that check `profiles.role = '
 ## Cron
 
 - Cron routes reject requests that do not present `CRON_SECRET` (`Authorization: Bearer` or `x-cron-secret`)
-- Vercel schedules only `/api/cron/daily` so Hobby stays within the two-cron limit
+- Vercel schedules `/api/cron/daily` and hourly `/api/cron/expire-pending` so Hobby stays within the two-cron limit
 - Compare uses a length-checked timing-safe match in `server/utils/cron-secret.ts`; query-string secrets are not accepted
 - Recurring expense posting is idempotent on `(recurring_expense_id, occurs_on)`
 - Reminder emails are idempotent on `(template, payload_hash)`
 - Overdue detection only moves `active` → `overdue` and writes status history plus a customer notification
+- Unconfirmed `pending` requests older than 24 hours become `cancelled` and free those dates
+- Daily cron pings Supabase at most once every 3 days so an idle free-tier project does not pause. The last ping date is stored in `settings` as `supabase_keep_alive`
 - Cron uses the service-role client on the server; `CRON_SECRET` never goes to the browser
 
 ## Storage
@@ -263,7 +274,7 @@ Users see friendly messages. APIs return `{ message, code }` only. Stack traces 
 - [x] Zod validation on every mutating endpoint
 - [x] Payment webhook signature verified; placeholder webhook secrets return 503
 - [x] Cron secret verified with a timing-safe compare; query-string secrets are not read
-- [x] Rate limiting on auth profile/me, payments, catalog, rentals, identity uploads, waivers, privacy policy, terms, cookie policy, and notifications (in-memory / per isolate)
+- [x] Rate limiting on auth profile/me, payments, catalog, rentals, vouchers, identity uploads, waivers, privacy policy, terms, cookie policy, and notifications (in-memory / per isolate)
 - [x] Session cookies: `httpOnly`, `SameSite=Lax`, `Secure` in production
 - [x] Storage policies reviewed (`product-images`, `payment-qr-images`, and `maintenance-images` public read, `private-documents` owner/admin)
 - [x] Audit logging on admin mutations

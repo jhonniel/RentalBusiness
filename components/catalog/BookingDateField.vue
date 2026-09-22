@@ -2,6 +2,7 @@
 import { CalendarDate, parseDate } from '@internationalized/date'
 import type { DateValue } from '@internationalized/date'
 import type { AvailabilityCalendar } from '~/types/availability'
+import { rangeIncludesUnavailableDates } from '~/utils/availability'
 import { calendarDateInZone, formatBookingDate } from '~/utils/datetime'
 
 const model = defineModel<string>({ required: true })
@@ -13,56 +14,72 @@ const props = defineProps<{
   quantity?: number
   disabled?: boolean
   min?: string
+  until?: string
 }>()
 
 const today = calendarDateInZone()
 const minDate = computed(() => props.min || today)
 const canLoad = computed(() => Boolean(props.productUuid || props.productSlug))
+const calendar = ref<AvailabilityCalendar | null>(null)
 
-const { data: calendar, execute: loadCalendar } = await useFetch<AvailabilityCalendar>(
-  '/api/availability/calendar',
-  {
-    query: computed(() => {
-      const query: Record<string, string | number> = {
+async function loadCalendar() {
+  if (!canLoad.value) {
+    calendar.value = null
+    return
+  }
+
+  try {
+    calendar.value = await $fetch<AvailabilityCalendar>('/api/availability/calendar', {
+      query: {
         quantity: props.quantity ?? 1,
-      }
-      if (props.productUuid) {
-        query.productUuid = props.productUuid
-      }
-      if (props.productSlug) {
-        query.productSlug = props.productSlug
-      }
-      return query
-    }),
-    immediate: false,
+        ...(props.productUuid ? { productUuid: props.productUuid } : {}),
+        ...(props.productSlug ? { productSlug: props.productSlug } : {}),
+      },
+    })
+  }
+  catch {
+    calendar.value = null
+  }
+}
+
+watch(
+  () => [props.productUuid, props.productSlug, props.quantity] as const,
+  () => {
+    void loadCalendar()
   },
+  { immediate: true },
 )
 
-watch(canLoad, (ready) => {
-  if (ready) {
-    void loadCalendar()
-  }
-}, { immediate: true })
-
-watch(() => [props.productUuid, props.productSlug, props.quantity], () => {
-  if (canLoad.value) {
-    void loadCalendar()
-  }
-})
-
-const blocked = computed(() => new Set(calendar.value?.unavailableDates ?? []))
+const blocked = computed(() => new Set((calendar.value?.unavailableDates ?? []).map(date => date.slice(0, 10))))
+const calendarKey = computed(() => [...blocked.value].join(','))
 
 function dateKey(date: DateValue) {
   return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
 }
 
+function isBooked(key: string) {
+  return blocked.value.has(key)
+}
+
+function isBlockedRange(key: string) {
+  if (props.min && rangeIncludesUnavailableDates(props.min, key, blocked.value)) {
+    return true
+  }
+
+  if (props.until && key <= props.until && rangeIncludesUnavailableDates(key, props.until, blocked.value)) {
+    return true
+  }
+
+  return false
+}
+
 function isDateUnavailable(date: DateValue) {
-  return blocked.value.has(dateKey(date))
+  return isBooked(dateKey(date))
 }
 
 function isDateDisabled(date: DateValue) {
   const key = dateKey(date)
-  return key < minDate.value || blocked.value.has(key)
+  return key < minDate.value || isBooked(key) || isBlockedRange(key)
 }
 
 const calendarValue = computed({
@@ -74,14 +91,18 @@ const calendarValue = computed({
       return
     }
     const key = dateKey(value)
-    if (!blocked.value.has(key) && key >= minDate.value) {
+    if (key >= minDate.value && !isBooked(key) && !isBlockedRange(key)) {
       model.value = key
     }
   },
 })
 
-watch([blocked, minDate], () => {
-  if (model.value && (blocked.value.has(model.value) || model.value < minDate.value)) {
+watch([blocked, minDate, () => props.until], () => {
+  if (!model.value) {
+    return
+  }
+
+  if (isBooked(model.value) || model.value < minDate.value || isBlockedRange(model.value)) {
     model.value = ''
   }
 })
@@ -109,16 +130,25 @@ const displayValue = computed(() => model.value ? formatBookingDate(model.value)
       <template #content>
         <div class="p-2">
           <UCalendar
+            :key="calendarKey"
             v-model="calendarValue"
             :min-value="parseDate(minDate)"
             :is-date-disabled="isDateDisabled"
             :is-date-unavailable="isDateUnavailable"
-          />
+          >
+            <template #day="{ day }">
+              <span :class="isBooked(dateKey(day)) ? 'text-stone-400 line-through' : ''">
+                {{ day.day }}
+              </span>
+            </template>
+          </UCalendar>
           <p
-            v-if="canLoad && blocked.size"
+            v-if="canLoad"
             class="mt-2 px-2 pb-1 text-xs text-stone-500"
           >
-            Crossed-out days are already booked.
+            {{ blocked.size
+              ? 'Gray crossed-out days are already booked. Choose another date.'
+              : 'Free days can still be booked. Booked days stay disabled.' }}
           </p>
         </div>
       </template>

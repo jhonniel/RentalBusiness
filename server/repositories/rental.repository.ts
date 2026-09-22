@@ -31,7 +31,10 @@ const RENTAL_SELECT = `
       uuid,
       slug,
       name,
-      sku
+      sku,
+      deposit_amount,
+      late_fee,
+      replacement_value
     )
   ),
   waiver_acceptances (
@@ -65,6 +68,12 @@ const RENTAL_SELECT = `
     receipt_number,
     issued_at,
     snapshot
+  ),
+  voucher_redemptions (
+    uuid,
+    code,
+    name,
+    discount_amount
   ),
   profiles (
     uuid,
@@ -128,6 +137,44 @@ export async function deleteRentalById(client: Client, id: number) {
   if (error) {
     throw new AppError('We could not remove that draft rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
   }
+}
+
+export async function deleteRentalByUuid(client: Client, uuid: string) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .delete()
+    .eq('uuid', uuid)
+    .select('uuid')
+    .maybeSingle()
+
+  if (error) {
+    throw new AppError('We could not delete that rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+
+  if (!data) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+}
+
+export async function updateRentalDiscount(client: Client, uuid: string, values: {
+  discountAmount: number
+  totalAmount: number
+}) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .update({
+      discount_amount: values.discountAmount,
+      total_amount: values.totalAmount,
+    })
+    .eq('uuid', uuid)
+    .select(RENTAL_SELECT)
+    .single()
+
+  if (error || !data) {
+    throw new AppError('We could not apply that voucher.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+
+  return data
 }
 
 export async function updateRentalStatus(client: Client, uuid: string, status: RentalStatus) {
@@ -250,6 +297,21 @@ export async function listRentals(client: Client, filters: {
   }
 
   return { rows: data ?? [], total: count ?? 0 }
+}
+
+export async function listPendingRentalIdentities(client: Client) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .select('id, uuid, code, status, customer_id, updated_at')
+    .eq('status', 'pending')
+    .order('updated_at', { ascending: true })
+    .limit(200)
+
+  if (error) {
+    throw new AppError('We could not load pending rentals.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
 }
 
 export async function listRentalsByDate(client: Client, filters: {

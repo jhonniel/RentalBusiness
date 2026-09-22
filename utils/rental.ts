@@ -3,6 +3,7 @@ import type { RentalStatus } from './constants'
 import { toPublicRentalIdentity, type IdentityVerificationRow } from './identity'
 import { firstPayments, type PaymentRow } from './payment'
 import { firstReceipts, type ReceiptRow } from './receipt'
+import { toPublicRentalVoucher, type VoucherRedemptionRow } from './voucher'
 import { firstWaiverAcceptance, type WaiverAcceptanceRow } from './waiver'
 
 interface ProductRef {
@@ -10,6 +11,9 @@ interface ProductRef {
   slug: string
   name: string
   sku: string
+  deposit_amount?: number | null
+  late_fee?: number | null
+  replacement_value?: number | null
 }
 
 interface ItemRow {
@@ -38,6 +42,7 @@ interface RentalRow {
   waiver_acceptances?: WaiverAcceptanceRow | WaiverAcceptanceRow[] | null
   payment_transactions?: PaymentRow | PaymentRow[] | null
   receipts?: ReceiptRow | ReceiptRow[] | null
+  voucher_redemptions?: VoucherRedemptionRow | VoucherRedemptionRow[] | null
   profiles?: {
     uuid: string
     first_name: string
@@ -74,12 +79,23 @@ function asProduct(value: ItemRow['products']): ProductRef {
 }
 
 export function toPublicRentalItem(row: ItemRow): PublicRentalItem {
+  const product = asProduct(row.products)
   return {
     uuid: row.uuid,
     quantity: row.quantity,
     dailyPrice: Number(row.daily_price),
     lineTotal: Number(row.line_total),
-    product: asProduct(row.products),
+    product: {
+      uuid: product.uuid,
+      slug: product.slug,
+      name: product.name,
+      sku: product.sku,
+      depositAmount: Number(product.deposit_amount ?? 0),
+      lateFee: Number(product.late_fee ?? 0),
+      replacementValue: product.replacement_value === null || product.replacement_value === undefined
+        ? null
+        : Number(product.replacement_value),
+    },
   }
 }
 
@@ -96,6 +112,7 @@ export function toPublicRental(row: RentalRow): PublicRental {
     taxAmount: Number(row.tax_amount),
     totalAmount: Number(row.total_amount),
     notes: row.notes,
+    voucher: toPublicRentalVoucher(row.voucher_redemptions),
     items: (row.rental_items ?? []).map(toPublicRentalItem),
     waiver: firstWaiverAcceptance(row.waiver_acceptances),
     identity: toPublicRentalIdentity(row.rental_identity_verifications),
@@ -124,7 +141,10 @@ export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'w
   if (canSubmitRentalRequest(rental)) {
     return 'Submit request'
   }
-  if (rental.status === 'pending' || rental.status === 'awaiting_payment') {
+  if (rental.status === 'pending') {
+    return 'Waiting for confirmation'
+  }
+  if (rental.status === 'awaiting_payment') {
     return 'Pay now'
   }
   return null
@@ -137,10 +157,10 @@ export function customerRentalNextPath(rental: Pick<PublicRental, 'code' | 'stat
   if (rental.status === 'draft' && !rental.identity) {
     return `/rentals/${rental.code}/verify`
   }
-  if (canSubmitRentalRequest(rental)) {
+  if (canSubmitRentalRequest(rental) || rental.status === 'pending') {
     return `/rentals/${rental.code}`
   }
-  if (rental.status === 'pending' || rental.status === 'awaiting_payment') {
+  if (rental.status === 'awaiting_payment') {
     return `/rentals/${rental.code}/pay`
   }
   return `/rentals/${rental.code}`
