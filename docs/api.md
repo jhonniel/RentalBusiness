@@ -353,7 +353,7 @@ No user session. Present `Authorization: Bearer $CRON_SECRET` or `x-cron-secret`
 | GET/POST | `/api/cron/reminders` | Pickup and return emails for tomorrow in Asia/Manila |
 | GET/POST | `/api/cron/overdue` | `active` → `overdue` when `ends_on` is before today |
 
-`vercel.json` schedules `/api/cron/daily` at `0 16 * * *` (midnight Asia/Manila) and `/api/cron/expire-pending` hourly. That uses the Hobby two-cron limit. The daily job pings Supabase at most once every 3 days and stores `settings.supabase_keep_alive`. The single-job paths stay available for manual runs. Reminder emails reuse `(template, payload_hash)`. Occurrences reuse `(recurring_expense_id, occurs_on)`. Overdue only transitions `active` rentals. Unconfirmed requests are also expired when availability or a quote is checked.
+`vercel.json` schedules `/api/cron/daily` at `0 16 * * *` (midnight Asia/Manila) and `/api/cron/expire-pending` at `0 4 * * *` (noon Asia/Manila). Hobby only allows daily cron expressions. The daily job pings Supabase at most once every 3 days and stores `settings.supabase_keep_alive`. The single-job paths stay available for manual runs. Reminder emails reuse `(template, payload_hash)`. Occurrences reuse `(recurring_expense_id, occurs_on)`. Overdue only transitions `active` rentals. Unconfirmed requests are also expired when availability or a quote is checked.
 
 ### Reports
 

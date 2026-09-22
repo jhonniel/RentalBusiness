@@ -235,7 +235,7 @@ Admins may access operations data through policies that check `profiles.role = '
 ## Cron
 
 - Cron routes reject requests that do not present `CRON_SECRET` (`Authorization: Bearer` or `x-cron-secret`)
-- Vercel schedules `/api/cron/daily` and hourly `/api/cron/expire-pending` so Hobby stays within the two-cron limit
+- Vercel schedules `/api/cron/daily` and `/api/cron/expire-pending` once per day. Hobby rejects cron expressions that run more than once a day
 - Compare uses a length-checked timing-safe match in `server/utils/cron-secret.ts`; query-string secrets are not accepted
 - Recurring expense posting is idempotent on `(recurring_expense_id, occurs_on)`
 - Reminder emails are idempotent on `(template, payload_hash)`
