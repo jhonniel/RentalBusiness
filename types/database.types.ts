@@ -1100,7 +1100,29 @@ export interface Database {
         Update: {
           discount_amount?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'voucher_redemptions_voucher_id_fkey'
+            columns: ['voucher_id']
+            isOneToOne: false
+            referencedRelation: 'vouchers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'voucher_redemptions_rental_id_fkey'
+            columns: ['rental_id']
+            isOneToOne: true
+            referencedRelation: 'rental_requests'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'voucher_redemptions_customer_id_fkey'
+            columns: ['customer_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
     }
     Views: Record<string, never>
