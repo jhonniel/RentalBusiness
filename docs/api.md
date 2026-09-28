@@ -91,6 +91,14 @@ Updates allowed profile fields. `role` is rejected by schema and by the database
 **Body:** `{ firstName, lastName, phone? }`  
 **Rate limit:** 20 requests / minute / user
 
+### `POST /api/auth/change-password`
+
+Lets the signed-in administrator change their own password. The server checks the current password, then updates Auth through the service-role client. The new password is never logged.
+
+**Auth:** admin  
+**Body:** `{ currentPassword, password, confirmPassword }`  
+**Rate limit:** 8 requests / 15 minutes / user
+
 ### Admin catalog
 
 All catalog write routes require an admin session. Mutations are limited to 40 requests / minute / admin profile. Responses use `uuid`, `sku`, and `assetCode` — never database primary keys.
@@ -302,6 +310,8 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | POST | `/api/admin/rentals/[id]/confirm` | `pending` → `awaiting_payment`, or `approved` when a voucher covers the full total. Dates stay reserved. Audited |
 | POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, or `awaiting_payment` when a voucher covers the full total. Audited |
 | GET | `/api/admin/customers` | Customer profiles and rental counts |
+| GET | `/api/admin/system-users` | Profiles with `role = admin` |
+| POST | `/api/admin/customers/[uuid]/promote` | Make a customer a system admin. Audited. Clients cannot send `role` |
 | GET | `/api/notifications` | Signed-in recipient |
 | POST | `/api/notifications/[id]/read` | Mark own notification read |
 

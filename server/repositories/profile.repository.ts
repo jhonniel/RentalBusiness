@@ -49,6 +49,62 @@ export async function findProfileById(
   return data
 }
 
+export async function findProfileByUuid(
+  client: TypedClient,
+  uuid: string,
+) {
+  const { data, error } = await client
+    .from('profiles')
+    .select('uuid, user_id, role, first_name, last_name, phone, created_at')
+    .eq('uuid', uuid)
+    .maybeSingle()
+
+  if (error) {
+    throw new AppError(
+      'We could not load that profile.',
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      { cause: error },
+    )
+  }
+
+  return data
+}
+
+export async function listAdminProfiles(client: TypedClient) {
+  const { data, error } = await client
+    .from('profiles')
+    .select('uuid, first_name, last_name, created_at')
+    .eq('role', 'admin')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw new AppError(
+      'We could not load system users.',
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      { cause: error },
+    )
+  }
+
+  return data ?? []
+}
+
+export async function promoteProfileToAdmin(client: TypedClient, uuid: string) {
+  const { error } = await client.rpc('promote_profile_to_admin', {
+    p_profile_uuid: uuid,
+  })
+
+  if (error) {
+    throw new AppError(
+      'We could not make that customer a system user.',
+      400,
+      ERROR_CODES.VALIDATION_ERROR,
+      { cause: error },
+    )
+  }
+}
+
 export async function findProfileByUserId(
   client: TypedClient,
   userId: string,

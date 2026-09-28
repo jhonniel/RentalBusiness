@@ -35,5 +35,6 @@ export const adminNavItems: NavItem[] = [
   { label: 'Notifications', to: '/notifications', icon: 'i-lucide-bell', enabled: true },
   { label: 'Waivers', to: '/admin/waivers', icon: 'i-lucide-file-pen-line', enabled: true },
   { label: 'Settings', to: '/admin/settings', icon: 'i-lucide-settings', enabled: true },
+  { label: 'Account', to: '/admin/account', icon: 'i-lucide-user-cog', enabled: true },
   { label: 'Audit Logs', to: '/admin/audit-logs', icon: 'i-lucide-scroll-text', enabled: true },
 ]

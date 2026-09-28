@@ -61,6 +61,18 @@ export const resetPasswordSchema = z.object({
   path: ['confirmPassword'],
 })
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required.'),
+  password: passwordSchema,
+  confirmPassword: z.string().min(1, 'Confirm your password.'),
+}).strict().refine(data => data.password === data.confirmPassword, {
+  message: 'Passwords do not match.',
+  path: ['confirmPassword'],
+}).refine(data => data.password !== data.currentPassword, {
+  message: 'Choose a different password.',
+  path: ['password'],
+})
+
 export const updateProfileSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required.').max(80),
   lastName: z.string().trim().min(1, 'Last name is required.').max(80),
@@ -88,6 +100,7 @@ export type AcceptPoliciesInput = z.infer<typeof acceptPoliciesSchema>
 export type RegisterInput = z.infer<typeof registerSchema>
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
 
 export function fieldErrors(error: z.ZodError): Record<string, string> {

@@ -38,21 +38,7 @@ Or paste `supabase/seed.sql` into a development SQL editor.
 
 Sign in at `/login`. The app checks `profiles.role` and opens the operations console for administrators. Never run this seed against production.
 
-To promote a different development account, replace the customer profile. Do not `update` `role` — `prevent_profile_privilege_escalation` blocks that.
-
-```sql
-delete from public.profiles
-where user_id = (
-  select id
-  from auth.users
-  where email = 'you@example.com'
-);
-
-insert into public.profiles (user_id, role, first_name, last_name)
-select id, 'admin', 'JRY', 'Admin'
-from auth.users
-where email = 'you@example.com';
-```
+To promote a different account, use **Customers → Make admin** in the operations console. That calls `promote_profile_to_admin(uuid)` through the admin API. Do not `update` `role` from the client — `prevent_profile_privilege_escalation` blocks that unless the trusted function sets `app.allow_role_change`.
 
 Do not hard-code admin emails in the application.
 

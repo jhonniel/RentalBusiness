@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  changePasswordSchema,
   loginSchema,
   registerAccountSchema,
   registerSchema,
@@ -17,6 +18,7 @@ import {
   needsPolicyAcceptance,
   policiesFromUserMetadata,
   accountHomePath,
+  canPromoteProfile,
   resolvePostLoginPath,
   safeRedirectPath,
   toPublicProfile,
@@ -71,6 +73,26 @@ describe('auth validation', () => {
       password: '',
     }).success).toBe(false)
   })
+
+  it('accepts a password change when the new password is confirmed and different', () => {
+    expect(changePasswordSchema.parse({
+      currentPassword: 'old-secret',
+      password: 'new-secret',
+      confirmPassword: 'new-secret',
+    })).toMatchObject({ password: 'new-secret' })
+
+    expect(changePasswordSchema.safeParse({
+      currentPassword: 'old-secret',
+      password: 'new-secret',
+      confirmPassword: 'other-secret',
+    }).success).toBe(false)
+
+    expect(changePasswordSchema.safeParse({
+      currentPassword: 'same-secret',
+      password: 'same-secret',
+      confirmPassword: 'same-secret',
+    }).success).toBe(false)
+  })
 })
 
 describe('auth helpers', () => {
@@ -87,6 +109,12 @@ describe('auth helpers', () => {
     expect(resolvePostLoginPath('/dashboard', 'admin')).toBe('/admin')
     expect(resolvePostLoginPath('/products', 'admin')).toBe('/products')
     expect(resolvePostLoginPath('/dashboard', 'customer')).toBe('/dashboard')
+  })
+
+  it('lets an admin promote only another customer', () => {
+    expect(canPromoteProfile('admin-1', { uuid: 'cust-1', role: 'customer' })).toBe(true)
+    expect(canPromoteProfile('admin-1', { uuid: 'admin-1', role: 'customer' })).toBe(false)
+    expect(canPromoteProfile('admin-1', { uuid: 'admin-2', role: 'admin' })).toBe(false)
   })
 
   it('hides provider error details', () => {

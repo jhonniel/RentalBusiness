@@ -32,7 +32,12 @@ const { profile, logout } = useAuth()
     </div>
 
     <div class="flex shrink-0 items-center gap-2 text-xs text-stone-500 sm:gap-3">
-      <span class="hidden max-w-48 truncate sm:inline">{{ profile?.email }}</span>
+      <NuxtLink
+        to="/admin/account"
+        class="hidden max-w-48 truncate sm:inline hover:text-stone-800"
+      >
+        {{ profile?.email }}
+      </NuxtLink>
       <span class="hidden sm:inline">Asia/Manila</span>
       <span class="rounded-full bg-stone-100 px-2 py-1">PHP</span>
       <UButton

@@ -131,6 +131,12 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - Returns admin-blocked `starts_on` and `ends_on` that overlap the window.
 - Does not return `product_id`, `reason`, or other identifiers.
 
+**promote_profile_to_admin(profile_uuid)**
+
+- Sets `profiles.role` from `customer` to `admin` for that public uuid.
+- Security definer. Execute granted to `service_role` only.
+- Sets `app.allow_role_change` for the transaction so the privilege-escalation trigger allows this one update.
+
 Rental statuses: `draft`, `pending`, `awaiting_payment`, `paid`, `approved`, `ready_for_pickup`, `active`, `returned`, `completed`, `cancelled`, `rejected`, `overdue`.
 
 Status changes are server-side only. Clients cannot write status columns. Customers may create `draft` or `pending` and cancel `draft`, `pending`, or unpaid `awaiting_payment` (Phase 6 and 8). Payment confirmation moves `awaiting_payment` → `paid`.

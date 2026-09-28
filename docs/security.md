@@ -52,9 +52,9 @@ Profile rules:
 - Authenticated users can select their own row (`user_id = auth.uid()`)
 - Admins can select all profiles via `public.is_admin()`
 - Users may update only `first_name`, `last_name`, `phone`
-- A trigger rejects changes to `role`, `user_id`, and `uuid`
+- A trigger rejects changes to `role`, `user_id`, and `uuid` unless `app.allow_role_change` is set for the current transaction
 - New users always receive `role = 'customer'` from a security-definer trigger
-- Role promotion is a SQL insert of a new profile row, never an `update` of `role` and never a client field
+- Role promotion is `POST /api/admin/customers/[uuid]/promote` after `requireAdmin`. The service-role client calls `promote_profile_to_admin(uuid)`. Clients cannot send `role`. Admins change their own password on `POST /api/auth/change-password` after the current password is checked. That route is admin-only.
 
 Phase 2 additions:
 

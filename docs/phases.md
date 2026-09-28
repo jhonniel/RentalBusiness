@@ -114,6 +114,8 @@ Customers sign the waiver with name, email, and phone filled from their account.
 
 Admins generate voucher codes on `/admin/vouchers`. Customers enter a code on the rental or pay page before payment. The discount reduces the rental total, not the deposit hold. A ₱0 total after a voucher can be approved without a paid payment.
 
+Administrators change their own password on `/admin/account`. They can promote a customer to a system admin from `/admin/customers`. Role still lives on `profiles.role`; clients never send it.
+
 ## Phase report template
 
 After each phase:

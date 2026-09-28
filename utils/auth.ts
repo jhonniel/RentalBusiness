@@ -139,6 +139,13 @@ export function accountHomePath(role?: string | null) {
   return role === 'admin' ? '/admin' : '/dashboard'
 }
 
+export function canPromoteProfile(actorUuid: string, target: { uuid: string, role?: string | null }) {
+  return Boolean(actorUuid)
+    && Boolean(target.uuid)
+    && target.uuid !== actorUuid
+    && target.role === 'customer'
+}
+
 export function resolvePostLoginPath(requested: unknown, role?: string | null) {
   const home = accountHomePath(role)
 

@@ -29,3 +29,10 @@ export interface AdminCustomerListResponse {
   pageSize: number
   total: number
 }
+
+export interface AdminSystemUser {
+  uuid: string
+  firstName: string
+  lastName: string
+  createdAt: string
+}

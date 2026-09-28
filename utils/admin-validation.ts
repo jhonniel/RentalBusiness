@@ -8,6 +8,8 @@ export const adminRentalListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
 }).strict()
 
+export const profileUuidSchema = z.string().uuid('Choose a customer.')
+
 export const adminCustomerListQuerySchema = z.object({
   search: z.string().trim().max(80).optional(),
   page: z.coerce.number().int().min(1).default(1),

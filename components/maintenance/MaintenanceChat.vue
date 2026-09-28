@@ -160,12 +160,12 @@ const panelClass = computed(() => props.variant === 'float'
         </div>
 
         <div class="border-t border-[#12201a]/8 px-3 py-3">
-          <div class="mb-3 flex flex-wrap gap-2">
+          <div class="mb-3 flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
             <button
               v-for="suggestion in suggestions"
               :key="suggestion"
               type="button"
-              class="rounded-full border border-[#12201a]/10 px-2.5 py-1 text-[11px] text-[#3b4a44] hover:bg-[#f3f5f4]"
+              class="shrink-0 whitespace-nowrap rounded-full border border-[#12201a]/10 px-2.5 py-1 text-[11px] text-[#3b4a44] hover:bg-[#f3f5f4]"
               :disabled="pending"
               @click="send(suggestion)"
             >

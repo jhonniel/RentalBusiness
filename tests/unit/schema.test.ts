@@ -87,6 +87,10 @@ const productBlockedDates = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260922100000_product_blocked_dates.sql'),
   'utf8',
 )
+const promoteAdmin = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260928100000_promote_profile_to_admin.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -299,6 +303,17 @@ describe('admin rental delete', () => {
     expect(adminRentalDelete).toContain('payment_transactions_admin_delete')
     expect(adminRentalDelete).toContain('receipts_admin_delete')
     expect(adminRentalDelete).not.toContain('grant delete on public.rental_requests to anon')
+  })
+})
+
+describe('admin promotion', () => {
+  it('lets the service-role promote a customer without granting role updates to clients', () => {
+    expect(promoteAdmin).toContain('promote_profile_to_admin')
+    expect(promoteAdmin).toContain('app.allow_role_change')
+    expect(promoteAdmin).toContain('grant execute on function public.promote_profile_to_admin(uuid) to service_role')
+    expect(promoteAdmin).toContain('role cannot be changed')
+    expect(promoteAdmin).not.toContain('grant execute on function public.promote_profile_to_admin(uuid) to anon')
+    expect(promoteAdmin).not.toContain('grant execute on function public.promote_profile_to_admin(uuid) to authenticated')
   })
 })
 

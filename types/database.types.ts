@@ -1182,6 +1182,12 @@ export interface Database {
         }
         Returns: string
       }
+      promote_profile_to_admin: {
+        Args: {
+          p_profile_uuid: string
+        }
+        Returns: undefined
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
