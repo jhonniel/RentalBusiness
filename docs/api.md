@@ -116,7 +116,7 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | DELETE | `/api/admin/products/[uuid]` | Permanently delete a product with no rental or asset-assignment history. Returns 409 if history exists — archive instead. |
 | POST | `/api/admin/products/[uuid]/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP/HEIC, 15 MB). Server compresses to JPEG before S3. Extra photos appear under the main image on the product page. |
 | DELETE | `/api/admin/images/[uuid]` | Remove image and storage object |
-| GET | `/api/admin/inventory` | Serialized assets |
+| GET | `/api/admin/inventory` | Serialized assets. A unit whose product is out shows `rented` and that rental's return time. The stored asset status is unchanged. |
 | POST | `/api/admin/products/[uuid]/assets` | Create asset |
 | PATCH | `/api/admin/assets/[uuid]` | Update asset |
 | GET | `/api/admin/products/[uuid]/blocked-dates` | Admin-blocked date ranges for one product |

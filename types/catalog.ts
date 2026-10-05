@@ -64,6 +64,9 @@ export interface PublicEquipmentAsset {
     name: string
     sku: string
   }
+  rental: {
+    returnAt: string
+  } | null
 }
 
 export interface ProductListResponse {

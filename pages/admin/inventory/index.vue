@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InventoryListResponse, ProductListResponse } from '~/types/catalog'
 import { EQUIPMENT_STATUSES } from '~/utils/constants'
+import { formatBusinessDateTime } from '~/utils/datetime'
 import { equipmentInputSchema } from '~/utils/product-validation'
 
 definePageMeta({
@@ -236,7 +237,13 @@ async function saveAsset() {
                 {{ asset.condition }}
               </td>
               <td class="px-4 py-3">
-                <StatusBadge :status="asset.status" />
+                <StatusBadge :status="asset.rental ? 'rented' : asset.status" />
+                <p
+                  v-if="asset.rental"
+                  class="mt-1 text-xs text-stone-500"
+                >
+                  Return {{ formatBusinessDateTime(asset.rental.returnAt) }}
+                </p>
               </td>
               <td class="px-4 py-3 text-right">
                 <UButton
@@ -262,10 +269,16 @@ async function saveAsset() {
           <h3 class="font-medium text-stone-900">
             {{ asset.assetCode }}
           </h3>
-          <StatusBadge :status="asset.status" />
+          <StatusBadge :status="asset.rental ? 'rented' : asset.status" />
         </div>
         <p class="mt-1 text-sm text-stone-500">
           {{ asset.product.name }} · {{ asset.serialNumber || 'No serial' }} · {{ asset.condition }}
+        </p>
+        <p
+          v-if="asset.rental"
+          class="mt-1 text-sm text-stone-600"
+        >
+          Return {{ formatBusinessDateTime(asset.rental.returnAt) }}
         </p>
         <UButton
           color="neutral"

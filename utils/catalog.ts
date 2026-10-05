@@ -209,7 +209,38 @@ export function toPublicAsset(row: AssetRow): PublicEquipmentAsset {
       name: product.name,
       sku: product.sku,
     },
+    rental: null,
   }
+}
+
+const RENTAL_LABEL_STATUSES = new Set(['available', 'reserved', 'rented'])
+
+export function labelRentedAssets<T extends { status: string, product: { uuid: string } }>(
+  assets: T[],
+  holds: { productUuid: string, quantity: number, returnAt: string }[],
+): T[] {
+  const returns = new Map<string, string[]>()
+  for (const hold of holds) {
+    const dates = returns.get(hold.productUuid) ?? []
+    for (let index = 0; index < hold.quantity; index += 1) {
+      dates.push(hold.returnAt)
+    }
+    returns.set(hold.productUuid, dates)
+  }
+
+  for (const dates of returns.values()) {
+    dates.sort()
+  }
+
+  return assets.map((asset) => {
+    const dates = returns.get(asset.product.uuid)
+    if (!dates?.length || !RENTAL_LABEL_STATUSES.has(asset.status)) {
+      return { ...asset, rental: null }
+    }
+
+    const returnAt = dates.shift()
+    return returnAt ? { ...asset, rental: { returnAt } } : { ...asset, rental: null }
+  })
 }
 
 export function canDeleteProduct(input: { rentalItems: number, assignments: number }) {

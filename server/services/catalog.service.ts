@@ -4,7 +4,7 @@ import type { Database, Json } from '../../types/database.types'
 import type { CategoryInput, EquipmentInput, ProductInput } from '../../utils/product-validation'
 import { PUBLIC_CATALOG_PRODUCT_STATUSES, isPublicCatalogProductStatus } from '../../utils/constants'
 import { toHiddenPriceFieldDb } from '../../utils/price-visibility'
-import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
+import { canDeleteProduct, labelRentedAssets, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
 import { isUuid, normalizeSku, slugify } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
@@ -33,7 +33,7 @@ import {
   listProducts,
   updateProductByUuid,
 } from '../repositories/product.repository'
-import { insertAsset, listAssets, updateAssetByUuid } from '../repositories/equipment.repository'
+import { insertAsset, listAssets, listCurrentRentalHolds, updateAssetByUuid } from '../repositories/equipment.repository'
 import { compressImageForStorage } from '../utils/image-compress'
 
 type Client = SupabaseClient<Database>
@@ -362,20 +362,36 @@ export async function getInventory(client: Client, query: {
     productId = product.id
   }
 
+  const holds = await listCurrentRentalHolds(client)
+  const rentedProductIds = query.status === 'rented'
+    ? [...new Set(holds.map(hold => hold.productId))]
+    : undefined
+  if (query.status === 'rented' && !rentedProductIds?.length) {
+    return {
+      items: [],
+      page: query.page,
+      pageSize: query.pageSize,
+      total: 0,
+    }
+  }
+
   const from = (query.page - 1) * query.pageSize
   const { rows, total } = await listAssets(client, {
     search: sanitizeSearch(query.search),
-    status: query.status,
+    status: query.status === 'rented' ? undefined : query.status,
     productId,
+    productIds: rentedProductIds,
     from,
     to: from + query.pageSize - 1,
   })
+  const items = labelRentedAssets(rows.map(toPublicAsset), holds)
+    .filter(asset => query.status !== 'rented' || asset.rental || asset.status === 'rented')
 
   return {
-    items: rows.map(toPublicAsset),
+    items,
     page: query.page,
     pageSize: query.pageSize,
-    total,
+    total: query.status === 'rented' ? items.length : total,
   }
 }
 

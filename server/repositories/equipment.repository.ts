@@ -22,10 +22,47 @@ const ASSET_SELECT = `
   )
 `
 
+const RENTED_NOW_STATUSES = ['paid', 'approved', 'ready_for_pickup', 'active', 'overdue'] as const
+
+export async function listCurrentRentalHolds(client: Client, now = new Date().toISOString()) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .select('return_at, rental_items!inner(quantity, product_id, products(uuid))')
+    .in('status', [...RENTED_NOW_STATUSES])
+    .lte('pickup_at', now)
+    .gt('return_at', now)
+
+  if (error) {
+    throw new AppError('We could not load inventory.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return (data ?? []).flatMap((row) => {
+    if (!row.return_at) {
+      return []
+    }
+
+    const items = Array.isArray(row.rental_items) ? row.rental_items : [row.rental_items]
+    return items.flatMap((item) => {
+      const product = Array.isArray(item.products) ? item.products[0] : item.products
+      if (!product?.uuid) {
+        return []
+      }
+
+      return [{
+        productId: item.product_id,
+        productUuid: product.uuid,
+        quantity: item.quantity,
+        returnAt: row.return_at as string,
+      }]
+    })
+  })
+}
+
 export async function listAssets(client: Client, filters: {
   search?: string
   status?: EquipmentStatus
   productId?: number
+  productIds?: number[]
   from: number
   to: number
 }) {
@@ -37,6 +74,10 @@ export async function listAssets(client: Client, filters: {
 
   if (filters.status) {
     query = query.eq('status', filters.status)
+  }
+
+  if (filters.productIds?.length) {
+    query = query.in('product_id', filters.productIds)
   }
 
   if (filters.productId) {

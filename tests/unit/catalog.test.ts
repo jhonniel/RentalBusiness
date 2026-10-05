@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canDeleteProduct, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
+import { canDeleteProduct, labelRentedAssets, toCatalogProduct, toPublicAsset, toPublicCategory, toPublicImage, toPublicProduct } from '../../utils/catalog'
 import { canBlockProductDates, isBookableProductStatus, isPublicCatalogProductStatus } from '../../utils/constants'
 import { catalogCardRate, parseHiddenPriceFields, visibleCatalogPrices } from '../../utils/price-visibility'
 import {
@@ -260,5 +260,21 @@ describe('catalog mappers', () => {
     expect(canDeleteProduct({ rentalItems: 0, assignments: 0 })).toBe(true)
     expect(canDeleteProduct({ rentalItems: 1, assignments: 0 })).toBe(false)
     expect(canDeleteProduct({ rentalItems: 0, assignments: 2 })).toBe(false)
+  })
+
+  it('labels only the rented quantity and leaves damaged units unchanged', () => {
+    const [rented, spare, damaged] = labelRentedAssets([
+      { status: 'available', product: { uuid: 'starlink' } },
+      { status: 'available', product: { uuid: 'starlink' } },
+      { status: 'damaged', product: { uuid: 'starlink' } },
+    ], [{
+      productUuid: 'starlink',
+      quantity: 1,
+      returnAt: '2026-10-06T06:00:00.000Z',
+    }])
+
+    expect(rented.rental?.returnAt).toBe('2026-10-06T06:00:00.000Z')
+    expect(spare.rental).toBeNull()
+    expect(damaged.rental).toBeNull()
   })
 })

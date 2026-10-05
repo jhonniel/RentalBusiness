@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InventoryListResponse, PublicCategory, PublicProduct } from '~/types/catalog'
 import { EQUIPMENT_STATUSES } from '~/utils/constants'
+import { formatBusinessDateTime } from '~/utils/datetime'
 import { equipmentInputSchema } from '~/utils/product-validation'
 
 definePageMeta({
@@ -443,9 +444,15 @@ async function onSaved() {
               <p class="text-stone-500">
                 {{ asset.serialNumber || 'No serial' }} · {{ asset.condition }}
               </p>
+              <p
+                v-if="asset.rental"
+                class="text-stone-600"
+              >
+                Return {{ formatBusinessDateTime(asset.rental.returnAt) }}
+              </p>
             </div>
             <div class="flex items-center gap-2">
-              <StatusBadge :status="asset.status" />
+              <StatusBadge :status="asset.rental ? 'rented' : asset.status" />
               <UButton
                 color="neutral"
                 variant="ghost"
