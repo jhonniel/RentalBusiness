@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   bookingsFromOccupyingWindows,
-  firstOpenPickupTime,
+  selectablePickupTime,
   unavailablePickupTimes,
 } from '~/utils/availability'
 import { formatPickupClock, isPastBusinessDateTime, normalizePickupTime, pickupTimeSlots } from '~/utils/rental-window'
@@ -111,43 +111,34 @@ function optionLabel(slot: string) {
   return clock
 }
 
-function syncPickupTime(value?: string) {
+const blockedTimes = computed(() => new Set([...past.value, ...booked.value]))
+
+const selectedTime = computed(() => {
   if (props.flexible) {
-    const normalized = value && slots.includes(value) ? value : normalizePickupTime(value)
-    if (normalized !== model.value) {
-      model.value = normalized
-    }
-    return
+    return slots.includes(model.value) ? model.value : normalizePickupTime(model.value)
   }
 
-  const normalized = normalizePickupTime(value)
-  const blocked = new Set([...past.value, ...booked.value])
-  const next = blocked.has(normalized)
-    ? firstOpenPickupTime(blocked, normalized)
-    : normalized
-  if (next !== model.value) {
-    model.value = next
-  }
-}
-
-watch([past, booked], () => {
-  if (!props.flexible) {
-    syncPickupTime(model.value)
-  }
+  return selectablePickupTime(model.value, blockedTimes.value)
 })
 
-watch(model, (value) => {
-  if (props.flexible) {
-    if (!slots.includes(value)) {
-      model.value = normalizePickupTime(value)
-    }
+function onPickupChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  if (!slots.includes(value)) {
     return
   }
 
-  if (past.value.has(value) || booked.value.has(value) || !slots.includes(value)) {
-    syncPickupTime(value)
+  if (!props.flexible && blockedTimes.value.has(value)) {
+    return
   }
-}, { immediate: true })
+
+  model.value = value
+}
+
+watch(selectedTime, (value) => {
+  if (value !== model.value) {
+    model.value = value
+  }
+})
 </script>
 
 <template>
@@ -156,9 +147,10 @@ watch(model, (value) => {
       {{ label || 'Pickup time' }}
     </span>
     <select
-      v-model="model"
+      :value="selectedTime"
       class="h-12 w-full rounded-xl border border-[#12201a]/12 bg-white px-3.5 text-sm tracking-normal text-[#12201a] disabled:opacity-60"
       :disabled="disabled"
+      @change="onPickupChange"
     >
       <option
         v-for="slot in slots"
@@ -169,6 +161,12 @@ watch(model, (value) => {
         {{ optionLabel(slot) }}
       </option>
     </select>
+    <p
+      v-if="!flexible && booked.size"
+      class="mt-2 text-xs text-stone-500"
+    >
+      Booked times are still out with another rental. The next open pickup is when that kit is back.
+    </p>
     <p
       v-if="flexible && startsOn && past.size"
       class="mt-2 text-xs text-stone-500"

@@ -272,6 +272,13 @@ export function firstOpenPickupTime(unavailable: Iterable<string>, fallback = DE
   return pickupTimeSlots().find(time => !blocked.has(time)) || fallback
 }
 
+export function selectablePickupTime(current: string | undefined, unavailable: Iterable<string>) {
+  const blocked = unavailable instanceof Set ? unavailable : new Set(unavailable)
+  const slots = pickupTimeSlots()
+  const normalized = current && slots.includes(current) ? current : DEFAULT_PICKUP_TIME
+  return blocked.has(normalized) ? firstOpenPickupTime(blocked, normalized) : normalized
+}
+
 export function bookingsFromOccupyingWindows(
   productUuid: string,
   windows: OccupyingWindow[],

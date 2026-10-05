@@ -10,6 +10,7 @@ import {
   rangeOverlapsBlockedDates,
   rentableCapacity,
   unavailableDates,
+  selectablePickupTime,
   unavailablePickupTimes,
   type AvailabilityBooking,
 } from '../../utils/availability'
@@ -319,6 +320,8 @@ describe('overlap-aware booking totals', () => {
     expect(taken).toContain('12:30')
     expect(taken).not.toContain('13:00')
     expect(firstOpenPickupTime(taken)).toBe('13:00')
+    expect(selectablePickupTime('09:00', taken)).toBe('13:00')
+    expect(selectablePickupTime('13:00', taken)).toBe('13:00')
   })
 
   it('compares occupying windows by instant so timezone suffixes still block morning slots', () => {
