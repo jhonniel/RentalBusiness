@@ -360,7 +360,7 @@ Admin session required. Categories are the fixed list in `EXPENSE_CATEGORIES`. R
 | PATCH | `/api/admin/expenses/[id]` | Update pending or paid |
 | POST | `/api/admin/expenses/[id]/void` | Soft-void, audited |
 | GET | `/api/admin/recurring-expenses` | Templates |
-| POST | `/api/admin/recurring-expenses` | Create template |
+| POST | `/api/admin/recurring-expenses` | Create template. Records the start date when that day is today or earlier, then leaves the next bill on the following due date. |
 | GET | `/api/admin/recurring-expenses/[id]` | Includes recent occurrences |
 | PATCH | `/api/admin/recurring-expenses/[id]` | Update unless ended |
 | POST | `/api/admin/recurring-expenses/[id]/pause` | `active` → `paused` |
@@ -369,7 +369,7 @@ Admin session required. Categories are the fixed list in `EXPENSE_CATEGORIES`. R
 | GET | `/api/admin/recurring-expenses/[id]/occurrences` | Posted dates |
 | POST | `/api/admin/recurring-expenses/[id]/occurrences` | Post next due date |
 
-`POST .../occurrences` creates a pending expense for `next_occurrence_on`, stores an occurrence (`unique(recurring_expense_id, occurs_on)`), and advances the next date. Repeating that date is idempotent. The nightly cron job uses the same poster and can catch up missed days.
+`POST .../occurrences` creates a pending expense for `next_occurrence_on`, stores an occurrence (`unique(recurring_expense_id, occurs_on)`), and advances the next date. Repeating that date is idempotent. Creating a template records the start date when that day has arrived, without posting a later next bill early. The nightly cron job uses the same poster, records a skipped start date, and can catch up missed days.
 
 **Rate limit:** 40 mutations / minute / admin
 

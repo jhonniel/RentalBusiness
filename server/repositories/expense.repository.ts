@@ -196,6 +196,21 @@ export async function findRecurringExpenseByUuid(client: Client, uuid: string) {
   return data
 }
 
+export async function listStartedRecurringIdentities(client: Client, today: string) {
+  const { data, error } = await client
+    .from('recurring_expenses')
+    .select('id, uuid, name, category, amount, frequency, interval_count, anchor_day, start_on, end_on, next_occurrence_on, vendor, status, notes')
+    .eq('status', 'active')
+    .lte('start_on', today)
+    .order('start_on')
+
+  if (error) {
+    throw new AppError('We could not load recurring expenses.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
 export async function listDueRecurringIdentities(client: Client, today: string) {
   const { data, error } = await client
     .from('recurring_expenses')

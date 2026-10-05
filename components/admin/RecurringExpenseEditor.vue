@@ -194,7 +194,7 @@ function onSubmit() {
     </label>
 
     <p class="text-xs text-stone-500">
-      Custom frequency uses the interval as days. A midnight Asia/Manila job posts due dates; you can also post the next due date here.
+      The start date is the first bill and is recorded once that day has arrived. The next date is the following bill.
     </p>
 
     <UButton

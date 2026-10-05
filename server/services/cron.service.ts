@@ -17,7 +17,7 @@ import {
 } from '../../utils/cron'
 import { canPostRecurringExpense } from '../../utils/expense'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { findRecurringExpenseIdentity, listDueRecurringIdentities } from '../repositories/expense.repository'
+import { findRecurringExpenseIdentity, listDueRecurringIdentities, listStartedRecurringIdentities } from '../repositories/expense.repository'
 import { findSettingByKey, upsertSetting } from '../repositories/setting.repository'
 import { insertNotification } from '../repositories/notification.repository'
 import {
@@ -27,7 +27,7 @@ import {
   listRentalsByDate,
   updateRentalStatus,
 } from '../repositories/rental.repository'
-import { postAdminOccurrence } from './expense.service'
+import { postAdminOccurrence, recordSkippedRecurringStart } from './expense.service'
 import { sendRentalReminder } from './receipt.service'
 
 function jobDate(today?: string) {
@@ -36,6 +36,11 @@ function jobDate(today?: string) {
 
 export async function runRecurringExpenseJob(event: H3Event, today = jobDate()) {
   const client = getSupabaseAdminClient()
+  const started = await listStartedRecurringIdentities(client, today)
+  for (const template of started) {
+    await recordSkippedRecurringStart(event, client, template.uuid, today).catch(() => undefined)
+  }
+
   const due = await listDueRecurringIdentities(client, today)
   const summary = { considered: due.length, posted: 0, skipped: 0, failed: 0 }
 

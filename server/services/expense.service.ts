@@ -11,6 +11,8 @@ import {
   toPublicOccurrence,
   toPublicRecurringExpense,
 } from '../../utils/expense'
+import { calendarDateInZone } from '../../utils/datetime'
+import { CRON_CATCH_UP_LIMIT, isRecurringExpenseDue } from '../../utils/cron'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
 import {
@@ -204,14 +206,14 @@ export async function createAdminRecurringExpense(event: H3Event, client: Client
     notes: emptyToNull(input.notes),
   })
 
-  const next = toPublicRecurringExpense(row)
   await recordAudit(event, client, {
     action: 'recurring_expense.create',
     entity: 'recurring_expenses',
-    entityId: next.uuid,
-    next: next as unknown as Json,
+    entityId: row.uuid,
+    next: toPublicRecurringExpense(row) as unknown as Json,
   })
-  return next
+  await recordOpenedRecurringBills(event, client, row.uuid)
+  return loadRecurring(client, row.uuid).then(toPublicRecurringExpense)
 }
 
 export async function updateAdminRecurringExpense(
@@ -340,6 +342,29 @@ export async function postAdminOccurrence(event: H3Event, client: Client, uuid: 
     return toPublicOccurrence(existing)
   }
 
+  const occurrence = await insertRecurringBill(event, client, template, occursOn)
+
+  const nextDate = nextOccurrenceOn({
+    frequency: template.frequency,
+    intervalCount: template.interval_count,
+    fromOn: occursOn,
+    anchorDay: template.anchor_day,
+  })
+
+  await updateRecurringExpenseByUuid(client, uuid, {
+    next_occurrence_on: nextDate,
+    status: template.end_on && nextDate > template.end_on ? 'ended' : template.status,
+  })
+
+  return toPublicOccurrence(occurrence)
+}
+
+async function insertRecurringBill(
+  event: H3Event,
+  client: Client,
+  template: NonNullable<Awaited<ReturnType<typeof findRecurringExpenseIdentity>>>,
+  occursOn: string,
+) {
   const expense = await insertExpense(client, {
     name: template.name,
     category: template.category,
@@ -362,28 +387,61 @@ export async function postAdminOccurrence(event: H3Event, client: Client, uuid: 
     occurs_on: occursOn,
   })
 
-  const nextDate = nextOccurrenceOn({
-    frequency: template.frequency,
-    intervalCount: template.interval_count,
-    fromOn: occursOn,
-    anchorDay: template.anchor_day,
-  })
-
-  await updateRecurringExpenseByUuid(client, uuid, {
-    next_occurrence_on: nextDate,
-    status: template.end_on && nextDate > template.end_on ? 'ended' : template.status,
-  })
-
   await recordAudit(event, client, {
     action: 'recurring_expense.post',
     entity: 'expense_occurrences',
     entityId: occurrence.uuid,
     next: {
-      recurringExpenseUuid: uuid,
+      recurringExpenseUuid: template.uuid,
       expenseUuid: expense.uuid,
       occursOn,
     },
   })
 
-  return toPublicOccurrence(occurrence)
+  return occurrence
+}
+
+export async function recordSkippedRecurringStart(event: H3Event, client: Client, uuid: string, today = calendarDateInZone()) {
+  const template = await findRecurringExpenseIdentity(client, uuid)
+  if (!template || !canPostRecurringExpense(template.status) || template.start_on > today) {
+    return false
+  }
+
+  if (template.end_on && template.start_on > template.end_on) {
+    return false
+  }
+
+  if (template.next_occurrence_on <= template.start_on) {
+    return false
+  }
+
+  const existing = await findOccurrenceByDate(client, template.id, template.start_on)
+  if (existing) {
+    return false
+  }
+
+  await insertRecurringBill(event, client, template, template.start_on)
+  return true
+}
+
+export async function postDueRecurringBills(event: H3Event, client: Client, uuid: string, today = calendarDateInZone()) {
+  let posted = 0
+  let current = await findRecurringExpenseIdentity(client, uuid)
+
+  while (
+    current
+    && posted < CRON_CATCH_UP_LIMIT
+    && isRecurringExpenseDue(current.next_occurrence_on, today, current.end_on, current.status)
+  ) {
+    await postAdminOccurrence(event, client, current.uuid)
+    posted += 1
+    current = await findRecurringExpenseIdentity(client, current.uuid)
+  }
+
+  return posted
+}
+
+export async function recordOpenedRecurringBills(event: H3Event, client: Client, uuid: string, today = calendarDateInZone()) {
+  await recordSkippedRecurringStart(event, client, uuid, today)
+  await postDueRecurringBills(event, client, uuid, today)
 }
