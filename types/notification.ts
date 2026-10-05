@@ -18,6 +18,7 @@ export interface AdminCustomer {
   uuid: string
   firstName: string
   lastName: string
+  email: string | null
   phone: string | null
   rentalCount: number
   createdAt: string
@@ -34,5 +35,6 @@ export interface AdminSystemUser {
   uuid: string
   firstName: string
   lastName: string
+  email: string | null
   createdAt: string
 }

@@ -74,7 +74,15 @@ export function dateHasBooking(bookedQuantity: number) {
 }
 
 export function windowsOverlap(startA: string, endA: string, startB: string, endB: string) {
-  return startA < endB && endA > startB
+  const aStart = Date.parse(startA)
+  const aEnd = Date.parse(endA)
+  const bStart = Date.parse(startB)
+  const bEnd = Date.parse(endB)
+  if ([aStart, aEnd, bStart, bEnd].some(Number.isNaN)) {
+    return false
+  }
+
+  return aStart < bEnd && aEnd > bStart
 }
 
 export function bookedQuantityFromRentals(
@@ -232,7 +240,7 @@ export function unavailablePickupTimes(input: {
   bookings: AvailabilityBooking[]
   productUuid: string
   startsOn: string
-  endsOn: string
+  endsOn?: string
 }): string[] {
   if (!input.startsOn) {
     return []

@@ -298,6 +298,9 @@ async function onSubmit() {
             Customer details
           </h3>
           <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <p class="text-sm text-stone-600 sm:col-span-2">
+              Account email: {{ rental.customer?.email || 'Not on file' }}
+            </p>
             <label class="block text-sm">
               <span class="mb-1.5 block text-stone-700">First name</span>
               <UInput

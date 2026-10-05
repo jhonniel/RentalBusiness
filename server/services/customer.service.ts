@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
 import type { Database } from '../../types/database.types'
 import { canPromoteProfile } from '../../utils/auth'
+import { accountEmails } from '../utils/account-email'
 import { listCustomers } from '../repositories/customer.repository'
 import {
   findProfileByUuid,
@@ -35,12 +36,14 @@ export async function listAdminCustomers(client: Client, query: {
     from,
     to: from + query.pageSize - 1,
   })
+  const emails = await accountEmails(rows.map(row => row.user_id))
 
   return {
     items: rows.map(row => ({
       uuid: row.uuid,
       firstName: row.first_name,
       lastName: row.last_name,
+      email: emails.get(row.user_id) || null,
       phone: row.phone,
       rentalCount: rentalCount(row.rental_requests),
       createdAt: row.created_at,
@@ -53,11 +56,13 @@ export async function listAdminCustomers(client: Client, query: {
 
 export async function listAdminSystemUsers(client: Client) {
   const rows = await listAdminProfiles(client)
+  const emails = await accountEmails(rows.map(row => row.user_id))
 
   return rows.map(row => ({
     uuid: row.uuid,
     firstName: row.first_name,
     lastName: row.last_name,
+    email: emails.get(row.user_id) || null,
     createdAt: row.created_at,
   }))
 }

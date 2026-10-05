@@ -131,8 +131,8 @@ async function promote(customer: AdminCustomer) {
                   class="ml-2 text-xs font-normal text-stone-500"
                 >You</span>
               </p>
-              <p class="text-sm text-stone-500">
-                System user · joined {{ formatBusinessDate(user.createdAt) }}
+              <p class="text-sm break-words text-stone-500">
+                {{ user.email || 'No account email' }} · joined {{ formatBusinessDate(user.createdAt) }}
               </p>
             </div>
             <p class="text-sm text-stone-600">
@@ -182,7 +182,9 @@ async function promote(customer: AdminCustomer) {
               {{ displayName(customer) }}
             </p>
             <p class="text-sm break-words text-stone-500">
-              {{ customer.phone || 'No phone' }} · joined {{ formatBusinessDate(customer.createdAt) }}
+              {{ customer.email || 'No account email' }}
+              · {{ customer.phone || 'No phone' }}
+              · joined {{ formatBusinessDate(customer.createdAt) }}
             </p>
           </div>
           <div class="flex flex-wrap items-center justify-end gap-3">

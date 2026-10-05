@@ -289,6 +289,9 @@ async function removeRental() {
             <p class="mt-2 text-stone-600">
               {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Unknown customer' }}
             </p>
+            <p class="break-all text-stone-500">
+              {{ rental.customer?.email || 'No account email' }}
+            </p>
             <p
               v-if="rental.customer?.phone"
               class="text-stone-500"

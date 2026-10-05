@@ -11,7 +11,7 @@ import {
 } from '../../utils/availability'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone, inclusiveDayCount, isPastBusinessDate } from '../../utils/datetime'
-import { DEFAULT_PICKUP_TIME, resolveRentalWindow } from '../../utils/rental-window'
+import { DEFAULT_PICKUP_TIME, businessDateTimeToUtc, resolveRentalWindow } from '../../utils/rental-window'
 import { isBookableProductStatus } from '../../utils/constants'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -107,20 +107,22 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
 
   const ranges = await listOccupyingRanges(client, row.id, from, to)
   const blockedRanges = await listBlockedRanges(client, row.id, from, to)
-  const occupyingWindows = ranges
-    .filter(range => range.pickup_at && range.return_at)
-    .map(range => ({
-      pickupAt: range.pickup_at,
-      returnAt: range.return_at,
+  const occupyingWindows = ranges.map((range) => {
+    const startsOn = toCalendarDate(range.starts_on)
+    const endsOn = toCalendarDate(range.ends_on)
+    return {
+      pickupAt: range.pickup_at || businessDateTimeToUtc(startsOn, '00:00'),
+      returnAt: range.return_at || businessDateTimeToUtc(addCalendarDays(endsOn, 1), '00:00'),
       quantity: range.quantity,
-    }))
-  const bookings = ranges.map(range => ({
+    }
+  })
+  const bookings = ranges.map((range, index) => ({
     productUuid: row.uuid,
     quantity: range.quantity,
     startsOn: toCalendarDate(range.starts_on),
     endsOn: toCalendarDate(range.ends_on),
-    pickupAt: range.pickup_at || undefined,
-    returnAt: range.return_at || undefined,
+    pickupAt: occupyingWindows[index]?.pickupAt,
+    returnAt: occupyingWindows[index]?.returnAt,
     status: 'approved' as const,
   }))
   const closedDates = unavailableDates({

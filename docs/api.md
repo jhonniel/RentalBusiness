@@ -332,8 +332,8 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | POST | `/api/admin/rentals/[id]/confirm` | `pending` → `awaiting_payment`, or `approved` when a voucher covers the full total. Dates stay reserved. Audited |
 | POST | `/api/admin/rentals/[id]/paid` | Admin records a shop payment (`cash`, `gcash`, `maya`, or `bank`). Creates a paid `payment_transactions` row so the rental appears in sales. Moves `draft`/`pending`/`awaiting_payment` to `paid` after waiver and identity are on file. Audited |
 | POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, or `awaiting_payment` when a voucher covers the full total. Audited |
-| GET | `/api/admin/customers` | Customer profiles and rental counts |
-| GET | `/api/admin/system-users` | Profiles with `role = admin` |
+| GET | `/api/admin/customers` | Customer profiles, account email, phone, and rental counts. Email comes from the sign-in account and is admin-only |
+| GET | `/api/admin/system-users` | Profiles with `role = admin`, including the sign-in email |
 | POST | `/api/admin/customers/[uuid]/promote` | Make a customer a system admin. Audited. Clients cannot send `role` |
 | GET | `/api/notifications` | Signed-in recipient |
 | POST | `/api/notifications/[id]/read` | Mark own notification read |

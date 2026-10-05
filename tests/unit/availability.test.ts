@@ -321,6 +321,42 @@ describe('overlap-aware booking totals', () => {
     expect(firstOpenPickupTime(taken)).toBe('13:00')
   })
 
+  it('compares occupying windows by instant so timezone suffixes still block morning slots', () => {
+    const taken = unavailablePickupTimes({
+      bookings: [booking({
+        quantity: 1,
+        startsOn: '2026-10-05',
+        endsOn: '2026-10-06',
+        pickupAt: '2026-10-05T13:00:00+08:00',
+        returnAt: '2026-10-06T13:00:00+08:00',
+      })],
+      productUuid: camera,
+      startsOn: '2026-10-06',
+      endsOn: '2026-10-07',
+    })
+
+    expect(taken).toContain('08:00')
+    expect(taken).toContain('12:30')
+    expect(taken).not.toContain('13:00')
+  })
+
+  it('blocks every shop time on a date-only occupying day', () => {
+    const taken = unavailablePickupTimes({
+      bookings: [booking({
+        quantity: 1,
+        startsOn: '2026-10-05',
+        endsOn: '2026-10-06',
+      })],
+      productUuid: camera,
+      startsOn: '2026-10-06',
+      endsOn: '2026-10-07',
+    })
+
+    expect(taken).toContain('08:00')
+    expect(taken).toContain('13:00')
+    expect(taken).toContain('20:00')
+  })
+
   it('reduces capacity when units are in maintenance', () => {
     expect(evaluateAvailability({
       quantity: 5,

@@ -13,6 +13,7 @@ import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canContinueAdminRental } from '../../utils/waiver-invite'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
+import { accountEmail } from '../utils/account-email'
 import { recordAudit } from '../utils/audit'
 import { STORAGE_BUCKETS } from '../../utils/storage'
 import { findProfileById, updateOwnProfile } from '../repositories/profile.repository'
@@ -61,6 +62,14 @@ async function loadAdminRental(client: Client, identifier: string) {
 
   const rental = toPublicRental(row)
   rental.identity = await attachAdminIdentityUrls(client, rental.uuid, rental.identity)
+  const identity = await findRentalIdentity(client, rental.uuid)
+  const profile = identity ? await findProfileById(client, identity.customer_id) : null
+  if (rental.customer) {
+    rental.customer = {
+      ...rental.customer,
+      email: await accountEmail(profile?.user_id),
+    }
+  }
   return rental
 }
 

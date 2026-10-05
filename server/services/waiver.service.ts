@@ -73,7 +73,13 @@ function toPublicWaiverInviteRental(rental: Awaited<ReturnType<typeof getAdminRe
     startsOn: rental.startsOn,
     endsOn: rental.endsOn,
     items: rental.items,
-    customer: rental.customer,
+    customer: rental.customer
+      ? {
+          firstName: rental.customer.firstName,
+          lastName: rental.customer.lastName,
+          phone: rental.customer.phone,
+        }
+      : null,
   }
 }
 

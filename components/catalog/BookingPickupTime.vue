@@ -34,9 +34,30 @@ const occupyingWindows = computed(() => {
     return windows
   }
 
-  return windows.filter(window => (
-    window.pickupAt !== props.ownPickupAt || window.returnAt !== props.ownReturnAt
-  ))
+  const ownPickup = Date.parse(props.ownPickupAt)
+  const ownReturn = Date.parse(props.ownReturnAt)
+  return windows.filter((window) => {
+    return Date.parse(window.pickupAt) !== ownPickup || Date.parse(window.returnAt) !== ownReturn
+  })
+})
+
+const pickupBookings = computed(() => {
+  const productUuid = calendar.value?.product.uuid
+  if (!productUuid) {
+    return []
+  }
+
+  if (occupyingWindows.value.length) {
+    return bookingsFromOccupyingWindows(productUuid, occupyingWindows.value)
+  }
+
+  return (calendar.value?.bookedDates ?? []).map(date => ({
+    productUuid,
+    quantity: 1,
+    startsOn: date,
+    endsOn: date,
+    status: 'approved' as const,
+  }))
 })
 
 const booked = computed(() => {
@@ -46,11 +67,11 @@ const booked = computed(() => {
   }
 
   return new Set(unavailablePickupTimes({
-    bookings: bookingsFromOccupyingWindows(productUuid, occupyingWindows.value),
+    bookings: pickupBookings.value,
     productUuid,
     startsOn: props.startsOn,
-    endsOn: props.endsOn || props.startsOn,
-  }).filter(time => !props.startsOn || !isPastBusinessDateTime(props.startsOn, time)))
+    endsOn: props.endsOn,
+  }).filter(time => !isPastBusinessDateTime(props.startsOn!, time)))
 })
 
 const past = computed(() => {

@@ -74,7 +74,7 @@ export async function findProfileByUuid(
 export async function listAdminProfiles(client: TypedClient) {
   const { data, error } = await client
     .from('profiles')
-    .select('uuid, first_name, last_name, created_at')
+    .select('uuid, user_id, first_name, last_name, created_at')
     .eq('role', 'admin')
     .order('created_at', { ascending: true })
 
