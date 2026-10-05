@@ -162,7 +162,7 @@ Overlap-aware stock for one active product. Booked quantity comes from occupying
 
 ### `GET /api/availability/calendar`
 
-Returns `unavailableDates`, `bookedDates`, and `occupyingWindows` for one active product. `bookedDates` are days that overlap any occupying rental window, including a return morning that still has later pickup slots. A day is listed in `unavailableDates` only when no shop pickup time is free that day, or an admin blocked that day. Pickup-time controls disable slots that overlap an occupying `[pickupAt, returnAt)` window. A kit due back at 1:00 PM can be booked again from 1:00 PM. Date pickers mark booked days with a dot and cross out fully closed days.
+Returns `unavailableDates`, `bookedDates`, and `occupyingWindows` for one active product. `draft` rentals hold the kit the same way as later open statuses. `bookedDates` are days that overlap any occupying rental window, including a return morning that still has later pickup slots. A day is listed in `unavailableDates` only when no shop pickup time is free that day, or an admin blocked that day. Pickup-time controls disable slots that overlap an occupying `[pickupAt, returnAt)` window. A kit due back at 2:00 PM can be booked again from 2:00 PM, not earlier that morning. Date pickers mark booked days with a dot and cross out fully closed days.
 
 **Query:** `productUuid` or `productSlug`, `quantity` (default 1), optional `from` / `to` (default today through 180 days, max 366)  
 **Rate limit:** 80 requests / minute / IP
@@ -176,7 +176,7 @@ Authenticated. Customers read and create only their own rows. Totals come from `
 | Method | Path | Notes |
 | --- | --- | --- |
 | POST | `/api/rentals/quote` | Server quote + availability. Pickup date/time must be today or later in Asia/Manila |
-| POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Pickup date/time must be today or later in Asia/Manila. Return is the same clock time on `endsOn`. Stock must still be free after occupying (`pending` and later) rentals, and the window must not overlap admin-blocked days. |
+| POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Pickup date/time must be today or later in Asia/Manila. Return is the same clock time on `endsOn`. Stock must still be free after `draft` and later open rentals, and the window must not overlap admin-blocked days. A return at 2:00 PM keeps every earlier shop pickup that day closed. |
 | GET | `/api/rentals` | Own rentals, optional status, pagination |
 | GET | `/api/rentals/[id]` | By `uuid` or `code` |
 | POST | `/api/rentals/[id]/submit` | Own `draft` with a signed waiver and identity documents. Becomes `pending`, occupies inventory, and emails `contactmejry@gmail.com`. |
