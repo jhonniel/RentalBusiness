@@ -162,12 +162,6 @@ watch(selectedTime, (value) => {
       </option>
     </select>
     <p
-      v-if="!flexible && booked.size"
-      class="mt-2 text-xs text-stone-500"
-    >
-      Booked times are still out with another rental. The next open pickup is when that kit is back.
-    </p>
-    <p
       v-if="flexible && startsOn && past.size"
       class="mt-2 text-xs text-stone-500"
     >
