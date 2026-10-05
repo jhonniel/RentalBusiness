@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { PublicRental, PublicRentalIdentity } from '~/types/rental'
+import { identityUploadFormData } from '~/utils/browser-image'
+import { IMAGE_UPLOAD_ACCEPT, IMAGE_UPLOAD_HELP } from '~/utils/image-upload'
 
 definePageMeta({
   layout: 'account',
@@ -57,16 +59,15 @@ async function onSubmit() {
     return
   }
 
-  const body = new FormData()
-  body.append('governmentId', governmentFile.value)
-  body.append('selfie', selfieFile.value)
-
   pending.value = true
   try {
     await $fetch<PublicRentalIdentity>(`/api/rentals/${rental.value.uuid}/identity`, {
       method: 'POST',
       headers: authHeaders(),
-      body,
+      body: await identityUploadFormData({
+        governmentId: governmentFile.value,
+        selfie: selfieFile.value,
+      }),
     })
     toast.add({ title: 'Identity documents uploaded', color: 'success' })
     governmentFile.value = null
@@ -155,12 +156,12 @@ async function onSubmit() {
           Government ID
         </h2>
         <p class="mt-1 text-sm text-stone-500">
-          Front of a valid government-issued ID. JPG, PNG, or WebP, up to 5 MB.
+          Front of a valid government-issued ID. {{ IMAGE_UPLOAD_HELP }}
         </p>
         <input
           ref="governmentInput"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          :accept="IMAGE_UPLOAD_ACCEPT"
           class="mt-4 block w-full text-sm"
           :disabled="pending"
           @change="onGovernmentChange"
@@ -177,7 +178,7 @@ async function onSubmit() {
         <input
           ref="selfieInput"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          :accept="IMAGE_UPLOAD_ACCEPT"
           class="mt-4 block w-full text-sm"
           :disabled="pending"
           @change="onSelfieChange"

@@ -1,6 +1,14 @@
 import type { RentalStatus } from './constants'
 import { inclusiveDayCount } from './datetime'
+import { addCalendarDays } from './expense'
 import { datesOverlapInclusive, rentalOccupiesInventory } from './rental-status'
+import {
+  DEFAULT_PICKUP_TIME,
+  calendarDayOverlapsWindow,
+  isPastBusinessDateTime,
+  pickupTimeSlots,
+  resolveRentalWindow,
+} from './rental-window'
 
 export interface AvailabilityStock {
   quantity: number
@@ -33,8 +41,16 @@ export interface AvailabilityBooking {
   quantity: number
   startsOn: string
   endsOn: string
+  pickupAt?: string
+  returnAt?: string
   status: RentalStatus
   rentalUuid?: string
+}
+
+export interface OccupyingWindow {
+  pickupAt: string
+  returnAt: string
+  quantity: number
 }
 
 export function rentableCapacity(stock: AvailabilityStock): number {
@@ -57,25 +73,39 @@ export function dateHasBooking(bookedQuantity: number) {
   return bookedQuantity > 0
 }
 
+export function windowsOverlap(startA: string, endA: string, startB: string, endB: string) {
+  return startA < endB && endA > startB
+}
+
 export function bookedQuantityFromRentals(
   bookings: AvailabilityBooking[],
   productUuid: string,
   startsOn: string,
   endsOn: string,
   excludeRentalUuid?: string,
+  occupyWindow?: { pickupAt: string, returnAt: string },
 ): number {
   return bookings
-    .filter(item => (
-      item.productUuid === productUuid
-      && (!excludeRentalUuid || item.rentalUuid !== excludeRentalUuid)
-      && rentalOccupiesInventory(item.status)
-      && datesOverlapInclusive(
+    .filter((item) => {
+      if (item.productUuid !== productUuid) {
+        return false
+      }
+      if (excludeRentalUuid && item.rentalUuid === excludeRentalUuid) {
+        return false
+      }
+      if (!rentalOccupiesInventory(item.status)) {
+        return false
+      }
+      if (occupyWindow && item.pickupAt && item.returnAt) {
+        return windowsOverlap(occupyWindow.pickupAt, occupyWindow.returnAt, item.pickupAt, item.returnAt)
+      }
+      return datesOverlapInclusive(
         toCalendarDate(item.startsOn),
         toCalendarDate(item.endsOn),
         toCalendarDate(startsOn),
         toCalendarDate(endsOn),
       )
-    ))
+    })
     .reduce((sum, item) => sum + item.quantity, 0)
 }
 
@@ -133,6 +163,32 @@ export function mergeUnavailableDates(...lists: string[][]): string[] {
   return [...new Set(lists.flat().map(toCalendarDate))].sort()
 }
 
+export function datesWithBookings(input: {
+  bookings: AvailabilityBooking[]
+  productUuid: string
+  from: string
+  to: string
+}): string[] {
+  const relevant = input.bookings.filter(item => (
+    item.productUuid === input.productUuid && rentalOccupiesInventory(item.status)
+  ))
+
+  return eachCalendarDate(input.from, input.to).filter((date) => {
+    return relevant.some((item) => {
+      if (item.pickupAt && item.returnAt) {
+        return calendarDayOverlapsWindow(date, item.pickupAt, item.returnAt)
+      }
+
+      return datesOverlapInclusive(
+        toCalendarDate(item.startsOn),
+        toCalendarDate(item.endsOn),
+        date,
+        date,
+      )
+    })
+  })
+}
+
 export function unavailableDates(input: {
   stock: AvailabilityStock
   bookings: AvailabilityBooking[]
@@ -141,15 +197,86 @@ export function unavailableDates(input: {
   from: string
   to: string
 }): string[] {
+  const timed = input.bookings.some(item => item.productUuid === input.productUuid && item.pickupAt && item.returnAt)
+
   return eachCalendarDate(input.from, input.to).filter((date) => {
-    const bookedQuantity = bookedQuantityFromRentals(
+    if (!timed) {
+      const bookedQuantity = bookedQuantityFromRentals(
+        input.bookings,
+        input.productUuid,
+        date,
+        date,
+      )
+      return dateHasBooking(bookedQuantity)
+    }
+
+    return pickupTimeSlots().every((time) => {
+      const window = resolveRentalWindow({
+        startsOn: date,
+        endsOn: addCalendarDays(date, 1),
+        pickupTime: time,
+      })
+      return dateHasBooking(bookedQuantityFromRentals(
+        input.bookings,
+        input.productUuid,
+        window.startsOn,
+        window.endsOn,
+        undefined,
+        { pickupAt: window.pickupAt, returnAt: window.returnAt },
+      ))
+    })
+  })
+}
+
+export function unavailablePickupTimes(input: {
+  bookings: AvailabilityBooking[]
+  productUuid: string
+  startsOn: string
+  endsOn: string
+}): string[] {
+  if (!input.startsOn) {
+    return []
+  }
+
+  return pickupTimeSlots().filter((time) => {
+    if (isPastBusinessDateTime(input.startsOn, time)) {
+      return true
+    }
+
+    const window = resolveRentalWindow({
+      startsOn: input.startsOn,
+      endsOn: input.endsOn || addCalendarDays(input.startsOn, 1),
+      pickupTime: time,
+    })
+    return dateHasBooking(bookedQuantityFromRentals(
       input.bookings,
       input.productUuid,
-      date,
-      date,
-    )
-    return dateHasBooking(bookedQuantity)
+      window.startsOn,
+      window.endsOn,
+      undefined,
+      { pickupAt: window.pickupAt, returnAt: window.returnAt },
+    ))
   })
+}
+
+export function firstOpenPickupTime(unavailable: Iterable<string>, fallback = DEFAULT_PICKUP_TIME) {
+  const blocked = unavailable instanceof Set ? unavailable : new Set(unavailable)
+  return pickupTimeSlots().find(time => !blocked.has(time)) || fallback
+}
+
+export function bookingsFromOccupyingWindows(
+  productUuid: string,
+  windows: OccupyingWindow[],
+): AvailabilityBooking[] {
+  return windows.map(window => ({
+    productUuid,
+    quantity: window.quantity,
+    startsOn: toCalendarDate(window.pickupAt),
+    endsOn: toCalendarDate(window.returnAt),
+    pickupAt: window.pickupAt,
+    returnAt: window.returnAt,
+    status: 'approved',
+  }))
 }
 
 export function evaluateAvailability(input: AvailabilityInput): AvailabilityResult {

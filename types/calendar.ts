@@ -7,6 +7,8 @@ export interface AdminCalendarEvent {
   status: CalendarRentalStatus
   startsOn: string
   endsOn: string
+  pickupAt?: string | null
+  returnAt?: string | null
   productName: string
   customerName: string | null
 }

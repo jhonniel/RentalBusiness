@@ -91,6 +91,26 @@ const promoteAdmin = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260928100000_promote_profile_to_admin.sql'),
   'utf8',
 )
+const waiverInvites = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261005100000_rental_waiver_invites.sql'),
+  'utf8',
+)
+const rentalPickupTimes = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261005110000_rental_pickup_return_times.sql'),
+  'utf8',
+)
+const rentalCodePrefix = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261005120000_rental_code_jry_prefix.sql'),
+  'utf8',
+)
+const occupyingWindows = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261005130000_occupying_ranges_pickup_return.sql'),
+  'utf8',
+)
+const waiverInviteOptionalEmail = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261005140000_waiver_invite_optional_email.sql'),
+  'utf8',
+)
 
 describe('phase 2 schema', () => {
   it('creates the required operational tables', () => {
@@ -306,6 +326,30 @@ describe('admin rental delete', () => {
   })
 })
 
+describe('rental pickup times', () => {
+  it('stores pickup and return instants and overlaps them by time', () => {
+    expect(rentalPickupTimes).toContain('add column if not exists pickup_at timestamptz')
+    expect(rentalPickupTimes).toContain('add column if not exists return_at timestamptz')
+    expect(rentalPickupTimes).toContain('product_booked_window')
+    expect(rentalPickupTimes).toContain('rr.pickup_at < p_return_at')
+    expect(rentalPickupTimes).toContain('rr.return_at > p_pickup_at')
+    expect(rentalPickupTimes).toContain('grant execute on function public.product_booked_window')
+  })
+})
+
+describe('waiver invites', () => {
+  it('stores only a token hash and keeps the table off anon and authenticated clients', () => {
+    expect(waiverInvites).toContain('create table if not exists public.rental_waiver_invites')
+    expect(waiverInvites).toContain('token_hash')
+    expect(waiverInvites).toContain('char_length(token_hash) = 64')
+    expect(waiverInvites).toContain('grant select, insert, update, delete on public.rental_waiver_invites to service_role')
+    expect(waiverInvites).toContain('revoke all on public.rental_waiver_invites from anon, authenticated, public')
+    expect(waiverInvites).not.toContain('grant select on public.rental_waiver_invites to anon')
+    expect(waiverInvites).not.toContain('grant select on public.rental_waiver_invites to authenticated')
+    expect(waiverInviteOptionalEmail).toContain('alter column email drop not null')
+  })
+})
+
 describe('admin promotion', () => {
   it('lets the service-role promote a customer without granting role updates to clients', () => {
     expect(promoteAdmin).toContain('promote_profile_to_admin')
@@ -355,6 +399,24 @@ describe('waiver down payment refund', () => {
     expect(waiverDownPayment).toContain('The down payment is not refundable once the Renter has booked the rental.')
     expect(waiverDownPayment).toContain('Accepted JRY-WAIVER-v1.0 snapshots stay frozen')
     expect(waiverDownPayment).toContain('on conflict (version) do nothing')
+  })
+})
+
+describe('occupying rental windows', () => {
+  it('returns pickup and return instants for the product calendar', () => {
+    expect(occupyingWindows).toContain('pickup_at timestamptz')
+    expect(occupyingWindows).toContain('return_at timestamptz')
+    expect(occupyingWindows).toContain('rr.pickup_at < ((p_ends_on + 1)::timestamp at time zone \'Asia/Manila\')')
+    expect(occupyingWindows).toContain('rr.return_at > (p_starts_on::timestamp at time zone \'Asia/Manila\')')
+  })
+})
+
+describe('rental code prefix', () => {
+  it('issues JRY public rental numbers', () => {
+    expect(rentalCodePrefix).toContain("select 'JRY-'")
+    expect(rentalCodePrefix).toContain("set lumen.sync_rental_totals = 'on'")
+    expect(rentalCodePrefix).toContain("set code = 'JRY-' || substr(code, 5)")
+    expect(rentalCodePrefix).toContain("where code like 'LUM-%'")
   })
 })
 

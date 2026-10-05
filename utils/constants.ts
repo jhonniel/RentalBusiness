@@ -107,6 +107,7 @@ export const INVENTORY_OCCUPYING_RENTAL_STATUSES = [
 ] as const
 
 export const CALENDAR_RENTAL_STATUSES = [
+  'draft',
   ...INVENTORY_OCCUPYING_RENTAL_STATUSES,
   'returned',
   'completed',

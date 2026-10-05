@@ -1,6 +1,7 @@
 import type { PublicBlockedDate } from '~/types/availability'
 import type { AdminCalendarEvent } from '~/types/calendar'
 import { calendarDateInZone } from './datetime'
+import { calendarDayOverlapsWindow } from './rental-window'
 
 export function monthKey(value: string = calendarDateInZone()) {
   return value.slice(0, 7)
@@ -38,7 +39,11 @@ export function monthCells(month: string) {
   return cells
 }
 
-export function eventCoversDate(event: Pick<AdminCalendarEvent, 'startsOn' | 'endsOn'>, date: string) {
+export function eventCoversDate(event: Pick<AdminCalendarEvent, 'startsOn' | 'endsOn' | 'pickupAt' | 'returnAt'>, date: string) {
+  if (event.pickupAt && event.returnAt) {
+    return calendarDayOverlapsWindow(date, event.pickupAt, event.returnAt)
+  }
+
   return event.startsOn <= date && date <= event.endsOn
 }
 

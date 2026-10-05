@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { CatalogProduct } from '~/types/catalog'
 import { calendarDateInZone } from '~/utils/datetime'
+import { addCalendarDays } from '~/utils/expense'
+import { DEFAULT_PICKUP_TIME, defaultRentalReturnOn, formatRentalReturnLabel, resolveRentalWindow } from '~/utils/rental-window'
 
 const props = defineProps<{
   products: CatalogProduct[]
@@ -10,18 +12,31 @@ const router = useRouter()
 const today = calendarDateInZone()
 const productSlug = ref('')
 const startsOn = ref(today)
-const endsOn = ref(today)
+const pickupTime = ref(DEFAULT_PICKUP_TIME)
+const endsOn = ref(defaultRentalReturnOn(today))
 
 const bookableProducts = computed(() => props.products.filter(product => !product.comingSoon))
 const selected = computed(() => bookableProducts.value.find(product => product.slug === productSlug.value))
+const window = computed(() => resolveRentalWindow({
+  startsOn: startsOn.value,
+  endsOn: endsOn.value,
+  pickupTime: pickupTime.value,
+}))
+
+watch(startsOn, (value, previous) => {
+  if (endsOn.value <= value || (previous && endsOn.value === defaultRentalReturnOn(previous))) {
+    endsOn.value = defaultRentalReturnOn(value)
+  }
+})
 
 function onSubmit() {
   if (selected.value) {
     router.push({
       path: `/products/${selected.value.slug}`,
       query: {
-        startsOn: startsOn.value,
-        endsOn: endsOn.value,
+        startsOn: window.value.startsOn,
+        endsOn: window.value.endsOn,
+        pickupTime: window.value.pickupTime,
       },
     })
     return
@@ -37,7 +52,7 @@ function onSubmit() {
       class="storefront-card rounded-3xl p-4 tracking-normal sm:rounded-[1.75rem] sm:p-5"
       @submit.prevent="onSubmit"
     >
-      <div class="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <div class="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]">
         <label class="block text-sm tracking-normal">
           <span class="mb-2 block text-xs font-medium text-[#5b6b64]">Find your gear</span>
           <select
@@ -59,15 +74,21 @@ function onSubmit() {
 
         <BookingDateField
           v-model="startsOn"
-          label="Start date"
+          label="Pickup date"
           :product-slug="productSlug || undefined"
           :until="endsOn || undefined"
         />
+        <BookingPickupTime
+          v-model="pickupTime"
+          :product-slug="productSlug || undefined"
+          :starts-on="startsOn"
+          :ends-on="endsOn"
+        />
         <BookingDateField
           v-model="endsOn"
-          label="End date"
+          label="Return date"
           :product-slug="productSlug || undefined"
-          :min="startsOn || undefined"
+          :min="addCalendarDays(startsOn, 1)"
         />
 
         <UButton
@@ -82,6 +103,9 @@ function onSubmit() {
           <span class="tracking-normal">Check availability</span>
         </UButton>
       </div>
+      <p class="mt-3 text-xs leading-5 text-[#5b6b64]">
+        Return {{ formatRentalReturnLabel(window.endsOn, window.pickupTime) }}
+      </p>
     </form>
   </section>
 </template>

@@ -58,7 +58,7 @@ function onFileChange(event: Event) {
 async function uploadImage() {
   imageError.value = ''
   if (!imageFiles.value.length) {
-    imageError.value = 'Choose one or more JPG, PNG, or WebP images.'
+    imageError.value = 'Choose one or more JPG, PNG, WebP, or HEIC images.'
     return
   }
 
@@ -275,7 +275,7 @@ async function onSaved() {
           Images
         </h3>
         <p class="mt-1 text-sm text-stone-500">
-          Add several photos. Customers see extra shots under the main image on the product page. JPG, PNG, or WebP up to 5 MB, stored on Supabase Storage.
+          Add several photos. Customers see extra shots under the main image on the product page. JPG, PNG, WebP, or HEIC up to 15 MB. Files are compressed to JPEG before they are stored on Supabase Storage.
         </p>
 
         <AuthAlert
@@ -294,7 +294,7 @@ async function onSaved() {
             <input
               ref="imageInput"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
               multiple
               :disabled="imagePending"
               class="block w-full text-sm"

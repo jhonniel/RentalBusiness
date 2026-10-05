@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CHAT_KIT_PROMPT,
+  chatDatesPrompt,
   chatQuestionContext,
   chatQuoteRange,
   formatChatQuoteAnswer,
@@ -21,7 +22,10 @@ function quote(overrides: Partial<RentalQuote> = {}): RentalQuote {
     },
     startsOn: '2026-09-20',
     endsOn: '2026-09-22',
-    days: 3,
+    pickupTime: '09:00',
+    pickupAt: '2026-09-20T01:00:00.000Z',
+    returnAt: '2026-09-22T01:00:00.000Z',
+    days: 2,
     quantity: 1,
     dailyPrice: 1500,
     lineTotal: 4500,
@@ -50,7 +54,7 @@ describe('chat quote intent', () => {
     expect(intent.days).toBe(3)
     expect(chatQuoteRange(intent, today)).toMatchObject({
       startsOn: today,
-      endsOn: '2026-09-20',
+      endsOn: '2026-09-21',
     })
   })
 
@@ -59,7 +63,7 @@ describe('chat quote intent', () => {
     expect(intent.slugs).toEqual(['dji-osmo-360'])
     expect(intent.startsOn).toBe('2026-09-19')
     expect(intent.days).toBe(2)
-    expect(chatQuoteRange(intent, today).endsOn).toBe('2026-09-20')
+    expect(chatQuoteRange(intent, today).endsOn).toBe('2026-09-21')
   })
 
   it('asks which kit when availability has no gear name', () => {
@@ -105,6 +109,35 @@ describe('chat quote intent', () => {
     expect(parseChatQuoteIntent('How do I book a kit?', today).action).toBe('none')
     expect(parseChatQuoteIntent('What gear do you rent?', today).action).toBe('none')
   })
+
+  it('checks the JBL when they want to book it the next day', () => {
+    const intent = parseChatQuoteIntent('I would like to book the jbl on the next day', today)
+    expect(intent.action).toBe('quote')
+    expect(intent.slugs).toEqual(['jbl-partybox-encore-essential-2'])
+    expect(intent.startsOn).toBe('2026-09-19')
+    expect(chatQuoteRange(intent, today)).toMatchObject({
+      startsOn: '2026-09-19',
+      endsOn: '2026-09-20',
+    })
+  })
+
+  it('asks for dates when they name a kit but not a day', () => {
+    const intent = parseChatQuoteIntent('I want to book the JBL', today)
+    expect(intent.action).toBe('ask-dates')
+    expect(intent.slugs).toEqual(['jbl-partybox-encore-essential-2'])
+    expect(chatDatesPrompt('JBL Partybox Encore Essential 2')).toContain('JBL Partybox Encore Essential 2')
+  })
+
+  it('matches a catalog name that is not one of the featured kits', () => {
+    const catalog = [
+      { slug: 'jbl-partybox-encore-essential-2', name: 'JBL Partybox Encore Essential 2' },
+      { slug: 'starlink-mini', name: 'Starlink Mini' },
+    ]
+    const intent = parseChatQuoteIntent('Is the Partybox free tomorrow?', today, catalog)
+    expect(intent.action).toBe('quote')
+    expect(intent.slugs).toEqual(['jbl-partybox-encore-essential-2'])
+    expect(intent.startsOn).toBe('2026-09-19')
+  })
 })
 
 describe('chat quote answer', () => {
@@ -118,8 +151,9 @@ describe('chat quote answer', () => {
 
     const booked = formatChatQuoteAnswer(quote({ canFulfill: false, available: 0 }))
     expect(available).toContain('those dates are not booked')
-    expect(booked).toContain('is booked')
-    expect(booked).toContain('those dates are not available')
+    expect(available).toContain('You can book it')
+    expect(booked).toContain('is not available')
+    expect(booked).toContain('already booked or blocked')
     expect(booked).toContain('₱4,500.00')
   })
 

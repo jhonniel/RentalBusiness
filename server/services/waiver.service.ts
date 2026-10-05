@@ -1,19 +1,33 @@
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { AcceptWaiverInput, PublishWaiverInput } from '../../utils/waiver-validation'
+import type { AcceptAdminWaiverInput, AcceptWaiverInput, AcceptWaiverInviteInput, PublishWaiverInput, SendWaiverInviteInput } from '../../utils/waiver-validation'
+import { EMAIL_TEMPLATES } from '../../utils/email'
+import { waiverInviteEmail } from '../../utils/email-templates'
 import { CURRENT_PRIVACY_POLICY_VERSION } from '../../utils/privacy-policy'
 import { CURRENT_TERMS_VERSION } from '../../utils/terms'
+import { canSendWaiverInvite, canUploadGuestIdentity, canResetAdminWaiver, isWaiverInviteOpen, isWaiverInviteUnexpired, waiverInviteExpiresAt, waiverInviteUrl, canSendGuestRentalLink, WAIVER_INVITE_STATUSES } from '../../utils/waiver-invite'
 import { renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
-import { stampPrivacyAcknowledgment, stampTermsAcceptance } from '../repositories/profile.repository'
+import { findProfileById, stampPrivacyAcknowledgment, stampTermsAcceptance } from '../repositories/profile.repository'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
-import { findRentalIdentity } from '../repositories/rental.repository'
+import { findRentalIdentity, findRentalIdentityById } from '../repositories/rental.repository'
+import {
+  expireOpenWaiverInvites,
+  findWaiverInviteByUuid,
+  insertWaiverInvite,
+  markWaiverInviteUsed,
+  reopenLatestWaiverInvite,
+} from '../repositories/waiver-invite.repository'
+import { sendTemplatedEmail } from './email.service'
+import { getSupabaseAdminClient } from '../utils/supabase'
+import { createWaiverInviteToken, hashWaiverInviteToken, waiverInviteTokenMatches } from '../utils/waiver-invite-token'
 import {
   findCurrentWaiverVersion,
   findWaiverAcceptanceByRentalId,
   findWaiverAcceptanceByUuid,
   findWaiverVersionByUuid,
+  deleteWaiverAcceptanceByRentalId,
   insertWaiverAcceptance,
   insertWaiverVersion,
   listWaiverVersions,
@@ -39,6 +53,30 @@ function requestUserAgent(event: H3Event) {
   return value ? value.slice(0, 512) : null
 }
 
+function siteOrigin() {
+  const config = useRuntimeConfig()
+  return String(config.public.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+}
+
+async function customerAccountEmail(userId: string) {
+  const admin = getSupabaseAdminClient()
+  const { data, error } = await admin.auth.admin.getUserById(userId)
+  if (error || !data.user?.email) {
+    return null
+  }
+  return data.user.email
+}
+
+function toPublicWaiverInviteRental(rental: Awaited<ReturnType<typeof getAdminRental>>) {
+  return {
+    code: rental.code,
+    startsOn: rental.startsOn,
+    endsOn: rental.endsOn,
+    items: rental.items,
+    customer: rental.customer,
+  }
+}
+
 export async function getCurrentWaiver(client: Client) {
   const row = await findCurrentWaiverVersion(client)
   if (!row) {
@@ -57,7 +95,7 @@ export async function acceptWaiver(
 ) {
   const rental = await getOwnRental(client, input.rentalUuid || input.rentalCode || '')
 
-  if (!['draft', 'pending'].includes(rental.status)) {
+  if (!(WAIVER_INVITE_STATUSES as readonly string[]).includes(rental.status)) {
     throw new AppError('That rental can no longer accept a waiver.', 409, ERROR_CODES.CONFLICT)
   }
 
@@ -118,6 +156,296 @@ export async function acceptWaiver(
     },
   })
 
+  return acceptance
+}
+
+export async function acceptAdminRentalWaiver(
+  event: H3Event,
+  client: Client,
+  identifier: string,
+  input: AcceptAdminWaiverInput,
+) {
+  const rental = await getAdminRental(client, identifier)
+  if (!canSendWaiverInvite(rental)) {
+    throw new AppError(
+      rental.waiver
+        ? 'This rental already has a signed waiver.'
+        : 'That rental can no longer accept a waiver.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const version = await findWaiverVersionByUuid(client, input.waiverVersionUuid)
+  if (!version) {
+    throw new AppError('Waiver version not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (!version.is_current) {
+    throw new AppError('The waiver was updated. Please review the new version.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const identity = await findRentalIdentity(client, rental.uuid)
+  const customer = identity ? await findProfileById(client, identity.customer_id) : null
+  if (!identity || !customer) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const existing = await findWaiverAcceptanceByRentalId(client, identity.id)
+  if (existing) {
+    throw new AppError('This rental already has a signed waiver.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const email = await customerAccountEmail(customer.user_id)
+  const row = await insertWaiverAcceptance(client, {
+    waiver_version_id: version.id,
+    rental_id: identity.id,
+    customer_id: identity.customer_id,
+    signer_name: input.signerName,
+    signer_email: email,
+    signer_phone: rental.customer?.phone || customer.phone,
+    signature_data: input.signatureData,
+    ip_address: requestIp(event),
+    user_agent: requestUserAgent(event),
+    privacy_policy_version: CURRENT_PRIVACY_POLICY_VERSION,
+    terms_version: CURRENT_TERMS_VERSION,
+  })
+
+  await stampPrivacyAcknowledgment(client, identity.customer_id, CURRENT_PRIVACY_POLICY_VERSION)
+  await stampTermsAcceptance(client, identity.customer_id, CURRENT_TERMS_VERSION)
+
+  const acceptance = toPublicWaiverAcceptance(row)
+  await recordAudit(event, client, {
+    action: 'waiver.accept',
+    entity: 'waiver_acceptances',
+    entityId: acceptance.uuid,
+    next: {
+      rentalUuid: rental.uuid,
+      rentalCode: rental.code,
+      waiverVersion: version.version,
+      privacyPolicyVersion: CURRENT_PRIVACY_POLICY_VERSION,
+      termsVersion: CURRENT_TERMS_VERSION,
+      signerName: acceptance.signerName,
+      signerEmail: acceptance.signerEmail,
+      signerPhone: acceptance.signerPhone,
+      recordedBy: 'admin',
+    },
+  })
+
+  return acceptance
+}
+
+export async function resetAdminRentalWaiver(
+  event: H3Event,
+  client: Client,
+  identifier: string,
+) {
+  const rental = await getAdminRental(client, identifier)
+  if (!canResetAdminWaiver(rental)) {
+    throw new AppError(
+      rental.waiver
+        ? 'That rental can no longer be unsigned for a new signature.'
+        : 'This rental does not have a signed waiver.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const existing = await findWaiverAcceptanceByRentalId(client, identity.id)
+  if (!existing) {
+    throw new AppError('This rental does not have a signed waiver.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  await recordAudit(event, client, {
+    action: 'waiver.reset',
+    entity: 'waiver_acceptances',
+    entityId: existing.uuid,
+    previous: {
+      rentalUuid: rental.uuid,
+      rentalCode: rental.code,
+      signerName: existing.signer_name,
+      acceptedAt: existing.accepted_at,
+      waiverVersion: Array.isArray(existing.waiver_versions)
+        ? existing.waiver_versions[0]?.version
+        : existing.waiver_versions?.version,
+    },
+    next: { status: 'unsigned' },
+  })
+
+  await deleteWaiverAcceptanceByRentalId(client, identity.id)
+  await reopenLatestWaiverInvite(client, identity.id, waiverInviteExpiresAt())
+
+  return getAdminRental(client, rental.uuid)
+}
+
+export async function sendAdminWaiverInvite(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  identifier: string,
+  input: SendWaiverInviteInput,
+) {
+  const rental = await getAdminRental(client, identifier)
+  if (!canSendGuestRentalLink(rental)) {
+    throw new AppError(
+      rental.waiver
+        ? 'That rental can no longer use a customer link.'
+        : 'That rental can no longer accept a waiver.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const identity = await findRentalIdentity(client, rental.uuid)
+  const customer = identity ? await findProfileById(client, identity.customer_id) : null
+  if (!identity || !customer) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const email = input.email?.trim() || await customerAccountEmail(customer.user_id) || null
+
+  await expireOpenWaiverInvites(client, identity.id)
+  const token = createWaiverInviteToken()
+  const invite = await insertWaiverInvite(client, {
+    rental_id: identity.id,
+    token_hash: hashWaiverInviteToken(token),
+    email,
+    expires_at: waiverInviteExpiresAt(),
+    created_by: profileId,
+  })
+  const waiverUrl = waiverInviteUrl(siteOrigin(), invite.uuid, token)
+  const customerName = [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 'there'
+
+  let sent = false
+  if (email) {
+    try {
+      await sendTemplatedEmail(client, {
+        to: email,
+        template: EMAIL_TEMPLATES.RENTAL_WAIVER_INVITE,
+        entityKey: invite.uuid,
+        ...waiverInviteEmail({
+          customerName,
+          rentalCode: rental.code,
+          startsOn: rental.startsOn,
+          endsOn: rental.endsOn,
+          waiverUrl,
+          expiresAt: invite.expires_at,
+        }),
+      })
+      sent = true
+    }
+    catch {
+      sent = false
+    }
+  }
+
+  await recordAudit(event, client, {
+    action: 'waiver.invite.send',
+    entity: 'rental_waiver_invites',
+    entityId: invite.uuid,
+    next: { rentalCode: rental.code, email, sent },
+  })
+
+  return {
+    uuid: invite.uuid,
+    expiresAt: invite.expires_at,
+    sent,
+    waiverUrl,
+  }
+}
+
+export async function getPublicWaiverInvite(client: Client, uuid: string, token: string) {
+  const invite = await findWaiverInviteByUuid(client, uuid)
+  if (!invite || !waiverInviteTokenMatches(invite.token_hash, token) || !isWaiverInviteUnexpired({
+    expiresAt: invite.expires_at,
+  })) {
+    throw new AppError('This sign link is invalid or has expired.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const identity = await findRentalIdentityById(client, invite.rental_id)
+  if (!identity) {
+    throw new AppError('This sign link is invalid or has expired.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const rental = await getAdminRental(client, identity.uuid)
+  const signed = Boolean(rental.waiver)
+  const identitySubmitted = Boolean(rental.identity)
+  const canSign = isWaiverInviteOpen({
+    usedAt: invite.used_at,
+    expiresAt: invite.expires_at,
+  }) && canSendWaiverInvite(rental)
+
+  if (!signed && !canSign) {
+    throw new AppError(
+      rental.waiver
+        ? 'This rental already has a signed waiver.'
+        : 'This sign link is invalid or has expired.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const waiver = rental.waiver
+    ? {
+        uuid: rental.waiver.version.uuid,
+        version: rental.waiver.version.version,
+        title: rental.waiver.version.title,
+        body: rental.waiver.version.body,
+        isCurrent: false,
+        publishedAt: null,
+      }
+    : await getCurrentWaiver(client)
+
+  return {
+    uuid: invite.uuid,
+    expiresAt: invite.expires_at,
+    signed,
+    canSign,
+    identitySubmitted,
+    canUploadIdentity: canUploadGuestIdentity(rental),
+    signerName: rental.waiver?.signerName || null,
+    rental: toPublicWaiverInviteRental(rental),
+    waiver,
+  }
+}
+
+export async function acceptWaiverInvite(
+  event: H3Event,
+  client: Client,
+  uuid: string,
+  input: AcceptWaiverInviteInput,
+) {
+  const invite = await findWaiverInviteByUuid(client, uuid)
+  if (!invite || !waiverInviteTokenMatches(invite.token_hash, input.token) || !isWaiverInviteOpen({
+    usedAt: invite.used_at,
+    expiresAt: invite.expires_at,
+  })) {
+    throw new AppError('This sign link is invalid or has expired.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const identity = await findRentalIdentityById(client, invite.rental_id)
+  if (!identity) {
+    throw new AppError('This sign link is invalid or has expired.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const rental = await getAdminRental(client, identity.uuid)
+  const acceptance = await acceptWaiver(event, client, identity.customer_id, {
+    rentalUuid: rental.uuid,
+    rentalCode: rental.code,
+    waiverVersionUuid: input.waiverVersionUuid,
+    signerName: input.signerName,
+    signatureData: input.signatureData,
+  }, {
+    email: invite.email,
+    phone: rental.customer?.phone || null,
+  })
+
+  await markWaiverInviteUsed(client, invite.uuid)
   return acceptance
 }
 

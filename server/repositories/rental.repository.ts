@@ -2,6 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { CALENDAR_RENTAL_STATUSES } from '../../utils/constants'
+import { addCalendarDays } from '../../utils/expense'
+import { rentalCodeCandidates } from '../../utils/rental'
+import { businessDateTimeToUtc } from '../../utils/rental-window'
 import { AppError, ERROR_CODES } from '../utils/errors'
 
 type Client = SupabaseClient<Database>
@@ -12,6 +15,8 @@ const RENTAL_SELECT = `
   status,
   starts_on,
   ends_on,
+  pickup_at,
+  return_at,
   subtotal,
   deposit_amount,
   discount_amount,
@@ -89,6 +94,8 @@ const CALENDAR_SELECT = `
   status,
   starts_on,
   ends_on,
+  pickup_at,
+  return_at,
   rental_items (
     products (
       name
@@ -177,6 +184,67 @@ export async function updateRentalDiscount(client: Client, uuid: string, values:
   return data
 }
 
+export async function updateRentalDraft(
+  client: Client,
+  uuid: string,
+  values: {
+    startsOn: string
+    endsOn: string
+    pickupAt: string
+    returnAt: string
+    notes: string | null
+    subtotal: number
+    depositAmount: number
+    totalAmount: number
+  },
+) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .update({
+      starts_on: values.startsOn,
+      ends_on: values.endsOn,
+      pickup_at: values.pickupAt,
+      return_at: values.returnAt,
+      notes: values.notes,
+      subtotal: values.subtotal,
+      deposit_amount: values.depositAmount,
+      total_amount: values.totalAmount,
+    })
+    .eq('uuid', uuid)
+    .eq('status', 'draft')
+    .select(RENTAL_SELECT)
+    .single()
+
+  if (error || !data) {
+    throw new AppError('We could not update that rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+
+  return data
+}
+
+export async function updateRentalItemByRentalId(
+  client: Client,
+  rentalId: number,
+  values: {
+    quantity: number
+    dailyPrice: number
+    lineTotal: number
+  },
+) {
+  const { error } = await client
+    .from('rental_items')
+    .update({
+      quantity: values.quantity,
+      daily_price: values.dailyPrice,
+      line_total: values.lineTotal,
+    })
+    .eq('rental_id', rentalId)
+
+  if (error) {
+    throw new AppError('We could not update that rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+}
+
 export async function updateRentalStatus(client: Client, uuid: string, status: RentalStatus) {
   const { data, error } = await client
     .from('rental_requests')
@@ -232,7 +300,8 @@ export async function findRentalByCode(client: Client, code: string) {
   const { data, error } = await client
     .from('rental_requests')
     .select(RENTAL_SELECT)
-    .eq('code', code)
+    .in('code', rentalCodeCandidates(code))
+    .limit(1)
     .maybeSingle()
 
   if (error) {
@@ -287,7 +356,10 @@ export async function listRentals(client: Client, filters: {
   }
 
   if (filters.search) {
-    query = query.ilike('code', `%${filters.search}%`)
+    const codes = rentalCodeCandidates(filters.search)
+    query = codes.length > 1
+      ? query.or(codes.map(code => `code.ilike.%${code}%`).join(','))
+      : query.ilike('code', `%${filters.search}%`)
   }
 
   const { data, error, count } = await query
@@ -343,11 +415,12 @@ export async function listRentalsOverlapping(client: Client, filters: {
   endsOn: string
   status?: CalendarRentalStatus
 }) {
+  const startInstant = businessDateTimeToUtc(filters.startsOn, '00:00')
+  const endExclusive = businessDateTimeToUtc(addCalendarDays(filters.endsOn, 1), '00:00')
   let query = client
     .from('rental_requests')
     .select(CALENDAR_SELECT)
-    .lte('starts_on', filters.endsOn)
-    .gte('ends_on', filters.startsOn)
+    .or(`and(starts_on.lte.${filters.endsOn},ends_on.gte.${filters.startsOn}),and(pickup_at.lt."${endExclusive}",return_at.gt."${startInstant}")`)
     .order('starts_on', { ascending: true })
     .limit(300)
 

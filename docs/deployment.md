@@ -64,7 +64,7 @@ Add every required variable in **Project → Settings → Environment Variables*
 
 Apply all files in `supabase/migrations/` in order. Development seed: `supabase/seed.sql`.
 
-Product photos, payment QR images, and maintenance images are uploaded through admin APIs into Supabase Storage (S3). Do not commit catalog photos to `public/`. Serve them from the public `product-images`, `payment-qr-images`, and `maintenance-images` buckets.
+Product photos, payment QR images, maintenance images, and identity documents are uploaded through APIs into Supabase Storage (S3). The server compresses accepted images to JPEG with `sharp` before the object is written. Do not commit catalog photos to `public/`. Serve public files from the `product-images`, `payment-qr-images`, and `maintenance-images` buckets.
 
 Add these Auth redirect URLs:
 

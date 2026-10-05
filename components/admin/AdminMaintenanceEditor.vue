@@ -235,7 +235,7 @@ async function removeImage(image: PublicMaintenanceImage) {
           Images
         </h3>
         <p class="mt-1 text-sm text-stone-500">
-          Photos on the public maintenance page. JPG, PNG, or WebP up to 5 MB.
+          Photos on the public maintenance page. JPG, PNG, WebP, or HEIC up to 15 MB. Files are compressed to JPEG before they are stored.
         </p>
 
         <AuthAlert
@@ -254,7 +254,7 @@ async function removeImage(image: PublicMaintenanceImage) {
             <input
               ref="imageInput"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
               multiple
               :disabled="imagePending"
               class="block w-full text-sm text-stone-600 file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-sm file:text-stone-800"

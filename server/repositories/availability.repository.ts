@@ -9,12 +9,19 @@ export async function getBookedQuantity(
   productId: number,
   startsOn: string,
   endsOn: string,
+  window?: { pickupAt: string, returnAt: string },
 ) {
-  const { data, error } = await client.rpc('product_booked_quantity', {
-    p_product_id: productId,
-    p_starts_on: startsOn,
-    p_ends_on: endsOn,
-  })
+  const { data, error } = window
+    ? await client.rpc('product_booked_window', {
+        p_product_id: productId,
+        p_pickup_at: window.pickupAt,
+        p_return_at: window.returnAt,
+      })
+    : await client.rpc('product_booked_quantity', {
+        p_product_id: productId,
+        p_starts_on: startsOn,
+        p_ends_on: endsOn,
+      })
 
   if (error) {
     throw new AppError('We could not check availability.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })

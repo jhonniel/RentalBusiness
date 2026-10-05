@@ -305,6 +305,8 @@ export interface Database {
           status: RentalStatus
           starts_on: string
           ends_on: string
+          pickup_at: string
+          return_at: string
           subtotal: number
           deposit_amount: number
           discount_amount: number
@@ -319,6 +321,8 @@ export interface Database {
           customer_id: number
           starts_on: string
           ends_on: string
+          pickup_at: string
+          return_at: string
           uuid?: string
           code?: string
           status?: RentalStatus
@@ -334,6 +338,8 @@ export interface Database {
           status?: RentalStatus
           starts_on?: string
           ends_on?: string
+          pickup_at?: string
+          return_at?: string
           subtotal?: number
           deposit_amount?: number
           discount_amount?: number
@@ -1076,6 +1082,48 @@ export interface Database {
           },
         ]
       }
+      rental_waiver_invites: {
+        Row: {
+          id: number
+          uuid: string
+          rental_id: number
+          token_hash: string
+          email: string | null
+          expires_at: string
+          used_at: string | null
+          created_by: number | null
+          created_at: string
+        }
+        Insert: {
+          rental_id: number
+          token_hash: string
+          email?: string | null
+          expires_at: string
+          uuid?: string
+          used_at?: string | null
+          created_by?: number | null
+        }
+        Update: {
+          used_at?: string | null
+          expires_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'rental_waiver_invites_rental_id_fkey'
+            columns: ['rental_id']
+            isOneToOne: false
+            referencedRelation: 'rental_requests'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'rental_waiver_invites_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       voucher_redemptions: {
         Row: {
           id: number
@@ -1143,6 +1191,14 @@ export interface Database {
         }
         Returns: number
       }
+      product_booked_window: {
+        Args: {
+          p_product_id: number
+          p_pickup_at: string
+          p_return_at: string
+        }
+        Returns: number
+      }
       product_occupying_ranges: {
         Args: {
           p_product_id: number
@@ -1152,6 +1208,8 @@ export interface Database {
         Returns: {
           starts_on: string
           ends_on: string
+          pickup_at: string
+          return_at: string
           quantity: number
         }[]
       }

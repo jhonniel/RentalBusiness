@@ -77,6 +77,17 @@ export async function findWaiverAcceptanceByRentalId(client: Client, rentalId: n
   return data
 }
 
+export async function deleteWaiverAcceptanceByRentalId(client: Client, rentalId: number) {
+  const { error } = await client
+    .from('waiver_acceptances')
+    .delete()
+    .eq('rental_id', rentalId)
+
+  if (error) {
+    throw new AppError('We could not clear that signed waiver.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+}
+
 export async function insertWaiverAcceptance(client: Client, values: Database['public']['Tables']['waiver_acceptances']['Insert']) {
   const { data, error } = await client
     .from('waiver_acceptances')

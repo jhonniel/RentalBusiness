@@ -215,13 +215,13 @@ async function removeQr(method: PublicPaymentMethod) {
             <input
               ref="qrInput"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
               class="block w-full text-sm text-stone-600 file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-sm file:text-stone-800"
               :disabled="saving"
               @change="onFileChange"
             >
             <p class="mt-1 text-xs text-stone-500">
-              JPG, PNG, or WebP. 5 MB or smaller. Stored on Supabase Storage (S3).
+              JPG, PNG, WebP, or HEIC up to 15 MB. Compressed to JPEG before it is stored on Supabase Storage.
             </p>
           </label>
           <label class="flex items-center gap-2 text-sm text-stone-700">

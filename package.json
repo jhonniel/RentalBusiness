@@ -26,6 +26,7 @@
     "nodemailer": "^10.0.9",
     "nuxt": "^3.21.11",
     "pdf-lib": "^1.17.1",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "vue": "^3.5.40",
     "vue-router": "4.6.4",

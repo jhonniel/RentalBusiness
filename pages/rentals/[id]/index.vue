@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
-import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
+import { formatBusinessDateTime } from '~/utils/datetime'
 import { canSubmitRentalRequest } from '~/utils/rental'
 
 definePageMeta({
@@ -141,9 +141,9 @@ async function cancelRental() {
           Schedule
         </h2>
         <p class="mt-2 text-sm text-stone-600">
-          {{ formatBusinessDate(rental.startsOn) }}
+          {{ formatBusinessDateTime(rental.pickupAt) }}
           –
-          {{ formatBusinessDate(rental.endsOn) }}
+          {{ formatBusinessDateTime(rental.returnAt) }}
         </p>
       </section>
 

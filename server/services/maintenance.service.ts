@@ -6,10 +6,8 @@ import type { MaintenanceInput } from '../../utils/maintenance-validation'
 import {
   DEFAULT_MAINTENANCE_MESSAGE,
   DEFAULT_MAINTENANCE_TITLE,
-  MAINTENANCE_IMAGE_MAX_BYTES,
   MAINTENANCE_IMAGE_MAX_UPLOAD,
   fallbackMaintenanceProducts,
-  isMaintenanceImageType,
   maintenanceProductsFromCatalog,
   toPublicMaintenanceImage,
   toPublicMaintenanceStatus,
@@ -17,6 +15,7 @@ import {
 import { STORAGE_BUCKETS } from '../../utils/storage'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
+import { compressImageForStorage } from '../utils/image-compress'
 import { getSupabaseAdminClient, isSupabaseConfigured } from '../utils/supabase'
 import { getPublicProducts } from './catalog.service'
 import {
@@ -168,18 +167,10 @@ async function addMaintenanceImage(
   alt: string,
   sortOrder: number,
 ): Promise<PublicMaintenanceImage> {
-  if (!isMaintenanceImageType(file.type)) {
-    throw new AppError('Upload a JPG, PNG, or WebP image.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  if (file.data.byteLength > MAINTENANCE_IMAGE_MAX_BYTES) {
-    throw new AppError('Images must be 5 MB or smaller.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-  const storagePath = `${crypto.randomUUID()}.${extension}`
-  const { error } = await client.storage.from(IMAGE_BUCKET).upload(storagePath, file.data, {
-    contentType: file.type,
+  const image = await compressImageForStorage(file)
+  const storagePath = `${crypto.randomUUID()}.jpg`
+  const { error } = await client.storage.from(IMAGE_BUCKET).upload(storagePath, image.data, {
+    contentType: image.type,
     upsert: false,
   })
 

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { canSubmitRentalRequest, customerRentalNextLabel, customerRentalNextPath, isRentalCode, toPublicRental } from '../../utils/rental'
+import { canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
-import { createRentalSchema, rentalQuoteQuerySchema } from '../../utils/rental-validation'
+import { createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
+import { isPastBusinessDateTime } from '../../utils/rental-window'
 
 describe('rental validation', () => {
   it('accepts a customer request and rejects priced or privileged fields', () => {
@@ -54,13 +55,26 @@ describe('rental validation', () => {
       endsOn: addCalendarDays(calendarDateInZone(), 3),
     }).success).toBe(false)
   })
+
+  it('lets an admin quote today even after a shop pickup time has passed', () => {
+    const today = calendarDateInZone()
+    const body = {
+      productSlug: 'starlink-mini',
+      startsOn: today,
+      endsOn: addCalendarDays(today, 1),
+      pickupTime: '08:00',
+    }
+
+    expect(adminRentalQuoteSchema.parse(body).pickupTime).toBe('08:00')
+    expect(rentalQuoteQuerySchema.safeParse(body).success).toBe(!isPastBusinessDateTime(today, '08:00'))
+  })
 })
 
 describe('rental mapper', () => {
   it('never includes internal ids', () => {
     const rental = toPublicRental({
       uuid: '66666666-6666-4666-8666-666666666666',
-      code: 'LUM-20260913-00001',
+      code: 'JRY-20260913-00001',
       status: 'pending',
       starts_on: '2026-09-11',
       ends_on: '2026-09-13',
@@ -98,6 +112,13 @@ describe('rental mapper', () => {
     expect(rental.items[0]?.product.replacementValue).toBeNull()
     expect(rental.voucher).toBeNull()
     expect(isRentalCode(rental.code)).toBe(true)
+    expect(isRentalCode('JRY-20261005-00011')).toBe(true)
+    expect(isRentalCode('LUM-20261005-00011')).toBe(true)
+    expect(isRentalCode('ABC-20261005-00011')).toBe(false)
+    expect(rentalCodeCandidates('LUM-20261005-00011')).toEqual([
+      'LUM-20261005-00011',
+      'JRY-20261005-00011',
+    ])
   })
 })
 
@@ -135,26 +156,53 @@ describe('customer rental transitions', () => {
       identity: null,
     })).toBe('Sign the waiver')
     expect(customerRentalNextPath({
-      code: 'LUM-20260913-00001',
+      code: 'JRY-20260913-00001',
       status: 'draft',
       waiver: null,
       identity: null,
-    })).toBe('/rentals/LUM-20260913-00001/waiver')
+    })).toBe('/rentals/JRY-20260913-00001/waiver')
     expect(customerRentalNextLabel({
       status: 'pending',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
     })).toBe('Waiting for confirmation')
     expect(customerRentalNextPath({
-      code: 'LUM-20260913-00001',
+      code: 'JRY-20260913-00001',
       status: 'pending',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
-    })).toBe('/rentals/LUM-20260913-00001')
+    })).toBe('/rentals/JRY-20260913-00001')
     expect(customerRentalNextLabel({
       status: 'awaiting_payment',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
     })).toBe('Pay now')
+  })
+
+  it('lets admins mark a signed rental paid so it is recorded as a sale', () => {
+    expect(canMarkAdminRentalPaid({
+      status: 'awaiting_payment',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+      totalAmount: 1500,
+    })).toBe(true)
+    expect(canMarkAdminRentalPaid({
+      status: 'draft',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+      totalAmount: 1500,
+    })).toBe(true)
+    expect(canMarkAdminRentalPaid({
+      status: 'awaiting_payment',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+      totalAmount: 0,
+    })).toBe(false)
+    expect(canMarkAdminRentalPaid({
+      status: 'paid',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+      totalAmount: 1500,
+    })).toBe(false)
   })
 })

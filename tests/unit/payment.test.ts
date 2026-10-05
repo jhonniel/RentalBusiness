@@ -7,7 +7,7 @@ import {
   canTransitionPaymentStatus,
   toPublicPayment,
 } from '../../utils/payment'
-import { createPaymentSchema, paymentWebhookSchema } from '../../utils/payment-validation'
+import { createPaymentSchema, markAdminPaidSchema, paymentWebhookSchema } from '../../utils/payment-validation'
 
 describe('payment validation', () => {
   it('accepts a rental reference and rejects client-set amounts or status', () => {
@@ -23,6 +23,10 @@ describe('payment validation', () => {
       status: 'paid',
       id: 4,
     }).success).toBe(false)
+
+    expect(markAdminPaidSchema.parse({})).toEqual({ paymentMethod: 'cash' })
+    expect(markAdminPaidSchema.parse({ paymentMethod: 'gcash' }).paymentMethod).toBe('gcash')
+    expect(markAdminPaidSchema.safeParse({ paymentMethod: 'crypto' }).success).toBe(false)
   })
 
   it('requires a provider transaction id on webhook events', () => {

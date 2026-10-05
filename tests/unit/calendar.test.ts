@@ -58,6 +58,26 @@ describe('admin calendar', () => {
     ])
   })
 
+  it('marks pickup and return calendar days when a timed window spans midnight', () => {
+    const items = [
+      {
+        uuid: 'a',
+        code: 'JRY-20261005-00011',
+        status: 'draft' as const,
+        startsOn: '2026-10-05',
+        endsOn: '2026-10-05',
+        pickupAt: '2026-10-05T01:00:00.000Z',
+        returnAt: '2026-10-06T01:00:00.000Z',
+        productName: 'Starlink Mini',
+        customerName: 'Kimberly Monta',
+      },
+    ]
+
+    expect(eventCoversDate(items[0], '2026-10-05')).toBe(true)
+    expect(eventCoversDate(items[0], '2026-10-06')).toBe(true)
+    expect(eventCoversDate(items[0], '2026-10-07')).toBe(false)
+  })
+
   it('lets an admin pick a day or a range and shows blocked kits on those days', () => {
     expect(applyCalendarPick('2026-09-22', '', '', '2026-09-22')).toEqual({
       startsOn: '2026-09-22',

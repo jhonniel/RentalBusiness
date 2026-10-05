@@ -5,6 +5,7 @@ import { firstPayments, type PaymentRow } from './payment'
 import { firstReceipts, type ReceiptRow } from './receipt'
 import { toPublicRentalVoucher, type VoucherRedemptionRow } from './voucher'
 import { firstWaiverAcceptance, type WaiverAcceptanceRow } from './waiver'
+import { DEFAULT_PICKUP_TIME, pickupTimeFromInstant, resolveRentalWindow } from './rental-window'
 
 interface ProductRef {
   uuid: string
@@ -30,6 +31,8 @@ interface RentalRow {
   status: RentalStatus
   starts_on: string
   ends_on: string
+  pickup_at?: string | null
+  return_at?: string | null
   subtotal: number
   deposit_amount: number
   discount_amount: number
@@ -106,6 +109,17 @@ export function toPublicRental(row: RentalRow): PublicRental {
     status: row.status,
     startsOn: row.starts_on,
     endsOn: row.ends_on,
+    ...((row.pickup_at && row.return_at)
+      ? {
+          pickupTime: pickupTimeFromInstant(row.pickup_at),
+          pickupAt: row.pickup_at,
+          returnAt: row.return_at,
+        }
+      : resolveRentalWindow({
+          startsOn: row.starts_on,
+          endsOn: row.ends_on,
+          pickupTime: DEFAULT_PICKUP_TIME,
+        })),
     subtotal: Number(row.subtotal),
     depositAmount: Number(row.deposit_amount),
     discountAmount: Number(row.discount_amount),
@@ -124,11 +138,36 @@ export function toPublicRental(row: RentalRow): PublicRental {
 }
 
 export function isRentalCode(value: string): boolean {
-  return /^LUM-\d{8}-\d+$/.test(value)
+  return /^(JRY|LUM)-\d{8}-\d+$/.test(value)
+}
+
+export function rentalCodeCandidates(value: string) {
+  const codes = [value]
+  if (value.startsWith('LUM-')) {
+    codes.push(`JRY-${value.slice(4)}`)
+  }
+  if (value.startsWith('JRY-')) {
+    codes.push(`LUM-${value.slice(4)}`)
+  }
+  return [...new Set(codes)]
+}
+
+export const SHOP_PAYMENT_METHODS = ['cash', 'gcash', 'maya', 'bank'] as const
+export type ShopPaymentMethod = typeof SHOP_PAYMENT_METHODS[number]
+
+export function isShopPaymentMethod(value: string): value is ShopPaymentMethod {
+  return SHOP_PAYMENT_METHODS.includes(value as ShopPaymentMethod)
 }
 
 export function canSubmitRentalRequest(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>) {
   return rental.status === 'draft' && Boolean(rental.waiver) && Boolean(rental.identity)
+}
+
+export function canMarkAdminRentalPaid(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity' | 'totalAmount'>) {
+  return ['draft', 'pending', 'awaiting_payment'].includes(rental.status)
+    && Boolean(rental.waiver)
+    && Boolean(rental.identity)
+    && rental.totalAmount > 0
 }
 
 export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>) {

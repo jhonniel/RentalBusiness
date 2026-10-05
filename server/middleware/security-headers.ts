@@ -2,7 +2,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-frame-options': 'DENY',
-  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+  'permissions-policy': 'camera=(self), microphone=(), geolocation=()',
   'content-security-policy': [
     'default-src \'self\'',
     'base-uri \'self\'',
@@ -28,6 +28,7 @@ const PRIVATE_PREFIXES = [
   '/rentals/',
   '/receipts/',
   '/payments/',
+  '/waivers/',
   '/maintenance',
 ]
 

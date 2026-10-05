@@ -2,38 +2,29 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { PublicRentalIdentity } from '../../types/rental'
-import {
-  IDENTITY_IMAGE_MAX_BYTES,
-  identityImageExtension,
-  isIdentityImageType,
-  toPublicRentalIdentity,
-} from '../../utils/identity'
+import { canUploadAdminIdentity, toPublicRentalIdentity } from '../../utils/identity'
+import { isRentalCode } from '../../utils/rental'
+import { isUuid } from '../../utils/slug'
 import { STORAGE_BUCKETS } from '../../utils/storage'
+import { isWaiverInviteUnexpired } from '../../utils/waiver-invite'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
-import { findRentalIdentity } from '../repositories/rental.repository'
+import { compressImageForStorage, type UploadPart } from '../utils/image-compress'
+import { findProfileById } from '../repositories/profile.repository'
+import {
+  findRentalByCode,
+  findRentalByUuid,
+  findRentalIdentity,
+  findRentalIdentityById,
+} from '../repositories/rental.repository'
 import { findIdentityByRentalId, upsertIdentityVerification } from '../repositories/identity.repository'
+import { findWaiverInviteByUuid } from '../repositories/waiver-invite.repository'
+import { findWaiverAcceptanceByRentalId } from '../repositories/waiver.repository'
+import { waiverInviteTokenMatches } from '../utils/waiver-invite-token'
 import { getSupabaseAdminClient } from '../utils/supabase'
 import { getOwnRental } from './rental.service'
 
 type Client = SupabaseClient<Database>
-type UploadPart = { filename?: string, type?: string, data: Buffer }
-
-function assertIdentityImage(file: UploadPart | undefined, label: string) {
-  if (!file?.data?.byteLength) {
-    throw new AppError(`Upload a ${label}.`, 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  if (!isIdentityImageType(file.type)) {
-    throw new AppError('Upload a JPG, PNG, or WebP image.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  if (file.data.byteLength > IDENTITY_IMAGE_MAX_BYTES) {
-    throw new AppError('Images must be 5 MB or smaller.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  return file
-}
 
 async function signedDocumentUrl(path: string) {
   const { data, error } = await getSupabaseAdminClient()
@@ -66,17 +57,117 @@ export async function submitRentalIdentity(
     throw new AppError('Sign the rental waiver before uploading identity documents.', 409, ERROR_CODES.CONFLICT)
   }
 
-  const governmentId = assertIdentityImage(files.governmentId, 'government ID')
-  const selfie = assertIdentityImage(files.selfie, 'selfie holding your ID')
-  const identity = await findRentalIdentity(client, rental.uuid)
+  return persistIdentityDocuments(event, client, {
+    rentalUuid: rental.uuid,
+    rentalCode: rental.code,
+    customerId: profileId,
+    storageUserId: userId,
+    files,
+    action: 'rental.identity.submit',
+    signUrls: false,
+  })
+}
 
+export async function submitAdminRentalIdentity(
+  event: H3Event,
+  client: Client,
+  identifier: string,
+  files: { governmentId?: UploadPart, selfie?: UploadPart },
+): Promise<PublicRentalIdentity> {
+  const row = isUuid(identifier)
+    ? await findRentalByUuid(client, identifier)
+    : isRentalCode(identifier)
+      ? await findRentalByCode(client, identifier)
+      : null
+
+  if (!row) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (!canUploadAdminIdentity({ status: row.status })) {
+    throw new AppError('Identity documents can only be uploaded before payment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const identity = await findRentalIdentity(client, row.uuid)
+  const customer = identity ? await findProfileById(client, identity.customer_id) : null
+  if (!identity || !customer?.user_id) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  return persistIdentityDocuments(event, client, {
+    rentalUuid: row.uuid,
+    rentalCode: row.code,
+    customerId: identity.customer_id,
+    storageUserId: customer.user_id,
+    files,
+    action: 'rental.identity.admin_submit',
+    signUrls: true,
+  })
+}
+
+export async function submitWaiverInviteIdentity(
+  event: H3Event,
+  client: Client,
+  uuid: string,
+  token: string,
+  files: { governmentId?: UploadPart, selfie?: UploadPart },
+): Promise<PublicRentalIdentity> {
+  const invite = await findWaiverInviteByUuid(client, uuid)
+  if (!invite || !waiverInviteTokenMatches(invite.token_hash, token) || !isWaiverInviteUnexpired({
+    expiresAt: invite.expires_at,
+  })) {
+    throw new AppError('This sign link is invalid or has expired.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const rental = await findRentalIdentityById(client, invite.rental_id)
+  const customer = rental ? await findProfileById(client, rental.customer_id) : null
+  if (!rental || !customer?.user_id) {
+    throw new AppError('This sign link is invalid or has expired.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (!['draft', 'pending'].includes(rental.status)) {
+    throw new AppError('Identity documents can only be uploaded before payment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const waiver = await findWaiverAcceptanceByRentalId(client, rental.id)
+  if (!waiver) {
+    throw new AppError('Sign the rental waiver before uploading identity documents.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  return persistIdentityDocuments(event, client, {
+    rentalUuid: rental.uuid,
+    rentalCode: rental.code,
+    customerId: rental.customer_id,
+    storageUserId: customer.user_id,
+    files,
+    action: 'rental.identity.invite_submit',
+    signUrls: false,
+  })
+}
+
+async function persistIdentityDocuments(
+  event: H3Event,
+  client: Client,
+  input: {
+    rentalUuid: string
+    rentalCode: string
+    customerId: number
+    storageUserId: string
+    files: { governmentId?: UploadPart, selfie?: UploadPart }
+    action: string
+    signUrls?: boolean
+  },
+): Promise<PublicRentalIdentity> {
+  const identity = await findRentalIdentity(client, input.rentalUuid)
   if (!identity) {
     throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
+  const governmentId = await compressImageForStorage(input.files.governmentId, { label: 'government ID' })
+  const selfie = await compressImageForStorage(input.files.selfie, { label: 'selfie holding the ID' })
   const admin = getSupabaseAdminClient()
-  const governmentPath = `${userId}/rentals/${rental.uuid}/government-id.${identityImageExtension(governmentId.type || '')}`
-  const selfiePath = `${userId}/rentals/${rental.uuid}/selfie-with-id.${identityImageExtension(selfie.type || '')}`
+  const governmentPath = `${input.storageUserId}/rentals/${input.rentalUuid}/government-id.jpg`
+  const selfiePath = `${input.storageUserId}/rentals/${input.rentalUuid}/selfie-with-id.jpg`
 
   const governmentUpload = await admin.storage.from(STORAGE_BUCKETS.privateDocuments).upload(
     governmentPath,
@@ -98,21 +189,27 @@ export async function submitRentalIdentity(
     throw new AppError('We could not upload that selfie.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: selfieUpload.error })
   }
 
-  const row = await upsertIdentityVerification(admin, {
+  const saved = await upsertIdentityVerification(admin, {
     rental_id: identity.id,
-    customer_id: profileId,
+    customer_id: input.customerId,
     government_id_path: governmentPath,
     selfie_path: selfiePath,
   })
 
-  const submitted = toPublicRentalIdentity(row)
+  const submitted = input.signUrls === false
+    ? toPublicRentalIdentity(saved)
+    : await attachAdminIdentityUrls(
+      admin,
+      input.rentalUuid,
+      toPublicRentalIdentity(saved),
+    )
   await recordAudit(event, admin, {
-    action: 'rental.identity.submit',
+    action: input.action,
     entity: 'rental_identity_verifications',
-    entityId: rental.uuid,
+    entityId: input.rentalUuid,
     next: {
-      rentalUuid: rental.uuid,
-      rentalCode: rental.code,
+      rentalUuid: input.rentalUuid,
+      rentalCode: input.rentalCode,
       submittedAt: submitted?.submittedAt,
     },
   })

@@ -160,7 +160,7 @@ const panelClass = computed(() => props.variant === 'float'
         </div>
 
         <div class="border-t border-[#12201a]/8 px-3 py-3">
-          <div class="mb-3 flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+          <div class="mb-3 flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               v-for="suggestion in suggestions"
               :key="suggestion"

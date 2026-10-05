@@ -40,6 +40,10 @@ Sign in at `/login`. The app checks `profiles.role` and opens the operations con
 
 To promote a different account, use **Customers → Make admin** in the operations console. That calls `promote_profile_to_admin(uuid)` through the admin API. Do not `update` `role` from the client — `prevent_profile_privilege_escalation` blocks that unless the trusted function sets `app.allow_role_change`.
 
+Apply `20261005100000_rental_waiver_invites.sql` before using **Continue form** or sending a guest waiver link. That table is service-role only and stores a token hash, never the raw token.
+
+Apply `20261005110000_rental_pickup_return_times.sql` so rentals store pickup and return instants. Return is the same clock time as pickup on the return date.
+
 Do not hard-code admin emails in the application.
 
 ## Availability

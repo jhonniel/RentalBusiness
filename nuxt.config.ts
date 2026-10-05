@@ -97,6 +97,7 @@ export default defineNuxtConfig({
     '/profile': { headers: { 'cache-control': 'private, no-store' } },
     '/notifications': { headers: { 'cache-control': 'private, no-store' } },
     '/rentals/**': { headers: { 'cache-control': 'private, no-store' } },
+    '/waivers/**': { headers: { 'cache-control': 'private, no-store' } },
     '/receipts/**': { headers: { 'cache-control': 'private, no-store' } },
     '/payments/**': { headers: { 'cache-control': 'private, no-store' } },
     '/maintenance': { headers: { 'cache-control': 'private, no-store' } },
@@ -112,6 +113,9 @@ export default defineNuxtConfig({
 
   nitro: {
     compressPublicAssets: true,
+    externals: {
+      external: ['sharp'],
+    },
     serverAssets: [
       {
         baseName: 'legal',

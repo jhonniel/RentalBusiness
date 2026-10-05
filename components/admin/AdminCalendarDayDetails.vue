@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PublicBlockedDate } from '~/types/availability'
 import type { AdminCalendarEvent } from '~/types/calendar'
-import { formatBookingDate, formatBusinessDate } from '~/utils/datetime'
+import { formatBookingDate, formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -25,12 +25,16 @@ const title = computed(() => (
   props.date ? formatBusinessDate(props.date) : 'Day details'
 ))
 
-function rangeLabel(startsOn: string, endsOn: string) {
-  if (startsOn === endsOn) {
-    return formatBookingDate(startsOn)
+function rangeLabel(item: AdminCalendarEvent) {
+  if (item.pickupAt && item.returnAt) {
+    return `${formatBusinessDateTime(item.pickupAt)} – ${formatBusinessDateTime(item.returnAt)}`
   }
 
-  return `${formatBookingDate(startsOn)} – ${formatBookingDate(endsOn)}`
+  if (item.startsOn === item.endsOn) {
+    return formatBookingDate(item.startsOn)
+  }
+
+  return `${formatBookingDate(item.startsOn)} – ${formatBookingDate(item.endsOn)}`
 }
 
 function apiErrorMessage(caught: unknown, fallback: string) {
@@ -98,7 +102,7 @@ async function removeBlock(uuid: string) {
                   </template>
                 </p>
                 <p class="mt-1 text-sm text-stone-500">
-                  {{ rangeLabel(item.startsOn, item.endsOn) }}
+                  {{ rangeLabel(item) }}
                 </p>
                 <p class="mt-2 text-xs font-medium text-lumen-800">
                   View rental

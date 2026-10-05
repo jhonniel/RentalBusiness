@@ -7,15 +7,19 @@ import type { MaintenanceChatInput } from '../../utils/maintenance-chat-validati
 import { calendarDateInZone, isPastBusinessDate } from '../../utils/datetime'
 import { STOREFRONT_KIT_PRODUCTS } from '../../utils/storefront'
 import {
-  CHAT_KIT_PROMPT,
+  chatDatesPrompt,
+  chatKitPrompt,
   chatQuestionContext,
   chatQuoteRange,
   formatChatQuoteAnswer,
   formatLiveAvailabilityFacts,
   parseChatQuoteIntent,
+  type ChatKit,
 } from '../../utils/chat-quote'
 import { addCalendarDays } from '../../utils/expense'
+import { AppError } from '../utils/errors'
 import { getPublicSupabaseClient } from '../utils/supabase'
+import { listPublicProductNames } from '../repositories/product.repository'
 import { getProductAvailabilityCalendar } from './availability.service'
 import { getPublicMaintenanceSafe } from './maintenance.service'
 import { quoteRental } from './rental.service'
@@ -87,15 +91,34 @@ async function completeWithFreeAi(
   }
 }
 
+async function loadChatKits(client: SupabaseClient<Database>): Promise<ChatKit[]> {
+  try {
+    const rows = await listPublicProductNames(client)
+    if (rows.length) {
+      return rows.map(row => ({ slug: row.slug, name: row.name }))
+    }
+  }
+  catch {
+    // Public catalog is optional; featured kits still work.
+  }
+
+  return STOREFRONT_KIT_PRODUCTS.map(kit => ({ slug: kit.slug, name: kit.name }))
+}
+
+function kitName(catalog: ChatKit[], slug: string) {
+  return catalog.find(kit => kit.slug === slug)?.name
+}
+
 async function liveAvailabilityFacts(
   client: SupabaseClient<Database>,
   question: string,
+  catalog: ChatKit[],
 ) {
   const today = calendarDateInZone()
-  const intent = parseChatQuoteIntent(question, today)
+  const intent = parseChatQuoteIntent(question, today, catalog)
   const slugs = intent.slugs.length
     ? intent.slugs
-    : STOREFRONT_KIT_PRODUCTS.map(kit => kit.slug)
+    : catalog.map(kit => kit.slug).slice(0, 8)
   const range = chatQuoteRange({
     ...intent,
     days: intent.days || 30,
@@ -117,7 +140,7 @@ async function liveAvailabilityFacts(
         name: calendar.product.name,
         from: calendar.from,
         to: calendar.to,
-        bookedDates: calendar.unavailableDates,
+        bookedDates: calendar.bookedDates,
       }
     }
     catch {
@@ -128,14 +151,21 @@ async function liveAvailabilityFacts(
   return calendars.length ? formatLiveAvailabilityFacts(calendars) : ''
 }
 
-async function answerLiveQuote(client: SupabaseClient<Database>, question: string) {
+async function answerLiveQuote(
+  client: SupabaseClient<Database>,
+  question: string,
+  catalog: ChatKit[],
+) {
   const today = calendarDateInZone()
-  const intent = parseChatQuoteIntent(question, today)
+  const intent = parseChatQuoteIntent(question, today, catalog)
   if (intent.action === 'none') {
     return null
   }
   if (intent.action === 'ask-kit') {
-    return CHAT_KIT_PROMPT
+    return chatKitPrompt(catalog.map(kit => kit.name))
+  }
+  if (intent.action === 'ask-dates') {
+    return chatDatesPrompt(intent.slugs[0] ? kitName(catalog, intent.slugs[0]) : undefined)
   }
 
   const range = chatQuoteRange(intent, today)
@@ -145,7 +175,7 @@ async function answerLiveQuote(client: SupabaseClient<Database>, question: strin
 
   const slugs = intent.slugs.length
     ? intent.slugs
-    : STOREFRONT_KIT_PRODUCTS.map(kit => kit.slug)
+    : catalog.map(kit => kit.slug).slice(0, 8)
   const replies: string[] = []
 
   for (const productSlug of slugs) {
@@ -154,12 +184,15 @@ async function answerLiveQuote(client: SupabaseClient<Database>, question: strin
         productSlug,
         startsOn: range.startsOn,
         endsOn: range.endsOn,
+        pickupTime: range.pickupTime,
         quantity: range.quantity,
       })
       replies.push(formatChatQuoteAnswer(quoted))
     }
-    catch {
-      // Skip kits that are missing or cannot be quoted.
+    catch (error) {
+      if (error instanceof AppError && error.statusCode === 409) {
+        replies.push(error.userMessage)
+      }
     }
   }
 
@@ -173,11 +206,12 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
 
   try {
     const client = await getPublicSupabaseClient(event)
-    const quoted = await answerLiveQuote(client, question)
+    const catalog = await loadChatKits(client)
+    const quoted = await answerLiveQuote(client, question, catalog)
     if (quoted) {
       return { reply: quoted }
     }
-    liveFacts = await liveAvailabilityFacts(client, question)
+    liveFacts = await liveAvailabilityFacts(client, question, catalog)
   }
   catch {
     // Availability lookup is optional; fall back to knowledge or free AI.

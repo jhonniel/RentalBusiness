@@ -32,6 +32,9 @@ export interface PublicRental {
   status: RentalStatus
   startsOn: string
   endsOn: string
+  pickupTime: string
+  pickupAt: string
+  returnAt: string
   subtotal: number
   depositAmount: number
   discountAmount: number
@@ -69,6 +72,9 @@ export interface RentalQuote {
   }
   startsOn: string
   endsOn: string
+  pickupTime: string
+  pickupAt: string
+  returnAt: string
   days: number
   quantity: number
   dailyPrice: number

@@ -149,6 +149,7 @@ const priceRows = computed(() => product.value ? visibleCatalogPrices(product.va
             :product-slug="product.slug"
             :initial-starts-on="typeof route.query.startsOn === 'string' ? route.query.startsOn : undefined"
             :initial-ends-on="typeof route.query.endsOn === 'string' ? route.query.endsOn : undefined"
+            :initial-pickup-time="typeof route.query.pickupTime === 'string' ? route.query.pickupTime : undefined"
           />
         </template>
       </div>

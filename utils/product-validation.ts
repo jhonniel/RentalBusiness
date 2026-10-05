@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DEFAULT_PICKUP_TIME, isPastBusinessDateTime, isPickupTime } from './rental-window'
 import { EQUIPMENT_STATUSES, PRICE_FIELD_KEYS, PRODUCT_STATUSES } from './constants'
 import { calendarDateInZone, isPastBusinessDate } from './datetime'
 
@@ -107,17 +108,23 @@ export const availabilityQuerySchema = z.object({
   productUuid: z.string().uuid().optional(),
   productSlug: z.string().trim().max(80).regex(/^[a-z0-9-]+$/, 'Choose a valid product.').optional(),
   startsOn: z.string().date('Choose a start date.'),
-  endsOn: z.string().date('Choose an end date.'),
+  endsOn: z.string().date('Choose a return date.'),
+  pickupTime: z.string().trim().default(DEFAULT_PICKUP_TIME).refine(isPickupTime, {
+    message: 'Choose a pickup time.',
+  }),
   quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1.').max(99).default(1),
 }).strict().refine(data => Boolean(data.productUuid || data.productSlug), {
   message: 'Choose a product.',
   path: ['productUuid'],
 }).refine(data => data.startsOn <= data.endsOn, {
-  message: 'End date must be on or after the start date.',
+  message: 'Return date must be on or after the pickup date.',
   path: ['endsOn'],
 }).refine(data => !isPastBusinessDate(data.startsOn, calendarDateInZone()), {
   message: 'Choose today or a future date.',
   path: ['startsOn'],
+}).refine(data => !isPastBusinessDateTime(data.startsOn, data.pickupTime), {
+  message: 'Choose a later pickup time.',
+  path: ['pickupTime'],
 })
 
 export const availabilityCalendarQuerySchema = z.object({

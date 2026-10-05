@@ -34,6 +34,7 @@ import {
   updateProductByUuid,
 } from '../repositories/product.repository'
 import { insertAsset, listAssets, updateAssetByUuid } from '../repositories/equipment.repository'
+import { compressImageForStorage } from '../utils/image-compress'
 
 type Client = SupabaseClient<Database>
 
@@ -286,19 +287,10 @@ export async function addProductImage(
     throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  const allowed = ['image/jpeg', 'image/png', 'image/webp']
-  if (!file.type || !allowed.includes(file.type)) {
-    throw new AppError('Upload a JPG, PNG, or WebP image.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  if (file.data.byteLength > 5 * 1024 * 1024) {
-    throw new AppError('Images must be 5 MB or smaller.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-  const storagePath = `${productUuid}/${crypto.randomUUID()}.${extension}`
-  const { error } = await client.storage.from('product-images').upload(storagePath, file.data, {
-    contentType: file.type,
+  const image = await compressImageForStorage(file)
+  const storagePath = `${productUuid}/${crypto.randomUUID()}.jpg`
+  const { error } = await client.storage.from('product-images').upload(storagePath, image.data, {
+    contentType: image.type,
     upsert: false,
   })
 

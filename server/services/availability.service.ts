@@ -3,6 +3,7 @@ import type { AvailabilityCalendar, AvailabilityResponse } from '../../types/ava
 import type { Database } from '../../types/database.types'
 import {
   blockedDatesFromRanges,
+  datesWithBookings,
   evaluateAvailability,
   mergeUnavailableDates,
   toCalendarDate,
@@ -10,6 +11,7 @@ import {
 } from '../../utils/availability'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone, inclusiveDayCount, isPastBusinessDate } from '../../utils/datetime'
+import { DEFAULT_PICKUP_TIME, resolveRentalWindow } from '../../utils/rental-window'
 import { isBookableProductStatus } from '../../utils/constants'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -44,15 +46,24 @@ export async function getProductAvailability(client: Client, query: {
   productSlug?: string
   startsOn: string
   endsOn: string
+  pickupTime?: string
   quantity: number
 }): Promise<AvailabilityResponse> {
   const row = await loadActiveProduct(client, query.productUuid, query.productSlug)
-  if (isPastBusinessDate(query.startsOn)) {
+  const window = resolveRentalWindow({
+    startsOn: query.startsOn,
+    endsOn: query.endsOn,
+    pickupTime: query.pickupTime || DEFAULT_PICKUP_TIME,
+  })
+  if (isPastBusinessDate(window.startsOn)) {
     throw new AppError('Those dates are in the past.', 422, ERROR_CODES.VALIDATION_ERROR)
   }
 
-  const booked = await getBookedQuantity(client, row.id, query.startsOn, query.endsOn)
-  const blockedRanges = await listBlockedRanges(client, row.id, query.startsOn, query.endsOn)
+  const booked = await getBookedQuantity(client, row.id, window.startsOn, window.endsOn, {
+    pickupAt: window.pickupAt,
+    returnAt: window.returnAt,
+  })
+  const blockedRanges = await listBlockedRanges(client, row.id, window.startsOn, window.endsOn)
   const result = evaluateAvailability({
     quantity: row.quantity,
     damagedQuantity: row.damaged_quantity,
@@ -70,8 +81,11 @@ export async function getProductAvailability(client: Client, query: {
       name: row.name,
       sku: row.sku,
     },
-    startsOn: query.startsOn,
-    endsOn: query.endsOn,
+    startsOn: window.startsOn,
+    endsOn: window.endsOn,
+    pickupTime: window.pickupTime,
+    pickupAt: window.pickupAt,
+    returnAt: window.returnAt,
     ...result,
   }
 }
@@ -93,27 +107,37 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
 
   const ranges = await listOccupyingRanges(client, row.id, from, to)
   const blockedRanges = await listBlockedRanges(client, row.id, from, to)
-  const bookedDates = unavailableDates({
+  const occupyingWindows = ranges
+    .filter(range => range.pickup_at && range.return_at)
+    .map(range => ({
+      pickupAt: range.pickup_at,
+      returnAt: range.return_at,
+      quantity: range.quantity,
+    }))
+  const bookings = ranges.map(range => ({
+    productUuid: row.uuid,
+    quantity: range.quantity,
+    startsOn: toCalendarDate(range.starts_on),
+    endsOn: toCalendarDate(range.ends_on),
+    pickupAt: range.pickup_at || undefined,
+    returnAt: range.return_at || undefined,
+    status: 'approved' as const,
+  }))
+  const closedDates = unavailableDates({
     stock: {
       quantity: row.quantity,
       damagedQuantity: row.damaged_quantity,
       maintenanceQuantity: row.maintenance_quantity,
       lostQuantity: row.lost_quantity,
     },
-    bookings: ranges.map(range => ({
-      productUuid: row.uuid,
-      quantity: range.quantity,
-      startsOn: toCalendarDate(range.starts_on),
-      endsOn: toCalendarDate(range.ends_on),
-      status: 'approved',
-    })),
+    bookings,
     productUuid: row.uuid,
     requestedQuantity: query.quantity,
     from,
     to,
   })
   const dates = mergeUnavailableDates(
-    bookedDates,
+    closedDates,
     blockedDatesFromRanges(
       blockedRanges.map(range => ({
         startsOn: toCalendarDate(range.starts_on),
@@ -123,6 +147,12 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
       to,
     ),
   )
+  const bookingsOnDates = datesWithBookings({
+    bookings,
+    productUuid: row.uuid,
+    from,
+    to,
+  })
 
   return {
     product: {
@@ -135,5 +165,7 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
     to,
     quantity: query.quantity,
     unavailableDates: dates,
+    bookedDates: bookingsOnDates,
+    occupyingWindows,
   }
 }

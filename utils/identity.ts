@@ -1,7 +1,12 @@
 import type { PublicRentalIdentity } from '~/types/rental'
+import {
+  IMAGE_UPLOAD_SOURCE_MAX_BYTES,
+  IMAGE_UPLOAD_TYPES,
+  isImageUploadType,
+} from './image-upload'
 
-export const IDENTITY_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
-export const IDENTITY_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+export const IDENTITY_IMAGE_TYPES = IMAGE_UPLOAD_TYPES
+export const IDENTITY_IMAGE_MAX_BYTES = IMAGE_UPLOAD_SOURCE_MAX_BYTES
 
 export interface IdentityVerificationRow {
   uuid?: string
@@ -21,7 +26,11 @@ export function identityImageExtension(contentType: string) {
 }
 
 export function isIdentityImageType(value: string | undefined): value is typeof IDENTITY_IMAGE_TYPES[number] {
-  return Boolean(value && IDENTITY_IMAGE_TYPES.includes(value as typeof IDENTITY_IMAGE_TYPES[number]))
+  return isImageUploadType(value)
+}
+
+export function canUploadAdminIdentity(rental: { status: string }) {
+  return ['draft', 'pending'].includes(rental.status)
 }
 
 export function toPublicRentalIdentity(

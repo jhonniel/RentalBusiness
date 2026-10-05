@@ -87,7 +87,7 @@ Phase 5 additions:
 - `GET /api/availability` uses the anon/session client and `product_booked_quantity` (security definer)
 - Availability queries reject internal `id` and require `uuid` or `slug`
 - Pages display API results only; overlap math stays in `utils/availability.ts` and SQL
-- `GET /api/availability/calendar` uses security-definer `product_occupying_ranges` and `product_blocked_ranges` and returns dates only, never rental, customer, or blocked-date identifiers
+- `GET /api/availability/calendar` uses security-definer `product_occupying_ranges` and `product_blocked_ranges` and returns booked dates plus pickup/return windows only, never rental, customer, or blocked-date identifiers
 - Admin blocked dates are written only through admin APIs. The public table is not granted to `anon`
 - `GET /api/admin/calendar` requires an admin session and returns rental `uuid`/`code` plus blocked-date `uuid` / product `uuid` only, never database primary keys
 - `GET /api/admin/sales` requires an admin session, reuses paid-sales report rules, and returns payment `uuid` plus rental `uuid`/`code` only
@@ -111,6 +111,8 @@ Phase 7 additions:
 - Accepted versions cannot change `title`, `body`, `version`, or `uuid`; `is_current` may rotate so a newer version can be published
 - Customers may re-read versions they signed after a newer current version is published
 - Signature payloads are PNG data URLs with a size cap; accept is limited to 20/min/user
+- An administrator may finish a customer `draft`, change pickup date, return date, and pickup time (including a shop time that has already passed today), record an in-person waiver signature, and send a guest sign link. After it is signed, the shop can copy an admin-only `/admin/rentals/{uuid}/waiver` URL; `GET /api/admin/rentals/[id]/waiver-pdf` requires an admin session. An administrator may `DELETE /api/admin/rentals/[id]/waiver` on an open signed rental to set it unsigned so it can be signed again; the previous signer, time, and version are audited and the signature image is not stored in that log. `rental_waiver_invites` is forced RLS; anon and authenticated have no grants. Only a sha256 token hash is stored. Public lookup compares the query `token` with a timing-safe hash check
+- Invite pages and APIs stay available during maintenance. `/waivers` is `noindex` and is disallowed in `robots.txt`. Tokens are never returned in JSON after send except as the one-time `waiverUrl` for the admin who created it. Email is optional so the shop can copy the link and send it another way. After sign, the same token can upload identity photos until the invite expires. Guest identity responses never include storage paths or signed URLs. `Permissions-Policy` allows `camera=(self)` so customers can photograph an ID on that page.
 
 Privacy Policy additions:
 
@@ -185,8 +187,10 @@ Phase 17 additions:
 - Government ID and selfie files live in `private-documents` under `{auth.uid()}/rentals/{rentalUuid}/`
 - Public APIs never return storage paths. Admins receive short-lived signed URLs
 - Payment create requires a signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request
+- Admins may record a shop payment (`POST /api/admin/rentals/[id]/paid`) after the waiver and identity documents are on file. That writes a paid payment row and is the source of the sales ledger
 - Customers create rentals as `draft` only. `POST /api/rentals/[id]/submit` moves a draft to `pending` after the waiver and identity documents are on file
-- Identity upload requires a signed waiver on that rental
+- Identity upload requires a signed waiver on that rental for customers. Admins may upload identity photos for a `draft` or `pending` rental without that waiver
+- Image uploads accept JPG, PNG, WebP, and HEIC up to 15 MB. The server compresses them to JPEG before writing to Supabase Storage (S3)
 - Waiver email and phone are copied from the server-loaded profile
 
 Admin waiver PDFs are generated on the server. They may include the stored signature image. They never include `ip_address`, `user_agent`, or `signature_data` in JSON APIs.
@@ -197,14 +201,14 @@ Site maintenance additions:
 - Maintenance image uploads require `requireAdmin` plus a 40/min rate limit
 - Public `GET /api/maintenance` never returns storage paths. It may include up to three catalog kits by public slug.
 - `POST /api/maintenance/chat` is public, rate-limited, and stays open during maintenance. The Groq key stays on the server. Availability and price answers reuse `quoteRental` and never expose database primary keys.
-- When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, and payment webhook routes stay open
+- When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, payment webhook, and public waiver-invite routes stay open
 - Administrators can still sign in and use `/admin` to turn the page off
 
 Phase 16 additions:
 
 - `payment_methods` is forced RLS; customers may select active rows only
 - Admin create/update/QR upload require `requireAdmin` plus a 40/min rate limit
-- QR uploads reject non-image types and files larger than 5 MB
+- QR uploads reject non-image types and files larger than 15 MB, then compress to JPEG before S3
 - Payment method payloads are strict Zod schemas and reject internal `id`
 - QR images are public objects; they never change payment or rental status
 
@@ -258,7 +262,7 @@ Private buckets for waivers, receipts, and customer documents. Catalog photos, p
 ## Search engines
 
 - Public catalog pages allow indexing (`index, follow`)
-- Auth, account, receipt, payment, admin, and maintenance paths set `noindex, nofollow`
+- Auth, account, receipt, payment, admin, waiver-invite, and maintenance paths set `noindex, nofollow`
 - `/robots.txt` disallows the same private prefixes
 - `/sitemap.xml` lists only public catalog and legal URLs and never includes `uuid` or database ids
 

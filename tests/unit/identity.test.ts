@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   IDENTITY_IMAGE_MAX_BYTES,
+  canUploadAdminIdentity,
   identityImageExtension,
   isIdentityImageType,
   toPublicRentalIdentity,
@@ -11,9 +12,13 @@ describe('identity documents', () => {
     expect(isIdentityImageType('image/jpeg')).toBe(true)
     expect(isIdentityImageType('image/png')).toBe(true)
     expect(isIdentityImageType('image/webp')).toBe(true)
+    expect(isIdentityImageType('image/heic')).toBe(true)
     expect(isIdentityImageType('application/pdf')).toBe(false)
     expect(identityImageExtension('image/png')).toBe('png')
-    expect(IDENTITY_IMAGE_MAX_BYTES).toBe(5 * 1024 * 1024)
+    expect(IDENTITY_IMAGE_MAX_BYTES).toBe(15 * 1024 * 1024)
+    expect(canUploadAdminIdentity({ status: 'draft' })).toBe(true)
+    expect(canUploadAdminIdentity({ status: 'pending' })).toBe(true)
+    expect(canUploadAdminIdentity({ status: 'paid' })).toBe(false)
   })
 
   it('never exposes storage paths on the public payload', () => {

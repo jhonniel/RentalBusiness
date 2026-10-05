@@ -4,6 +4,7 @@ import type { RentalQuote, PublicRental } from '~/types/rental'
 import { fieldErrors } from '~/utils/auth-validation'
 import { calendarDateInZone } from '~/utils/datetime'
 import { createRentalSchema } from '~/utils/rental-validation'
+import { DEFAULT_PICKUP_TIME, defaultRentalReturnOn, formatRentalReturnLabel, resolveRentalWindow } from '~/utils/rental-window'
 
 definePageMeta({
   layout: 'account',
@@ -19,13 +20,19 @@ const today = calendarDateInZone()
 const form = reactive({
   productSlug: typeof route.query.product === 'string' ? route.query.product : '',
   startsOn: typeof route.query.startsOn === 'string' ? route.query.startsOn : today,
-  endsOn: typeof route.query.endsOn === 'string' ? route.query.endsOn : today,
+  endsOn: typeof route.query.endsOn === 'string'
+    ? route.query.endsOn
+    : defaultRentalReturnOn(typeof route.query.startsOn === 'string' ? route.query.startsOn : today),
+  pickupTime: typeof route.query.pickupTime === 'string' ? route.query.pickupTime : DEFAULT_PICKUP_TIME,
   quantity: 1,
   firstName: '',
   lastName: '',
   phone: '',
   notes: '',
 })
+if (form.endsOn <= form.startsOn) {
+  form.endsOn = defaultRentalReturnOn(form.startsOn)
+}
 const errors = ref<Record<string, string>>({})
 const formError = ref('')
 const pending = ref(false)
@@ -52,6 +59,17 @@ const { data: product, error: productError } = await useFetch<CatalogProduct>(
 )
 
 const unavailable = computed(() => productError.value?.statusCode === 503)
+const rentalWindow = computed(() => resolveRentalWindow({
+  startsOn: form.startsOn,
+  endsOn: form.endsOn,
+  pickupTime: form.pickupTime,
+}))
+
+watch(() => form.startsOn, (value, previous) => {
+  if (form.endsOn <= value || (previous && form.endsOn === defaultRentalReturnOn(previous))) {
+    form.endsOn = defaultRentalReturnOn(value)
+  }
+})
 
 async function refreshQuote() {
   if (!form.productSlug || !form.startsOn || !form.endsOn) {
@@ -68,6 +86,7 @@ async function refreshQuote() {
         productSlug: form.productSlug,
         startsOn: form.startsOn,
         endsOn: form.endsOn,
+        pickupTime: form.pickupTime,
         quantity: form.quantity,
       },
     })
@@ -85,7 +104,7 @@ async function refreshQuote() {
 }
 
 watchDebounced(
-  () => [form.startsOn, form.endsOn, form.quantity, form.productSlug, product.value?.comingSoon],
+  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.productSlug, product.value?.comingSoon],
   () => {
     if (product.value?.comingSoon) {
       quote.value = null
@@ -197,26 +216,36 @@ async function onSubmit() {
 
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 class="text-sm font-medium text-stone-900">
-          Dates
+          Pickup and return
         </h2>
         <div class="mt-4 grid gap-3 sm:grid-cols-2">
           <BookingDateField
             v-model="form.startsOn"
-            label="Start date"
+            label="Pickup date"
             :product-slug="form.productSlug || undefined"
             :quantity="1"
             :until="form.endsOn || undefined"
             :disabled="pending"
           />
+          <BookingPickupTime
+            v-model="form.pickupTime"
+            :product-slug="form.productSlug || undefined"
+            :starts-on="form.startsOn"
+            :ends-on="form.endsOn"
+            :disabled="pending"
+          />
           <BookingDateField
             v-model="form.endsOn"
-            label="End date"
+            label="Return date"
             :product-slug="form.productSlug || undefined"
             :quantity="1"
             :min="form.startsOn || undefined"
             :disabled="pending"
           />
         </div>
+        <p class="mt-3 text-sm text-stone-600">
+          Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}
+        </p>
       </section>
 
       <section

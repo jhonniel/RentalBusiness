@@ -116,6 +116,8 @@ Admins generate voucher codes on `/admin/vouchers`. Customers enter a code on th
 
 Administrators change their own password on `/admin/account`. They can promote a customer to a system admin from `/admin/customers`. Role still lives on `profiles.role`; clients never send it.
 
+Administrators can finish a customer draft on `/admin/rentals/[id]/continue` and send a one-time waiver sign link. The customer opens `/waivers/sign/{uuid}?token=` without signing in, reviews the Equipment Rental Agreement, agrees, signs, and can upload a government ID and selfie on that same page. After it is signed, the agreement stays visible and the sign form is locked until an administrator changes the waiver status back to unsigned. Unused invites expire after 72 hours. The raw token is stored as a sha256 hash only.
+
 ## Phase report template
 
 After each phase:

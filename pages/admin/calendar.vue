@@ -92,6 +92,14 @@ function dayIsSelected(date: string) {
   return isDateInRange(date, draftStartsOn.value, draftEndsOn.value)
 }
 
+function dayHasBooking(date: string) {
+  return eventsOnDate(items.value, date).length > 0
+}
+
+function dayHasBlock(date: string) {
+  return blocksOnDate(blockedDates.value, date).length > 0
+}
+
 function onBlockSaved() {
   draftStartsOn.value = ''
   draftEndsOn.value = ''
@@ -121,7 +129,7 @@ watch(detailsOpen, (open) => {
           Calendar
         </h2>
         <p class="mt-1 text-sm text-stone-600">
-          Rentals and blocked dates for this month in Asia/Manila. Click a day to view details. Draft, cancelled, and rejected requests stay off the board.
+          Rentals and blocked dates for this month in Asia/Manila. Click a day to view details. Cancelled and rejected requests stay off the board.
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -216,9 +224,11 @@ watch(detailsOpen, (open) => {
                   ? 'bg-lumen-50/60'
                   : date && dayIsSelected(date)
                     ? 'bg-amber-50'
-                    : date && blocksOnDate(blockedDates, date).length
+                    : date && dayHasBlock(date)
                       ? 'bg-stone-100'
-                      : 'bg-white'"
+                      : date && dayHasBooking(date)
+                        ? 'bg-lumen-50/40'
+                        : 'bg-white'"
             :disabled="!date"
             @click="date && openDay(date)"
           >
@@ -243,12 +253,12 @@ watch(detailsOpen, (open) => {
                   v-for="item in eventsOnDate(items, date)"
                   :key="item.uuid"
                 >
-                  <div class="rounded-md px-1.5 py-1">
+                  <div class="rounded-md bg-lumen-100/80 px-1.5 py-1">
                     <p class="truncate text-xs font-medium text-stone-900">
                       {{ item.productName }}
                     </p>
                     <p class="truncate text-[11px] text-stone-500">
-                      {{ item.code }}
+                      Booked · {{ item.code }}
                     </p>
                   </div>
                 </li>
@@ -272,7 +282,7 @@ watch(detailsOpen, (open) => {
             v-for="(date, index) in cells"
             :key="date || `mobile-empty-${index}`"
             type="button"
-            class="aspect-square rounded-md text-sm"
+            class="relative aspect-square rounded-md text-sm"
             :class="!date
               ? 'invisible'
               : dayIsViewed(date)
@@ -283,13 +293,19 @@ watch(detailsOpen, (open) => {
                     ? 'bg-lumen-100 font-medium text-lumen-800'
                     : dayIsSelected(date)
                       ? 'bg-amber-100 text-stone-900'
-                      : blocksOnDate(blockedDates, date).length
+                      : dayHasBlock(date)
                         ? 'bg-stone-200 text-stone-800'
-                        : 'text-stone-700'"
+                        : dayHasBooking(date)
+                          ? 'bg-lumen-100 text-lumen-900'
+                          : 'text-stone-700'"
             :disabled="!date"
             @click="date && openDay(date)"
           >
             {{ date ? dayNumber(date) : '' }}
+            <span
+              v-if="date && dayHasBooking(date)"
+              class="absolute bottom-1 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-lumen-700"
+            />
           </button>
         </div>
       </div>

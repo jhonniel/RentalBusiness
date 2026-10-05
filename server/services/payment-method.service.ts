@@ -12,11 +12,11 @@ import {
   listPaymentMethods,
   updatePaymentMethod,
 } from '../repositories/payment-method.repository'
+import { compressImageForStorage } from '../utils/image-compress'
 
 type Client = SupabaseClient<Database>
 
 const QR_BUCKET = 'payment-qr-images'
-const QR_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 function supabaseUrl() {
   const config = useRuntimeConfig()
@@ -96,18 +96,14 @@ export async function uploadPaymentMethodQr(
     throw new AppError('Payment method not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  if (!file.type || !QR_TYPES.includes(file.type)) {
-    throw new AppError('Upload a JPG, PNG, or WebP QR image.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  if (file.data.byteLength > 5 * 1024 * 1024) {
-    throw new AppError('QR images must be 5 MB or smaller.', 422, ERROR_CODES.VALIDATION_ERROR)
-  }
-
-  const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-  const storagePath = `${uuid}/${crypto.randomUUID()}.${extension}`
-  const { error } = await client.storage.from(QR_BUCKET).upload(storagePath, file.data, {
-    contentType: file.type,
+  const image = await compressImageForStorage(file, {
+    label: 'QR image',
+    maxEdge: 1600,
+    quality: 88,
+  })
+  const storagePath = `${uuid}/${crypto.randomUUID()}.jpg`
+  const { error } = await client.storage.from(QR_BUCKET).upload(storagePath, image.data, {
+    contentType: image.type,
     upsert: false,
   })
 

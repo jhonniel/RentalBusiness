@@ -97,7 +97,7 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
     `Contact: ${BUSINESS_EMAIL} and Facebook ${FACEBOOK_URL}.`,
     'Booking: choose gear, pick dates, sign the waiver, upload ID and selfie, pay by QR, then pickup, meetup, or delivery.',
     'Refund: the down payment paid to confirm a booking is not refundable once the rental is booked. A security deposit is separate from the down payment.',
-    'Visitors can ask the PHP price for a kit. If they give from and to dates, quote that exact window. Inclusive days, availability, and totals come from live booking data.',
+    'Visitors can ask the PHP price for a kit, or say they want to book a kit by name, including JBL and other catalog gear. If they give a date, tomorrow, the next day, or a from-to window, check live availability and say whether that kit is free or already booked. Inclusive days, availability, and totals come from live booking data.',
     context.liveFacts
       ? `LIVE AVAILABILITY is the source of truth in ${BUSINESS_TIMEZONE}. Use it to say booked or available. Never contradict it: ${context.liveFacts}`
       : 'If LIVE AVAILABILITY is missing, do not guess whether a date is booked. Ask for a kit name and date.',

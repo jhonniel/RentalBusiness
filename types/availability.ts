@@ -7,6 +7,9 @@ export interface AvailabilityResponse {
   }
   startsOn: string
   endsOn: string
+  pickupTime: string
+  pickupAt: string
+  returnAt: string
   capacity: number
   booked: number
   available: number
@@ -25,6 +28,12 @@ export interface AvailabilityCalendar {
   to: string
   quantity: number
   unavailableDates: string[]
+  bookedDates: string[]
+  occupyingWindows: {
+    pickupAt: string
+    returnAt: string
+    quantity: number
+  }[]
 }
 
 export interface PublicBlockedDate {

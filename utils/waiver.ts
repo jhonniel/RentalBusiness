@@ -127,6 +127,14 @@ export function waiverEquipmentLines(items: WaiverEquipmentItem[]): string {
   }).join('\n')
 }
 
+export function adminSignedWaiverPath(identifier: string) {
+  return `/admin/rentals/${identifier}/waiver`
+}
+
+export function adminSignedWaiverUrl(origin: string, identifier: string) {
+  return `${origin.replace(/\/$/, '')}${adminSignedWaiverPath(identifier)}`
+}
+
 export function renderWaiverBody(body: string, items: WaiverEquipmentItem[]): string {
   const list = waiverEquipmentLines(items)
 

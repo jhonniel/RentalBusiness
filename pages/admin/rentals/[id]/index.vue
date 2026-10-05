@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
-import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
+import { formatBusinessDateTime } from '~/utils/datetime'
+import { canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { renderWaiverBody } from '~/utils/waiver'
+import { canContinueAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
 
 definePageMeta({
   layout: 'admin',
@@ -14,6 +16,8 @@ const { formatMoney } = useCurrency()
 const identifier = computed(() => String(route.params.id))
 const approving = ref(false)
 const confirming = ref(false)
+const paying = ref(false)
+const paymentMethod = ref<(typeof SHOP_PAYMENT_METHODS)[number]>('cash')
 const deleteOpen = ref(false)
 const deletePending = ref(false)
 
@@ -41,6 +45,13 @@ useSiteMeta({
 })
 
 const canConfirm = computed(() => rental.value?.status === 'pending')
+const canContinue = computed(() => rental.value ? canContinueAdminRental(rental.value) : false)
+const canInvite = computed(() => rental.value ? canSendWaiverInvite(rental.value) : false)
+const canOpenContinue = computed(() => rental.value ? canOpenAdminContinue(rental.value) : false)
+const canResetWaiver = computed(() => rental.value ? canResetAdminWaiver(rental.value) : false)
+const resetOpen = ref(false)
+const resetting = ref(false)
+const canMarkPaid = computed(() => rental.value ? canMarkAdminRentalPaid(rental.value) : false)
 const canApprove = computed(() =>
   rental.value?.status === 'paid'
   || Boolean(
@@ -50,6 +61,32 @@ const canApprove = computed(() =>
     && rental.value.status === 'awaiting_payment',
   ),
 )
+
+async function resetWaiver() {
+  if (!rental.value) {
+    return
+  }
+
+  resetting.value = true
+  try {
+    await $fetch(`/api/admin/rentals/${rental.value.uuid}/waiver`, { method: 'DELETE' })
+    toast.add({ title: 'Waiver set to unsigned', color: 'success' })
+    resetOpen.value = false
+    await refresh()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not change that waiver status.',
+      color: 'error',
+    })
+  }
+  finally {
+    resetting.value = false
+  }
+}
 
 async function confirmBooking() {
   if (!rental.value) {
@@ -73,6 +110,34 @@ async function confirmBooking() {
   }
   finally {
     confirming.value = false
+  }
+}
+
+async function markPaid() {
+  if (!rental.value) {
+    return
+  }
+
+  paying.value = true
+  try {
+    await $fetch(`/api/admin/rentals/${rental.value.uuid}/paid`, {
+      method: 'POST',
+      body: { paymentMethod: paymentMethod.value },
+    })
+    toast.add({ title: 'Payment recorded as a sale', color: 'success' })
+    await refresh()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not record that payment.',
+      color: 'error',
+    })
+  }
+  finally {
+    paying.value = false
   }
 }
 
@@ -159,12 +224,44 @@ async function removeRental() {
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton
+            v-if="canOpenContinue"
+            :to="`/admin/rentals/${rental.uuid}/continue`"
+            color="neutral"
+            variant="outline"
+          >
+            {{ canContinue ? 'Continue form' : 'Waiver' }}
+          </UButton>
+          <UButton
             v-if="canConfirm"
             :loading="confirming"
             @click="confirmBooking"
           >
             Confirm booking
           </UButton>
+          <div
+            v-if="canMarkPaid"
+            class="flex flex-wrap items-center gap-2"
+          >
+            <select
+              v-model="paymentMethod"
+              class="h-9 rounded-md border border-stone-200 bg-white px-2 text-sm text-stone-800"
+              :disabled="paying"
+            >
+              <option
+                v-for="method in SHOP_PAYMENT_METHODS"
+                :key="method"
+                :value="method"
+              >
+                {{ method === 'gcash' ? 'GCash' : method === 'maya' ? 'Maya' : method === 'bank' ? 'Bank' : 'Cash' }}
+              </option>
+            </select>
+            <UButton
+              :loading="paying"
+              @click="markPaid"
+            >
+              Mark as paid
+            </UButton>
+          </div>
           <UButton
             v-if="canApprove"
             :loading="approving"
@@ -205,7 +302,7 @@ async function removeRental() {
               Schedule
             </h3>
             <p class="mt-2 text-stone-600">
-              {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
+              {{ formatBusinessDateTime(rental.pickupAt) }} – {{ formatBusinessDateTime(rental.returnAt) }}
             </p>
           </section>
 
@@ -253,6 +350,44 @@ async function removeRental() {
               <dd class="mt-0.5 text-stone-800">
                 Accepted
               </dd>
+              <div
+                v-if="canResetWaiver"
+                class="mt-3 flex flex-wrap items-center gap-2"
+              >
+                <template v-if="!resetOpen">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    :disabled="resetting"
+                    @click="resetOpen = true"
+                  >
+                    Change status to unsigned
+                  </UButton>
+                </template>
+                <template v-else>
+                  <p class="text-sm text-stone-600">
+                    Remove this signature so they can agree and sign again?
+                  </p>
+                  <UButton
+                    color="error"
+                    size="sm"
+                    :loading="resetting"
+                    @click="resetWaiver"
+                  >
+                    Confirm unsigned
+                  </UButton>
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="resetting"
+                    @click="resetOpen = false"
+                  >
+                    Cancel
+                  </UButton>
+                </template>
+              </div>
             </div>
             <div>
               <dt class="text-stone-500">Accepted by</dt>
@@ -299,22 +434,27 @@ async function removeRental() {
               {{ waiverSnapshot }}
             </p>
           </details>
-          <div class="mt-4">
-            <UButton
-              :to="`/admin/rentals/${rental.uuid}/waiver`"
-              color="neutral"
-              variant="outline"
-            >
-              View PDF
-            </UButton>
-          </div>
+          <AdminSignedWaiverLink
+            class="mt-4"
+            :rental-uuid="rental.uuid"
+          />
         </template>
-        <p
+        <div
           v-else
-          class="mt-2 text-stone-600"
+          class="mt-2"
         >
-          No waiver has been accepted on this rental yet.
-        </p>
+          <p class="text-stone-600">
+            No waiver has been accepted on this rental yet.
+          </p>
+          <AdminWaiverLink
+            v-if="canInvite"
+            class="mt-4"
+            plain
+            :rental-uuid="rental.uuid"
+            :can-invite="canInvite"
+            :waiver="rental.waiver"
+          />
+        </div>
       </section>
 
       <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
@@ -368,6 +508,12 @@ async function removeRental() {
         >
           No government ID or selfie has been submitted yet.
         </p>
+        <AdminIdentityUpload
+          class="mt-4"
+          plain
+          :rental="rental"
+          @uploaded="refresh"
+        />
       </section>
         </div>
       </div>

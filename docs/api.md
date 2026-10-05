@@ -11,7 +11,7 @@ All application APIs live under `/api`. Handlers validate input with Zod and aut
 | Methods | GET read, POST create, PATCH update, DELETE only when explicitly designed |
 | Auth | Session from Supabase cookies; never trust a role field from the client |
 | Errors | `{ message, code }` — no stack traces or SQL |
-| Dates | ISO-8601 request values; business rules in `Asia/Manila` |
+| Dates | ISO-8601 request values; business rules in `Asia/Manila`. Rentals collect `pickupTime` (`HH:mm`). Return is the same clock time on the return date. |
 | Money | Decimal amounts in PHP unless a future currency setting says otherwise |
 | Idempotency | Required for payments, cron, and receipt issuance |
 
@@ -114,7 +114,7 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | PATCH | `/api/admin/products/[uuid]` | Update product info and prices (name, descriptions, daily/weekly/monthly, deposit, late fee, hidden price fields, inventory, status) |
 | POST | `/api/admin/products/[uuid]/archive` | Set status to `archived` |
 | DELETE | `/api/admin/products/[uuid]` | Permanently delete a product with no rental or asset-assignment history. Returns 409 if history exists — archive instead. |
-| POST | `/api/admin/products/[uuid]/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP, 5 MB). Extra photos appear under the main image on the product page. |
+| POST | `/api/admin/products/[uuid]/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP/HEIC, 15 MB). Server compresses to JPEG before S3. Extra photos appear under the main image on the product page. |
 | DELETE | `/api/admin/images/[uuid]` | Remove image and storage object |
 | GET | `/api/admin/inventory` | Serialized assets |
 | POST | `/api/admin/products/[uuid]/assets` | Create asset |
@@ -139,16 +139,19 @@ Unauthenticated. Uses the anon Supabase client so RLS only returns active or com
 
 ### `GET /api/availability`
 
-Overlap-aware stock for one active product. Booked quantity comes from occupying rentals whose dates inclusively overlap the requested range. Capacity subtracts damaged, maintenance, and lost units. `canFulfill` is also false when an admin-blocked range overlaps the requested dates.
+Overlap-aware stock for one active product. Booked quantity comes from occupying rentals whose pickup/return window overlaps the requested window. Return is the same Asia/Manila clock time as pickup on `endsOn`. Capacity subtracts damaged, maintenance, and lost units. `canFulfill` is also false when an admin-blocked range overlaps the requested dates.
 
-**Query:** `productUuid` or `productSlug`, `startsOn`, `endsOn`, `quantity` (default 1). `startsOn` must be today or later in Asia/Manila.  
+**Query:** `productUuid` or `productSlug`, `startsOn`, `endsOn`, `pickupTime` (`HH:mm`, default `09:00`), `quantity` (default 1). `startsOn` must be today or later in Asia/Manila. A pickup time today must still be in the future.  
 **Rate limit:** 80 requests / minute / IP
 
 ```json
 {
   "product": { "uuid": "…", "slug": "sony-a7-iv", "name": "Sony A7 IV", "sku": "CAM-A7IV-001" },
-  "startsOn": "2026-09-11",
-  "endsOn": "2026-09-13",
+  "startsOn": "2026-10-05",
+  "endsOn": "2026-10-10",
+  "pickupTime": "13:00",
+  "pickupAt": "2026-10-05T05:00:00.000Z",
+  "returnAt": "2026-10-10T05:00:00.000Z",
   "capacity": 5,
   "booked": 3,
   "available": 2,
@@ -159,12 +162,12 @@ Overlap-aware stock for one active product. Booked quantity comes from occupying
 
 ### `GET /api/availability/calendar`
 
-Returns `unavailableDates` for one active product. A day is listed when any occupying rental already covers it or an admin blocked that day. Date pickers disable those days so they cannot be selected. Free days stay bookable.
+Returns `unavailableDates`, `bookedDates`, and `occupyingWindows` for one active product. `bookedDates` are days that overlap any occupying rental window, including a return morning that still has later pickup slots. A day is listed in `unavailableDates` only when no shop pickup time is free that day, or an admin blocked that day. Pickup-time controls disable slots that overlap an occupying `[pickupAt, returnAt)` window. A kit due back at 1:00 PM can be booked again from 1:00 PM. Date pickers mark booked days with a dot and cross out fully closed days.
 
 **Query:** `productUuid` or `productSlug`, `quantity` (default 1), optional `from` / `to` (default today through 180 days, max 366)  
 **Rate limit:** 80 requests / minute / IP
 
-The payload includes product `uuid` / `slug` / `name` / `sku` and the date list only. It never includes rental or customer identifiers.
+The payload includes product `uuid` / `slug` / `name` / `sku`, the date list, and window instants only. It never includes rental or customer identifiers.
 
 ### Customer rentals
 
@@ -172,17 +175,17 @@ Authenticated. Customers read and create only their own rows. Totals come from `
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| POST | `/api/rentals/quote` | Server quote + availability |
-| POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Dates must be today or later in Asia/Manila, still have free stock after occupying (`pending` and later) rentals, and must not overlap admin-blocked days. |
+| POST | `/api/rentals/quote` | Server quote + availability. Pickup date/time must be today or later in Asia/Manila |
+| POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Pickup date/time must be today or later in Asia/Manila. Return is the same clock time on `endsOn`. Stock must still be free after occupying (`pending` and later) rentals, and the window must not overlap admin-blocked days. |
 | GET | `/api/rentals` | Own rentals, optional status, pagination |
 | GET | `/api/rentals/[id]` | By `uuid` or `code` |
 | POST | `/api/rentals/[id]/submit` | Own `draft` with a signed waiver and identity documents. Becomes `pending`, occupies inventory, and emails `contactmejry@gmail.com`. |
 | POST | `/api/rentals/[id]/cancel` | Own `draft` or `pending` only |
-| POST | `/api/rentals/[id]/identity` | Multipart `governmentId` and `selfie` (JPG/PNG/WebP, 5 MB). Owner of a `draft`/`pending` rental with a signed waiver. |
+| POST | `/api/rentals/[id]/identity` | Multipart `governmentId` and `selfie` (JPG/PNG/WebP/HEIC, 15 MB). Owner of a `draft`/`pending` rental with a signed waiver. Server compresses to JPEG before S3. |
 | POST | `/api/rentals/[id]/voucher` | Apply an admin voucher code to an own `draft`, `pending`, or `awaiting_payment` rental. Discount is quoted on the server from the rental subtotal. One voucher per rental; a new code replaces the previous one. |
 | DELETE | `/api/rentals/[id]/voucher` | Remove the applied voucher and restore the rental total to the subtotal. |
 
-**Create body:** product uuid/slug, dates, quantity, firstName, lastName, phone?, notes?, status? (`draft` default)  
+**Create body:** product uuid/slug, startsOn, endsOn, pickupTime (`HH:mm`), quantity, firstName, lastName, phone?, notes?, status? (`draft` default)  
 **Rate limit:** 20 creates / minute / user; 20 submits / minute / user; 12 identity uploads / minute / user; 20 voucher apply/remove / minute / user
 
 Rental payloads include `waiver` when the customer has signed (`uuid`, `signerName`, `signerEmail`, `signerPhone`, `acceptedAt`, `privacyPolicyVersion`, `termsVersion`, bound version). They include `identity.submittedAt` after ID documents are uploaded. They include `voucher` (`uuid`, `code`, `name`, `discountAmount`) when a code is applied, plus `discountAmount` on the rental. Rental items include the product `depositAmount`, `lateFee`, and `replacementValue` used on the waiver. They never include `id`, `ip_address`, `signature_data`, or storage paths. The signed waiver body fills `{{RENTAL_EQUIPMENT}}` with those amounts. Voucher discounts reduce the rental total (down payment), not the deposit hold.
@@ -195,13 +198,27 @@ Current terms are public. Acceptance requires a signed-in owner of a `draft` or 
 | --- | --- | --- |
 | GET | `/api/waivers/current` | Current published version |
 | POST | `/api/waivers/accept` | Bind current version to a rental |
+| GET | `/api/waivers/invites/[uuid]` | Public invite lookup. Requires `token`. Always returns the waiver text (`uuid`, `version`, `title`, `body`) plus `signed`, `canSign`, `signerName`, `identitySubmitted`, and `canUploadIdentity`. `canSign` is true only while the invite is unused and the rental has no signed waiver. After sign, the same link stays open until it expires so the customer can review the agreement and upload ID photos. Never returns `token_hash` or signed file URLs |
+| POST | `/api/waivers/invites/[uuid]/accept` | Guest accept. Body: `token`, `waiverVersionUuid`, `signerName`, PNG `signatureData` |
+| POST | `/api/waivers/invites/[uuid]/identity` | Guest ID upload after the waiver is signed. Multipart `token`, `governmentId`, `selfie`. Photos are compressed. No session. Never returns storage paths |
 | GET | `/api/admin/waivers` | All versions |
 | POST | `/api/admin/waivers` | Publish a new current version |
 | GET | `/api/admin/waivers/[uuid]/pdf` | Admin PDF of a published version. `download=1` attaches the file |
 | GET | `/api/admin/rentals/[id]/waiver-pdf` | Admin PDF of the signed rental waiver, including signature. `download=1` attaches the file |
+| PATCH | `/api/admin/rentals/[id]/continue` | Admin finishes a customer `draft` (dates, pickup time, quantity, name, phone, notes). Requotes on the server. Stays `draft`. Audited |
+| POST | `/api/admin/rentals/[id]/waiver-invite` | Admin sends a one-time `/waivers/sign/{uuid}?token=` link. Optional `email` override. Returns `{ uuid, expiresAt, sent, waiverUrl }`. Audited |
+| POST | `/api/admin/rentals/[id]/waiver` | Admin records an in-person waiver signature on the continue form. Body: `waiverVersionUuid`, `signerName`, PNG `signatureData`. Same acknowledgments as the public sign page. Audited |
+| DELETE | `/api/admin/rentals/[id]/waiver` | Admin sets a signed open rental back to unsigned so the customer or shop can agree and sign again. Previous signer name, time, and version are written to the audit log. The latest guest invite is reopened for 72 hours. Identity photos stay. Audited |
+| POST | `/api/admin/rentals/[id]/identity` | Admin uploads `governmentId` and `selfie` for a `draft`/`pending` rental. Waiver is not required. Server compresses to JPEG before S3. |
 
-**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit, including that the down payment is not refundable once booked; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents, then submits the draft request before checkout.  
-**Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 admin publishes / minute / admin; 20 PDF downloads / minute / admin
+**Accept body:** rental uuid or code, `waiverVersionUuid`, `signerName`, PNG data-URL `signatureData`. The sign page also requires acknowledgment checkboxes before submit, including that the down payment is not refundable once booked; those flags are UI-only and are not stored as separate columns. Name, email, and phone shown on the form come from the account; email and phone are stamped from the server-loaded profile, not from the client. The bound `waiver_versions` row is the immutable snapshot. The server also stamps the current Privacy Policy (`JRY-PRIVACY-v1.0`) and Terms (`JRY-TC-v1.0`) versions on the acceptance and on the customer profile. After accept, the customer uploads identity documents, then submits the draft request before checkout.
+
+An administrator can finish a customer draft on `/admin/rentals/[id]/continue`, change pickup date, return date, and pickup time (including a shop time that has already passed today), upload the government ID and selfie there, and have the customer agree and sign on that page. Continue also auto-creates a guest `/waivers/sign/{uuid}?token=` link the shop can copy even after the waiver is signed. That public page always shows the Equipment Rental Agreement. Unsigned rentals get the acknowledgments, signature pad, and I agree and sign button. After it is signed, the form is locked and the customer can still upload ID photos without an account. An administrator can change that signed status back to unsigned on an open rental (`draft` through `ready_for_pickup`) so they can agree and sign again; the previous signature is kept in the audit log, not in the rental. Continue also shows an admin-only View signed waiver button. Customers cannot open that signed PDF. The raw token is never stored; `rental_waiver_invites` keeps a sha256 hash only. The invite expires after 72 hours. Signing uses the token once; the same link can still accept ID photos until it expires. Sending a new invite expires unused links for that rental. Guest accept stamps the rental owner’s profile and marks the invite used.
+
+**Continue body:** startsOn, endsOn, pickupTime, quantity, firstName, lastName, phone?, notes?  
+**Admin quote:** `POST /api/admin/rentals/quote` uses the same window as continue and does not reject a pickup time that has already passed today. Public `POST /api/rentals/quote` still requires a later pickup time.  
+**Invite body:** email?  
+**Rate limit:** 80 reads / minute / IP; 20 accepts / minute / user; 40 invite reads / minute / IP; 20 invite accepts / minute / IP; 12 guest identity uploads / minute / IP; 20 admin invites / minute / admin; 20 admin in-person accepts / minute / admin; 20 admin waiver resets / minute / admin; 40 admin publishes / minute / admin; 20 PDF downloads / minute / admin
 
 ### Privacy Policy
 
@@ -236,7 +253,7 @@ Rental payloads include `payments` (`uuid`, amount, currency, provider, status, 
 
 ### Payments
 
-Customers see active bank and QR methods from `GET /api/payment-methods` and send the rental total there. Server-created intents remain available for a future live adapter. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request are required. Status changes only from a verified webhook or a server-side provider retrieve.
+Customers see active bank and QR methods from `GET /api/payment-methods` and send the rental total there. Server-created intents remain available for a future live adapter. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request are required for customer checkout. An administrator can also `POST /api/admin/rentals/[id]/paid` after the waiver and identity are on file; that writes a paid shop payment and records the rental in sales. Customer payment status otherwise changes only from a verified webhook or a server-side provider retrieve.
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -260,7 +277,7 @@ Admins configure GCash, Maya, bank transfer, or similar methods and upload a QR 
 | GET | `/api/admin/payment-methods` | All methods |
 | POST | `/api/admin/payment-methods` | Create method |
 | PATCH | `/api/admin/payment-methods/[uuid]` | Update method |
-| POST | `/api/admin/payment-methods/[uuid]/qr` | Multipart `file` (JPG/PNG/WebP, 5 MB) |
+| POST | `/api/admin/payment-methods/[uuid]/qr` | Multipart `file` (JPG/PNG/WebP/HEIC, 15 MB). Server compresses to JPEG before S3 |
 | DELETE | `/api/admin/payment-methods/[uuid]/qr` | Remove QR image and storage object |
 | GET | `/api/payment-methods` | Active methods for signed-in customers |
 
@@ -292,22 +309,28 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products |
-| GET | `/api/admin/calendar` | Rentals and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila |
+| GET | `/api/admin/calendar` | Rentals (including drafts) and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila. Days use pickup/return windows so a return morning still shows as booked. |
 | GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
 | GET | `/api/admin/settings` | Business profile for receipts |
 | PATCH | `/api/admin/settings` | Update name, contact, and policy copy. Currency and timezone stay PHP / Asia/Manila |
 | GET | `/api/admin/maintenance` | Maintenance toggle, title, explanation, and images |
 | PATCH | `/api/admin/maintenance` | Enable or disable the public maintenance page |
-| POST | `/api/admin/maintenance/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP, 5 MB) |
+| POST | `/api/admin/maintenance/images` | Multipart `file` (one or more) + `alt` (JPG/PNG/WebP/HEIC, 15 MB). Server compresses to JPEG before S3 |
 | DELETE | `/api/admin/maintenance/images/[uuid]` | Remove image and storage object |
 | GET | `/api/admin/audit-logs` | Append-only audit trail. Search action/entity/public id. Paginated |
 | GET | `/api/admin/rentals` | All rentals, search code, status, pagination |
 | GET | `/api/admin/rentals/[id]` | By uuid or code |
+| POST | `/api/admin/rentals/quote` | Admin pricing for continue. Allows a pickup time that has already passed today. Occupying windows still block `canFulfill` |
 | DELETE | `/api/admin/rentals/[id]` | Permanently delete a rental by uuid or code. Removes items, payments, receipts, waiver, identity files, and status history. Admin only, audited |
 | GET | `/api/admin/vouchers` | Search code/name, status, pagination |
 | POST | `/api/admin/vouchers` | Create a percent or fixed discount code. Blank `code` is generated as `JRY-XXXXXX` |
 | PATCH | `/api/admin/vouchers/[uuid]` | Update name, code, amounts, limits, dates, or status |
+| PATCH | `/api/admin/rentals/[id]/continue` | Finish a customer `draft`. Requotes dates, pickup time, and quantity. Today’s past shop times are allowed. Stays `draft`. Audited |
+| POST | `/api/admin/rentals/[id]/waiver-invite` | Email or copy a one-time guest waiver link. Audited |
+| POST | `/api/admin/rentals/[id]/waiver` | Record an in-person agree-and-sign on the continue form. Audited |
+| POST | `/api/admin/rentals/[id]/identity` | Admin ID and selfie upload for `draft`/`pending`. No waiver required. Compressed JPEG on S3 |
 | POST | `/api/admin/rentals/[id]/confirm` | `pending` → `awaiting_payment`, or `approved` when a voucher covers the full total. Dates stay reserved. Audited |
+| POST | `/api/admin/rentals/[id]/paid` | Admin records a shop payment (`cash`, `gcash`, `maya`, or `bank`). Creates a paid `payment_transactions` row so the rental appears in sales. Moves `draft`/`pending`/`awaiting_payment` to `paid` after waiver and identity are on file. Audited |
 | POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, or `awaiting_payment` when a voucher covers the full total. Audited |
 | GET | `/api/admin/customers` | Customer profiles and rental counts |
 | GET | `/api/admin/system-users` | Profiles with `role = admin` |
@@ -321,7 +344,7 @@ Approve is allowed after payment is `paid`, or when a voucher brings the rental 
 
 ### Site maintenance
 
-Public `GET /api/maintenance` returns `{ enabled, title, message, images, products }` with public image URLs, product slugs, and `uuid` values — never storage paths or database ids. `products` is the three storefront kits (Starlink Mini, DJI Air 3, DJI Osmo 360). `POST /api/maintenance/chat` accepts `{ messages: [{ role, content }] }` and returns `{ reply }`. The last message must be from the visitor. If they name a kit and a date or a number of days, the server quotes live availability and PHP totals through the same rental quote path as booking. Public storefront pages render a bottom-right chat-support widget; the maintenance page keeps an in-page chat. When `GROQ_API_KEY` is set, the server uses Groq's free Llama model; otherwise it answers from JRY business knowledge. Paid OpenAI models are not used. When `enabled` is true, visitors are sent to `/maintenance` and other public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, and payment webhook routes stay available.
+Public `GET /api/maintenance` returns `{ enabled, title, message, images, products }` with public image URLs, product slugs, and `uuid` values — never storage paths or database ids. `products` is the three storefront kits (Starlink Mini, DJI Air 3, DJI Osmo 360). `POST /api/maintenance/chat` accepts `{ messages: [{ role, content }] }` and returns `{ reply }`. The last message must be from the visitor. If they name a kit — including JBL and other catalog names — and a date, tomorrow, the next day, or a number of days, or say they want to book that kit, the server checks live availability and PHP totals through the same rental quote path as booking. Public storefront pages render a bottom-right chat-support widget; the maintenance page keeps an in-page chat. When `GROQ_API_KEY` is set, the server uses Groq's free Llama model; otherwise it answers from JRY business knowledge. Paid OpenAI models are not used. When `enabled` is true, visitors are sent to `/maintenance` and other public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, payment webhook, and public waiver-invite routes stay available.
 
 **Rate limit:** 20 setting writes / minute / admin; 40 image writes / minute / admin; 20 chat messages / minute / IP
 

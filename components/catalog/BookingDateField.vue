@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { CalendarDate, parseDate } from '@internationalized/date'
 import type { DateValue } from '@internationalized/date'
-import type { AvailabilityCalendar } from '~/types/availability'
 import { rangeIncludesUnavailableDates } from '~/utils/availability'
 import { calendarDateInZone, formatBookingDate } from '~/utils/datetime'
 
@@ -15,58 +14,39 @@ const props = defineProps<{
   disabled?: boolean
   min?: string
   until?: string
+  flexible?: boolean
 }>()
 
 const today = calendarDateInZone()
 const minDate = computed(() => props.min || today)
-const canLoad = computed(() => Boolean(props.productUuid || props.productSlug))
-const calendar = ref<AvailabilityCalendar | null>(null)
+const { calendar, enabled: canLoad } = useAvailabilityCalendar(() => ({
+  productUuid: props.productUuid,
+  productSlug: props.productSlug,
+  quantity: props.quantity,
+}))
 
-async function loadCalendar() {
-  if (!canLoad.value) {
-    calendar.value = null
-    return
-  }
-
-  try {
-    calendar.value = await $fetch<AvailabilityCalendar>('/api/availability/calendar', {
-      query: {
-        quantity: props.quantity ?? 1,
-        ...(props.productUuid ? { productUuid: props.productUuid } : {}),
-        ...(props.productSlug ? { productSlug: props.productSlug } : {}),
-      },
-    })
-  }
-  catch {
-    calendar.value = null
-  }
-}
-
-watch(
-  () => [props.productUuid, props.productSlug, props.quantity] as const,
-  () => {
-    void loadCalendar()
-  },
-  { immediate: true },
-)
-
-const blocked = computed(() => new Set((calendar.value?.unavailableDates ?? []).map(date => date.slice(0, 10))))
-const calendarKey = computed(() => [...blocked.value].join(','))
+const closed = computed(() => new Set((calendar.value?.unavailableDates ?? []).map(date => date.slice(0, 10))))
+const booked = computed(() => new Set((calendar.value?.bookedDates ?? []).map(date => date.slice(0, 10))))
+const calendarKey = computed(() => `${[...closed.value].join(',')}|${[...booked.value].join(',')}`)
 
 function dateKey(date: DateValue) {
   return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
 }
 
-function isBooked(key: string) {
-  return blocked.value.has(key)
+function isClosed(key: string) {
+  return closed.value.has(key)
+}
+
+function hasBooking(key: string) {
+  return booked.value.has(key)
 }
 
 function isBlockedRange(key: string) {
-  if (props.min && rangeIncludesUnavailableDates(props.min, key, blocked.value)) {
+  if (props.min && rangeIncludesUnavailableDates(props.min, key, closed.value)) {
     return true
   }
 
-  if (props.until && key <= props.until && rangeIncludesUnavailableDates(key, props.until, blocked.value)) {
+  if (props.until && key <= props.until && rangeIncludesUnavailableDates(key, props.until, closed.value)) {
     return true
   }
 
@@ -74,12 +54,20 @@ function isBlockedRange(key: string) {
 }
 
 function isDateUnavailable(date: DateValue) {
-  return isBooked(dateKey(date))
+  return props.flexible ? false : isClosed(dateKey(date))
 }
 
 function isDateDisabled(date: DateValue) {
   const key = dateKey(date)
-  return key < minDate.value || isBooked(key) || isBlockedRange(key)
+  if (key < minDate.value) {
+    return true
+  }
+
+  if (props.flexible) {
+    return false
+  }
+
+  return isClosed(key) || isBlockedRange(key)
 }
 
 const calendarValue = computed({
@@ -91,18 +79,22 @@ const calendarValue = computed({
       return
     }
     const key = dateKey(value)
-    if (key >= minDate.value && !isBooked(key) && !isBlockedRange(key)) {
-      model.value = key
+    if (key < minDate.value) {
+      return
     }
+    if (!props.flexible && (isClosed(key) || isBlockedRange(key))) {
+      return
+    }
+    model.value = key
   },
 })
 
-watch([blocked, minDate, () => props.until], () => {
-  if (!model.value) {
+watch([closed, minDate, () => props.until], () => {
+  if (props.flexible || !model.value) {
     return
   }
 
-  if (isBooked(model.value) || model.value < minDate.value || isBlockedRange(model.value)) {
+  if (isClosed(model.value) || model.value < minDate.value || isBlockedRange(model.value)) {
     model.value = ''
   }
 })
@@ -137,8 +129,15 @@ const displayValue = computed(() => model.value ? formatBookingDate(model.value)
             :is-date-unavailable="isDateUnavailable"
           >
             <template #day="{ day }">
-              <span :class="isBooked(dateKey(day)) ? 'text-stone-400 line-through' : ''">
-                {{ day.day }}
+              <span class="relative inline-flex flex-col items-center">
+                <span :class="isClosed(dateKey(day)) ? 'text-stone-400 line-through' : ''">
+                  {{ day.day }}
+                </span>
+                <span
+                  v-if="hasBooking(dateKey(day))"
+                  class="mt-0.5 size-1.5 rounded-full"
+                  :class="isClosed(dateKey(day)) ? 'bg-stone-400' : 'bg-lumen-700'"
+                />
               </span>
             </template>
           </UCalendar>
@@ -146,9 +145,11 @@ const displayValue = computed(() => model.value ? formatBookingDate(model.value)
             v-if="canLoad"
             class="mt-2 px-2 pb-1 text-xs text-stone-500"
           >
-            {{ blocked.size
-              ? 'Gray crossed-out days are already booked. Choose another date.'
-              : 'Free days can still be booked. Booked days stay disabled.' }}
+            {{ booked.size
+              ? (flexible
+                ? 'A dot means that day already has a booking. You can still choose it; the server will check if that time is free.'
+                : 'A dot means that day already has a booking. Crossed-out days have no free pickup time.')
+              : 'Days stay open when a pickup time is still free after the previous return.' }}
           </p>
         </div>
       </template>

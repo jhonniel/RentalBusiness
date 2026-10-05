@@ -127,6 +127,7 @@ describe('maintenance access', () => {
     expect(isMaintenanceBypassPath('/admin/settings')).toBe(true)
     expect(isMaintenanceBypassPath('/login')).toBe(true)
     expect(isMaintenanceBypassPath('/maintenance')).toBe(true)
+    expect(isMaintenanceBypassPath('/waivers/sign/11111111-1111-4111-8111-111111111111')).toBe(true)
     expect(isMaintenanceBypassPath('/products')).toBe(false)
     expect(isMaintenanceBypassPath('/dashboard')).toBe(false)
 
@@ -136,13 +137,16 @@ describe('maintenance access', () => {
     expect(isMaintenanceBypassApiPath('/api/auth/me')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/payments/webhook')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/cookie-policy/current')).toBe(true)
+    expect(isMaintenanceBypassApiPath('/api/waivers/invites/11111111-1111-4111-8111-111111111111')).toBe(true)
+    expect(isMaintenanceBypassApiPath('/api/waivers/current')).toBe(false)
     expect(isMaintenanceBypassApiPath('/api/products')).toBe(false)
     expect(isMaintenanceBypassApiPath('/api/rentals')).toBe(false)
   })
 
-  it('accepts JPG, PNG, and WebP uploads', () => {
+  it('accepts JPG, PNG, WebP, and HEIC uploads', () => {
     expect(isMaintenanceImageType('image/jpeg')).toBe(true)
     expect(isMaintenanceImageType('image/png')).toBe(true)
+    expect(isMaintenanceImageType('image/heic')).toBe(true)
     expect(isMaintenanceImageType('application/pdf')).toBe(false)
   })
 })

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { RentalListResponse } from '~/types/rental'
 import { RENTAL_STATUSES } from '~/utils/constants'
-import { formatBusinessDate } from '~/utils/datetime'
+import { formatBusinessDateTime } from '~/utils/datetime'
+import { canContinueAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
 
 definePageMeta({
   layout: 'admin',
@@ -75,7 +76,7 @@ async function removeRental(uuid: string) {
         Rentals
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Confirm new requests, review payment, approve paid rentals, or delete a request.
+        Finish a customer draft, send a waiver sign link, confirm new requests, or delete a request.
       </p>
     </div>
 
@@ -110,6 +111,13 @@ async function removeRental(uuid: string) {
       v-if="unavailable"
       title="Rentals are not connected"
       description="Add live Supabase credentials to load rental requests."
+    />
+
+    <AdminNotice
+      v-else-if="error"
+      title="Rentals could not be loaded"
+      description="Refresh the page, then try again."
+      tone="alert"
     />
 
     <div
@@ -149,12 +157,21 @@ async function removeRental(uuid: string) {
             </p>
           </div>
           <p class="text-sm text-stone-500">
-            {{ formatBusinessDate(rental.startsOn) }} – {{ formatBusinessDate(rental.endsOn) }}
+            {{ formatBusinessDateTime(rental.pickupAt) }} – {{ formatBusinessDateTime(rental.returnAt) }}
           </p>
           <span class="text-sm">{{ formatMoney(rental.totalAmount) }}</span>
           <StatusBadge :status="rental.status" />
         </NuxtLink>
         <div class="flex flex-wrap items-center justify-end gap-2">
+          <UButton
+            v-if="canOpenAdminContinue(rental)"
+            :to="`/admin/rentals/${rental.uuid}/continue`"
+            color="neutral"
+            variant="outline"
+            size="sm"
+          >
+            {{ canContinueAdminRental(rental) ? 'Continue' : 'Waiver' }}
+          </UButton>
           <template v-if="deleteCode === rental.code">
             <UButton
               color="error"

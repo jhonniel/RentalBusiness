@@ -1,7 +1,7 @@
 import type { ReceiptSnapshot } from '~/types/receipt'
 import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL } from './constants'
 import { formatMoney } from './currency'
-import { formatBusinessDate } from './datetime'
+import { formatBusinessDate, formatBusinessDateTime } from './datetime'
 import { escapeHtml } from './email'
 
 function publicOrigin() {
@@ -126,6 +126,39 @@ export function rentalReminderEmail(input: {
 
   return {
     subject: `${APP_NAME} ${heading}`,
+    html,
+  }
+}
+
+export function waiverInviteEmail(input: {
+  customerName: string
+  rentalCode: string
+  startsOn: string
+  endsOn: string
+  waiverUrl: string
+  expiresAt: string
+}) {
+  const html = layout(`Sign the rental waiver for ${input.rentalCode}`, `
+    <p style="margin:0 0 16px;font-size:16px;">Hi ${escapeHtml(input.customerName)},</p>
+    <p style="margin:0 0 16px;color:#57534e;line-height:1.6;">
+      JRY Rentals prepared rental ${escapeHtml(input.rentalCode)} for
+      ${escapeHtml(formatBusinessDate(input.startsOn))} to ${escapeHtml(formatBusinessDate(input.endsOn))}.
+      Open the link to read the Equipment Rental Agreement and sign it.
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="${escapeHtml(input.waiverUrl)}" style="display:inline-block;background:#0f1c17;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;">
+        Agree and sign the waiver
+      </a>
+    </p>
+    <p style="margin:0 0 16px;color:#57534e;font-size:14px;line-height:1.6;">
+      This link expires on ${escapeHtml(formatBusinessDateTime(input.expiresAt))} and can be used once.
+      If the button does not work, copy this address:
+    </p>
+    <p style="margin:0;color:#325348;font-size:13px;word-break:break-all;">${escapeHtml(input.waiverUrl)}</p>
+  `)
+
+  return {
+    subject: `Sign the ${APP_NAME} waiver for ${input.rentalCode}`,
     html,
   }
 }

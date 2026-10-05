@@ -1,37 +1,61 @@
 <script setup lang="ts">
 import type { AvailabilityResponse } from '~/types/availability'
 import { calendarDateInZone } from '~/utils/datetime'
+import { addCalendarDays } from '~/utils/expense'
+import {
+  DEFAULT_PICKUP_TIME,
+  defaultRentalReturnOn,
+  formatRentalReturnLabel,
+  resolveRentalWindow,
+} from '~/utils/rental-window'
 
 const props = defineProps<{
   productUuid: string
   productSlug: string
   initialStartsOn?: string
   initialEndsOn?: string
+  initialPickupTime?: string
 }>()
 
 const { isAuthenticated } = useAuth()
 const today = calendarDateInZone()
 const startsOn = ref(props.initialStartsOn || today)
-const endsOn = ref(props.initialEndsOn || today)
+const pickupTime = ref(props.initialPickupTime || DEFAULT_PICKUP_TIME)
+const endsOn = ref(props.initialEndsOn && props.initialEndsOn > startsOn.value
+  ? props.initialEndsOn
+  : defaultRentalReturnOn(startsOn.value))
 const pending = ref(false)
 const formError = ref('')
 const result = ref<AvailabilityResponse | null>(null)
 
-watch([startsOn, endsOn], () => {
+const window = computed(() => resolveRentalWindow({
+  startsOn: startsOn.value,
+  endsOn: endsOn.value,
+  pickupTime: pickupTime.value,
+}))
+
+watch(startsOn, (value, previous) => {
+  if (endsOn.value <= value || (previous && endsOn.value === defaultRentalReturnOn(previous))) {
+    endsOn.value = defaultRentalReturnOn(value)
+  }
+})
+
+watch([startsOn, endsOn, pickupTime], () => {
   result.value = null
   formError.value = ''
 })
 
 const rentQuery = computed(() => ({
   product: props.productSlug,
-  startsOn: startsOn.value,
-  endsOn: endsOn.value,
+  startsOn: window.value.startsOn,
+  endsOn: window.value.endsOn,
+  pickupTime: window.value.pickupTime,
   quantity: '1',
 }))
 
 const rentTo = computed(() => {
   if (!isAuthenticated.value) {
-    const next = `/rentals/new?product=${props.productSlug}&startsOn=${startsOn.value}&endsOn=${endsOn.value}&quantity=1`
+    const next = `/rentals/new?product=${props.productSlug}&startsOn=${window.value.startsOn}&endsOn=${window.value.endsOn}&pickupTime=${encodeURIComponent(window.value.pickupTime)}&quantity=1`
     return { path: '/login', query: { redirect: next } }
   }
 
@@ -43,8 +67,9 @@ async function loadAvailability() {
     query: {
       productUuid: props.productUuid,
       productSlug: props.productSlug,
-      startsOn: startsOn.value,
-      endsOn: endsOn.value,
+      startsOn: window.value.startsOn,
+      endsOn: window.value.endsOn,
+      pickupTime: window.value.pickupTime,
       quantity: 1,
     },
   })
@@ -91,6 +116,10 @@ async function goRent() {
     pending.value = false
   }
 }
+
+function tomorrow(date: string) {
+  return addCalendarDays(date, 1)
+}
 </script>
 
 <template>
@@ -104,30 +133,43 @@ async function goRent() {
         Check availability
       </h2>
       <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
-        Confirm this kit is free for the days you need it.
+        Choose a pickup time. Return is automatically the same time on the last day.
       </p>
     </div>
 
     <div class="mt-5 grid gap-4 sm:grid-cols-2">
       <BookingDateField
         v-model="startsOn"
-        label="Start date"
+        label="Pickup date"
         :product-uuid="productUuid"
         :product-slug="productSlug"
         :quantity="1"
         :until="endsOn || undefined"
         :disabled="pending"
       />
+      <BookingPickupTime
+        v-model="pickupTime"
+        :product-uuid="productUuid"
+        :product-slug="productSlug"
+        :starts-on="startsOn"
+        :ends-on="endsOn"
+        :disabled="pending"
+      />
       <BookingDateField
         v-model="endsOn"
-        label="End date"
+        label="Return date"
         :product-uuid="productUuid"
         :product-slug="productSlug"
         :quantity="1"
-        :min="startsOn || undefined"
+        :min="tomorrow(startsOn)"
         :disabled="pending"
       />
     </div>
+
+    <p class="mt-3 text-sm leading-6 text-[#12201a]">
+      Return {{ formatRentalReturnLabel(window.endsOn, window.pickupTime) }}
+      · {{ window.days }} day{{ window.days === 1 ? '' : 's' }}
+    </p>
 
     <AuthAlert
       v-if="formError"
@@ -142,10 +184,10 @@ async function goRent() {
       role="status"
     >
       <p v-if="result.canFulfill">
-        Available for these dates. {{ result.available }} of {{ result.capacity }} units are free.
+        Available from pickup through return. {{ result.available }} of {{ result.capacity }} units are free.
       </p>
       <p v-else>
-        Those dates are not fully free. {{ result.available }} of {{ result.capacity }} units remain.
+        That pickup and return window is not fully free. {{ result.available }} of {{ result.capacity }} units remain.
       </p>
     </div>
 
@@ -178,8 +220,8 @@ async function goRent() {
     </div>
     <p class="mt-3 text-xs leading-5 text-[#5b6b64]">
       {{ isAuthenticated
-        ? 'After you confirm dates, you can submit a rental request.'
-        : 'Sign in to send a rental request for these dates.' }}
+        ? 'After you confirm pickup and return, you can submit a rental request.'
+        : 'Sign in to send a rental request for this pickup and return.' }}
     </p>
   </form>
 </template>

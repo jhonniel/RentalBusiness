@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { formatMoney } from '../../utils/currency'
-import { firstWaiverAcceptance, isSignatureDataUrl, renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion } from '../../utils/waiver'
-import { acceptWaiverSchema, publishWaiverSchema } from '../../utils/waiver-validation'
+import { firstWaiverAcceptance, isSignatureDataUrl, renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion, adminSignedWaiverPath, adminSignedWaiverUrl } from '../../utils/waiver'
+import { acceptAdminWaiverSchema, acceptWaiverSchema, publishWaiverSchema } from '../../utils/waiver-validation'
 
 function signatureData(length = 2600) {
   return `data:image/png;base64,${'A'.repeat(length)}==`
@@ -35,6 +35,19 @@ describe('waiver validation', () => {
     expect(isSignatureDataUrl('data:image/png;base64,AAAA')).toBe(false)
     expect(isSignatureDataUrl(`data:image/png;base64,${'A'.repeat(260_000)}==`)).toBe(false)
     expect(isSignatureDataUrl(signatureData())).toBe(true)
+    expect(acceptAdminWaiverSchema.parse({
+      waiverVersionUuid: '88888888-8888-4888-8888-888888888888',
+      signerName: 'Kimberly Monta',
+      signatureData: signatureData(),
+    })).toMatchObject({
+      signerName: 'Kimberly Monta',
+    })
+    expect(acceptAdminWaiverSchema.safeParse({
+      waiverVersionUuid: '88888888-8888-4888-8888-888888888888',
+      signerName: 'Kimberly Monta',
+      signatureData: signatureData(),
+      rentalId: 9,
+    }).success).toBe(false)
   })
 
   it('requires a rental identifier and a unique version string', () => {
@@ -55,6 +68,15 @@ describe('waiver validation', () => {
       title: 'Equipment Rental Agreement & Liability Waiver',
       body: `${'A'.repeat(21_000)}`,
     }).success).toBe(true)
+  })
+
+  it('builds an admin-only signed waiver URL from the rental uuid', () => {
+    expect(adminSignedWaiverPath('66666666-6666-4666-8666-666666666666')).toBe(
+      '/admin/rentals/66666666-6666-4666-8666-666666666666/waiver',
+    )
+    expect(adminSignedWaiverUrl('https://jry.test/', '66666666-6666-4666-8666-666666666666')).toBe(
+      'https://jry.test/admin/rentals/66666666-6666-4666-8666-666666666666/waiver',
+    )
   })
 })
 

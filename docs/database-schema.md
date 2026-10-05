@@ -54,7 +54,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 **product_images**
 
 - `id`, `uuid`, `product_id`, `storage_path`, `alt`, `sort_order`
-- `storage_path` is an object key in the public Supabase Storage `product-images` bucket (S3). Public APIs return the Storage URL, never a local file path.
+- `storage_path` is an object key in the public Supabase Storage `product-images` bucket (S3). Uploads are compressed to JPEG on the server before they are written. Public APIs return the Storage URL, never a local file path.
 
 **product_blocked_dates**
 
@@ -83,16 +83,17 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `products` 1 → many `rental_items` (no cascade — rental history stays)
 - Admin product delete is blocked when `rental_items` or `rental_asset_assignments` exist. Otherwise unused assets and storage objects are removed, then the product row is deleted.
 - `rental_requests` 1 → many `rental_asset_assignments`
-- Admin rental delete removes the request and cascaded children (`rental_items`, assignments, status history, identity, waiver acceptance, payments, receipts, and voucher redemptions). Identity files in `private-documents` are removed first.
+- Admin rental delete removes the request and cascaded children (`rental_items`, assignments, status history, identity, waiver acceptance, waiver invites, payments, receipts, and voucher redemptions). Identity files in `private-documents` are removed first.
 
 ### Rentals
 
 **rental_requests**
 
-- `id`, `uuid` (public rental number source), `code` (human-readable)
+- `id`, `uuid` (public rental number source), `code` (`JRY-YYYYMMDD-#####`)
 - `customer_id` → profiles
 - `status` (see rental statuses below)
-- `starts_on`, `ends_on` (date, business calendar)
+- `starts_on`, `ends_on` (date, business calendar — pickup date and return date)
+- `pickup_at`, `return_at` (timestamptz UTC). Return is the same Asia/Manila clock time as pickup on the return date. A 5-day rental picked up at 1:00 PM is due back at 1:00 PM on the fifth day after pickup.
 - `subtotal`, `deposit_amount`, `discount_amount`, `tax_amount`, `total_amount`
 - `notes`, `admin_notes`
 - `created_at`, `updated_at`
@@ -114,16 +115,21 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 **Relationship:** `rental_requests` 1 → 0..1 `rental_identity_verifications`
 
+**product_booked_window(product_id, pickup_at, return_at)**
+
+- SQL function. Half-open timestamp overlap (`pickup_at < return_at` of the other window). Counts only statuses returned by `rental_occupies_inventory`.
+- A kit returning at 1:00 PM can be picked up at 1:00 PM.
+
 **product_booked_quantity(product_id, starts_on, ends_on)**
 
-- SQL function, not a table. Inclusive date overlap. Counts only statuses returned by `rental_occupies_inventory`.
+- SQL function, not a table. Date window wrapper around `product_booked_window` for full Manila calendar days. Counts only statuses returned by `rental_occupies_inventory`.
 - Anon and authenticated may `execute` it (Phase 5). The function is security definer so callers do not read other customers' rental rows.
 - Application availability is `quantity - damaged - maintenance - lost - booked`. Do not use `available_quantity` alone.
 
 **product_occupying_ranges(product_id, starts_on, ends_on)**
 
-- Returns occupying `starts_on`, `ends_on`, and `quantity` for calendar blocking.
-- Same overlap and occupying-status rules as `product_booked_quantity`.
+- Returns occupying `starts_on`, `ends_on`, `pickup_at`, `return_at`, and `quantity` for calendar and pickup-time blocking.
+- Overlap is half-open on the pickup/return instants. A return day stays bookable after the kit is due back.
 - Does not return rental, customer, or other identifiers.
 
 **product_blocked_ranges(product_id, starts_on, ends_on)**
@@ -156,9 +162,17 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 - `terms_version` — the Terms & Conditions version accepted with that rental
 - Public APIs omit `id`, `signature_data`, `ip_address`, and `user_agent`. Those columns stay on the row for audit.
 
+**rental_waiver_invites**
+
+- `id`, `uuid` (public invite id), `rental_id` → rental_requests (`ON DELETE CASCADE`)
+- `token_hash` — sha256 hex of the one-time token. The raw token is never stored
+- `email`, `expires_at`, `used_at`, `created_by` → profiles
+- Forced RLS. Anon and authenticated have no grants. Service-role only.
+
 **Relationships**
 
 - `rental_requests` 1 → 1 `waiver_acceptances` (for a completed flow)
+- `rental_requests` 1 → many `rental_waiver_invites`
 - `waiver_versions` 1 → many `waiver_acceptances`
 
 ### Vouchers

@@ -88,6 +88,21 @@ export async function listProducts(client: Client, filters: {
   return { rows: data ?? [], total: count ?? 0 }
 }
 
+export async function listPublicProductNames(client: Client) {
+  const { data, error } = await client
+    .from('products')
+    .select('slug, name')
+    .in('status', ['active', 'coming_soon'])
+    .order('name')
+    .limit(50)
+
+  if (error) {
+    throw new AppError('We could not load products.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
 export async function findProductByUuid(client: Client, uuid: string) {
   const { data, error } = await client
     .from('products')

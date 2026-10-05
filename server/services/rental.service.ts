@@ -1,14 +1,15 @@
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { CreateRentalInput, RentalQuoteQuery } from '../../utils/rental-validation'
+import type { AdminRentalQuoteQuery, CreateRentalInput, RentalQuoteQuery } from '../../utils/rental-validation'
 import type { PublicRental, RentalQuote } from '../../types/rental'
 import { RENTAL_REQUEST_NOTIFY_EMAIL, isBookableProductStatus } from '../../utils/constants'
 import { evaluateAvailability } from '../../utils/availability'
 import { EMAIL_TEMPLATES } from '../../utils/email'
 import { rentalSubmittedStaffEmail } from '../../utils/email-templates'
 import { isPastBusinessDate } from '../../utils/datetime'
-import { inclusiveRentalDays, quoteRentalLine } from '../../utils/pricing'
+import { quoteRentalLine } from '../../utils/pricing'
+import { resolveRentalWindow } from '../../utils/rental-window'
 import { isRentalCode, toPublicRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { isUuid } from '../../utils/slug'
@@ -106,17 +107,21 @@ async function loadActiveProduct(client: Client, query: { productUuid?: string, 
   return row
 }
 
-async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<RentalQuote & {
+export async function buildQuote(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery): Promise<RentalQuote & {
   productId: number
   hasBlockedDates: boolean
 }> {
   const product = await loadActiveProduct(client, query)
-  if (isPastBusinessDate(query.startsOn)) {
+  const window = resolveRentalWindow(query)
+  if (isPastBusinessDate(window.startsOn)) {
     throw new AppError('Those dates are in the past.', 422, ERROR_CODES.VALIDATION_ERROR)
   }
 
-  const booked = await getBookedQuantity(client, product.id, query.startsOn, query.endsOn)
-  const blockedRanges = await listBlockedRanges(client, product.id, query.startsOn, query.endsOn)
+  const booked = await getBookedQuantity(client, product.id, window.startsOn, window.endsOn, {
+    pickupAt: window.pickupAt,
+    returnAt: window.returnAt,
+  })
+  const blockedRanges = await listBlockedRanges(client, product.id, window.startsOn, window.endsOn)
   const hasBlockedDates = blockedRanges.length > 0
   const availability = evaluateAvailability({
     quantity: product.quantity,
@@ -127,7 +132,7 @@ async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<Rent
     requestedQuantity: query.quantity,
     hasBlockedDates,
   })
-  const days = inclusiveRentalDays(query.startsOn, query.endsOn)
+  const days = window.days
   const line = quoteRentalLine({
     dailyPrice: Number(product.daily_price),
     weeklyPrice: product.weekly_price === null ? null : Number(product.weekly_price),
@@ -144,8 +149,11 @@ async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<Rent
       name: product.name,
       sku: product.sku,
     },
-    startsOn: query.startsOn,
-    endsOn: query.endsOn,
+    startsOn: window.startsOn,
+    endsOn: window.endsOn,
+    pickupTime: window.pickupTime,
+    pickupAt: window.pickupAt,
+    returnAt: window.returnAt,
     days: line.days,
     quantity: line.quantity,
     dailyPrice: line.dailyPrice,
@@ -160,7 +168,7 @@ async function buildQuote(client: Client, query: RentalQuoteQuery): Promise<Rent
   }
 }
 
-export async function quoteRental(client: Client, query: RentalQuoteQuery) {
+export async function quoteRental(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery) {
   const { productId: _productId, hasBlockedDates: _hasBlockedDates, ...quote } = await buildQuote(client, query)
   return quote
 }
@@ -200,8 +208,10 @@ export async function createRental(
 
   const created = await insertRentalRequest(client, {
     customer_id: profile.profileId,
-    starts_on: input.startsOn,
-    ends_on: input.endsOn,
+    starts_on: quote.startsOn,
+    ends_on: quote.endsOn,
+    pickup_at: quote.pickupAt,
+    return_at: quote.returnAt,
     status: 'draft',
     subtotal: quote.subtotal,
     deposit_amount: quote.depositAmount,
@@ -304,6 +314,7 @@ export async function submitOwnRental(event: H3Event, client: Client, profileId:
     productUuid: item.product.uuid,
     startsOn: rental.startsOn,
     endsOn: rental.endsOn,
+    pickupTime: rental.pickupTime,
     quantity: item.quantity,
   })
 

@@ -4,6 +4,7 @@ export const EMAIL_TEMPLATES = {
   RENTAL_REMINDER_RETURN: 'rental.reminder.return',
   AUTH_SIGNUP_CONFIRM: 'auth.signup.confirm',
   RENTAL_SUBMITTED: 'rental.submitted',
+  RENTAL_WAIVER_INVITE: 'rental.waiver.invite',
 } as const
 
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[keyof typeof EMAIL_TEMPLATES]

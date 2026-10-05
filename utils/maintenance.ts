@@ -1,12 +1,13 @@
 import type { PublicMaintenanceImage, PublicMaintenanceProduct, PublicMaintenanceStatus } from '~/types/maintenance'
+import { IMAGE_UPLOAD_SOURCE_MAX_BYTES, IMAGE_UPLOAD_TYPES, isImageUploadType } from './image-upload'
 import { STORAGE_BUCKETS, publicStorageUrl } from './storage'
 import { STOREFRONT_KIT_PRODUCTS } from './storefront'
 
 export const DEFAULT_MAINTENANCE_TITLE = 'We\'ll be right back'
 export const DEFAULT_MAINTENANCE_MESSAGE = 'We\'re performing maintenance on the website. Please check back soon.'
 
-export const MAINTENANCE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
-export const MAINTENANCE_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+export const MAINTENANCE_IMAGE_TYPES = IMAGE_UPLOAD_TYPES
+export const MAINTENANCE_IMAGE_MAX_BYTES = IMAGE_UPLOAD_SOURCE_MAX_BYTES
 export const MAINTENANCE_IMAGE_MAX_UPLOAD = 12
 export const MAINTENANCE_PRODUCT_LIMIT = 3
 
@@ -19,6 +20,7 @@ const PAGE_BYPASS_PREFIXES = [
   '/confirm',
   '/accept-policies',
   '/maintenance',
+  '/waivers',
 ]
 
 const API_BYPASS_PREFIXES = [
@@ -31,6 +33,7 @@ const API_BYPASS_PREFIXES = [
   '/api/terms',
   '/api/privacy',
   '/api/cookie-policy',
+  '/api/waivers/invites',
 ]
 
 export interface MaintenanceRow {
@@ -61,7 +64,7 @@ export function isMaintenanceBypassApiPath(path: string) {
 }
 
 export function isMaintenanceImageType(value: string | undefined): value is typeof MAINTENANCE_IMAGE_TYPES[number] {
-  return Boolean(value && MAINTENANCE_IMAGE_TYPES.includes(value as typeof MAINTENANCE_IMAGE_TYPES[number]))
+  return isImageUploadType(value)
 }
 
 export function publicMaintenanceImageUrl(supabaseUrl: string, storagePath: string): string {

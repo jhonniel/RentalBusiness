@@ -28,6 +28,11 @@ export const sandboxCompleteSchema = z.object({
 
 export const paymentIdentifierSchema = z.string().uuid()
 
+export const markAdminPaidSchema = z.object({
+  paymentMethod: z.enum(['cash', 'gcash', 'maya', 'bank']).default('cash'),
+}).strict()
+
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>
 export type PaymentWebhookInput = z.infer<typeof paymentWebhookSchema>
 export type SandboxCompleteInput = z.infer<typeof sandboxCompleteSchema>
+export type MarkAdminPaidInput = z.infer<typeof markAdminPaidSchema>

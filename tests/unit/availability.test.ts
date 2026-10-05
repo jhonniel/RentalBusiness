@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   blockedDatesFromRanges,
   bookedQuantityFromRentals,
+  datesWithBookings,
   evaluateAvailability,
+  firstOpenPickupTime,
   mergeUnavailableDates,
   rangeIncludesUnavailableDates,
   rangeOverlapsBlockedDates,
   rentableCapacity,
   unavailableDates,
+  unavailablePickupTimes,
   type AvailabilityBooking,
 } from '../../utils/availability'
 import { addCalendarDays } from '../../utils/expense'
@@ -33,9 +36,10 @@ describe('availability query', () => {
     const today = calendarDateInZone()
     expect(availabilityQuerySchema.parse({
       productSlug: 'starlink-mini',
-      startsOn: today,
-      endsOn: today,
-    })).toMatchObject({ quantity: 1 })
+      startsOn: addCalendarDays(today, 1),
+      endsOn: addCalendarDays(today, 2),
+      pickupTime: '13:00',
+    })).toMatchObject({ quantity: 1, pickupTime: '13:00' })
 
     expect(availabilityQuerySchema.safeParse({
       productSlug: 'starlink-mini',
@@ -260,6 +264,61 @@ describe('overlap-aware booking totals', () => {
       startsOn: addCalendarDays(today, -1),
       endsOn: addCalendarDays(today, -1),
     }).success).toBe(false)
+  })
+
+  it('keeps the return day bookable after the kit is due back', () => {
+    expect(unavailableDates({
+      stock: {
+        quantity: 1,
+        damagedQuantity: 0,
+        maintenanceQuantity: 0,
+        lostQuantity: 0,
+      },
+      bookings: [booking({
+        quantity: 1,
+        startsOn: '2026-10-05',
+        endsOn: '2026-10-06',
+        pickupAt: '2026-10-05T05:00:00.000Z',
+        returnAt: '2026-10-06T05:00:00.000Z',
+      })],
+      productUuid: camera,
+      requestedQuantity: 1,
+      from: '2026-10-05',
+      to: '2026-10-07',
+    })).toEqual(['2026-10-05'])
+
+    expect(datesWithBookings({
+      bookings: [booking({
+        quantity: 1,
+        startsOn: '2026-10-05',
+        endsOn: '2026-10-06',
+        pickupAt: '2026-10-05T05:00:00.000Z',
+        returnAt: '2026-10-06T05:00:00.000Z',
+      })],
+      productUuid: camera,
+      from: '2026-10-05',
+      to: '2026-10-07',
+    })).toEqual(['2026-10-05', '2026-10-06'])
+  })
+
+  it('disables pickup times that overlap a live rental window', () => {
+    const taken = unavailablePickupTimes({
+      bookings: [booking({
+        quantity: 1,
+        startsOn: '2026-10-05',
+        endsOn: '2026-10-06',
+        pickupAt: '2026-10-05T05:00:00.000Z',
+        returnAt: '2026-10-06T05:00:00.000Z',
+      })],
+      productUuid: camera,
+      startsOn: '2026-10-06',
+      endsOn: '2026-10-07',
+    })
+
+    expect(taken).toContain('09:00')
+    expect(taken).toContain('12:30')
+    expect(taken).not.toContain('13:00')
+    expect(firstOpenPickupTime(taken)).toBe('13:00')
   })
 
   it('reduces capacity when units are in maintenance', () => {

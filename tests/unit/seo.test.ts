@@ -13,6 +13,7 @@ describe('site robots', () => {
     expect(isPrivatePath('/admin/reports')).toBe(true)
     expect(isPrivatePath('/dashboard')).toBe(true)
     expect(isPrivatePath('/maintenance')).toBe(true)
+    expect(isPrivatePath('/waivers/sign/11111111-1111-4111-8111-111111111111')).toBe(true)
     expect(siteRobots('/login')).toBe('noindex, nofollow')
     expect(siteRobots('/maintenance')).toBe('noindex, nofollow')
     expect(siteRobots('/accept-policies')).toBe('noindex, nofollow')

@@ -8,6 +8,7 @@ const PRIVATE_PREFIXES = [
   '/rentals/',
   '/receipts/',
   '/payments/',
+  '/waivers/',
 ]
 
 function isPrivatePath(path: string) {

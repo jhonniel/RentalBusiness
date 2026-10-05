@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
-import { receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail } from '../../utils/email-templates'
+import { receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
 import { isReceiptNumber, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
@@ -117,5 +117,19 @@ describe('email templates', () => {
     expect(staff.html).toContain('&lt;script&gt;')
     expect(staff.html).not.toContain('<script>alert(1)</script>')
     expect(staff.html).toContain('/admin/rentals/LUM-20260913-00001')
+
+    const invite = waiverInviteEmail({
+      customerName: '<script>alert(1)</script>',
+      rentalCode: 'LUM-20260913-00001',
+      startsOn: '2026-09-13',
+      endsOn: '2026-09-14',
+      waiverUrl: 'https://jryrentals.online/waivers/sign/11111111-1111-4111-8111-111111111111?token=secret',
+      expiresAt: '2026-10-08T00:00:00.000Z',
+    })
+    expect(invite.subject).toContain('LUM-20260913-00001')
+    expect(invite.html).toContain('Agree and sign the waiver')
+    expect(invite.html).toContain('/waivers/sign/11111111-1111-4111-8111-111111111111')
+    expect(invite.html).toContain('&lt;script&gt;')
+    expect(invite.html).not.toContain('<script>alert(1)</script>')
   })
 })

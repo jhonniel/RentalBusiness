@@ -1,18 +1,24 @@
 import type { RentalQuote } from '../types/rental'
-import { formatBookingDate, inclusiveDayCount } from './datetime'
+import { formatBookingDate } from './datetime'
 import { addCalendarDays } from './expense'
+import { DEFAULT_PICKUP_TIME, formatPickupClock, rentalPeriodDays } from './rental-window'
 import { formatMoney } from './currency'
 import { STOREFRONT_KIT_PRODUCTS } from './storefront'
 
 export const CHAT_QUOTE_MAX_DAYS = 90
 
 export interface ChatQuoteIntent {
-  action: 'none' | 'ask-kit' | 'quote'
+  action: 'none' | 'ask-kit' | 'ask-dates' | 'quote'
   slugs: string[]
   startsOn: string | null
   endsOn: string | null
   days: number | null
   quantity: number
+}
+
+export interface ChatKit {
+  slug: string
+  name: string
 }
 
 interface KitAlias {
@@ -24,7 +30,10 @@ const KIT_ALIASES: KitAlias[] = [
   { slug: 'starlink-mini', keywords: ['starlink mini', 'starlink', 'star link'] },
   { slug: 'dji-air-3', keywords: ['dji air 3', 'air 3', 'air3', 'drone'] },
   { slug: 'dji-osmo-360', keywords: ['dji osmo 360', 'osmo 360', 'osmo', 'action camera', '360 camera'] },
+  { slug: 'jbl-partybox-encore-essential-2', keywords: ['jbl', 'partybox', 'party box', 'speaker'] },
 ]
+
+const NAME_STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'plus', 'of', 'a', 'an'])
 
 const MONTHS: Record<string, number> = {
   january: 1,
@@ -75,8 +84,24 @@ const WEEKDAYS: Record<string, number> = {
 
 const PRICE_RE = /\b(how much|price|prices|cost|costs|rate|rates|peso|php|quote|deposit|fee|fees|total|amount|magkano)\b|₱/
 const AVAIL_RE = /\b(available|availability|free|stock|booked|booking|taken|reserved|occupied|vacant|open)\b|\bthat date\b|\bthose dates\b|\bthis date\b/
+const BOOK_RE = /\b(book|reserve)\b|\brent\s+(the|a|an|this|that|it)\b/
+const HOW_TO_RE = /\bhow\s+(do|can|to)\b/
 
 export const CHAT_KIT_PROMPT = `Which kit? I can check ${STOREFRONT_KIT_PRODUCTS.map(kit => kit.name).join(', ')}. Name the gear, the dates, and how many days.`
+export const CHAT_DATES_PROMPT = 'Which dates do you want? I can check if that kit is free that day.'
+
+export function chatDatesPrompt(name?: string) {
+  return name
+    ? `Which dates do you want for ${name}? I can check if it is free that day.`
+    : CHAT_DATES_PROMPT
+}
+
+export function chatKitPrompt(names: string[] = []) {
+  const list = names.length
+    ? names.join(', ')
+    : STOREFRONT_KIT_PRODUCTS.map(kit => kit.name).join(', ')
+  return `Which kit? I can check ${list}. Name the gear and the dates.`
+}
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/₱/g, ' php ').replace(/[^a-z0-9\s\/.-]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -185,7 +210,7 @@ function parseRelativeDates(query: string, today: string) {
   if (/\btoday\b/.test(query)) {
     dates.push(today)
   }
-  if (/\btomorrow\b/.test(query)) {
+  if (/\btomorrow\b/.test(query) || /\b(?:the\s+)?next\s+day\b/.test(query) || /\bfollowing\s+day\b/.test(query)) {
     dates.push(addCalendarDays(today, 1))
   }
   if (/\bweekend\b/.test(query)) {
@@ -243,7 +268,7 @@ function parseSingleDate(
   if (token === 'today') {
     return today
   }
-  if (token === 'tomorrow') {
+  if (token === 'tomorrow' || token === 'next day' || token === 'the next day' || token === 'following day') {
     return addCalendarDays(today, 1)
   }
   if (token === 'weekend') {
@@ -280,7 +305,7 @@ function parseSingleDate(
 
 function parseFromToRange(query: string, today: string) {
   const months = monthNamesPattern()
-  const dateBit = `(?:20\\d{2}-\\d{2}-\\d{2}|\\d{1,2}[/.]\\d{1,2}(?:[/.]\\d{2,4})?|(?:${months})\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s+20\\d{2})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${months})(?:\\s+20\\d{2})?|today|tomorrow|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\\d{1,2}(?:st|nd|rd|th)?)`
+  const dateBit = `(?:20\\d{2}-\\d{2}-\\d{2}|\\d{1,2}[/.]\\d{1,2}(?:[/.]\\d{2,4})?|(?:${months})\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s+20\\d{2})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${months})(?:\\s+20\\d{2})?|today|tomorrow|(?:the\\s+)?next\\s+day|following\\s+day|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\\d{1,2}(?:st|nd|rd|th)?)`
   const connector = '(?:to|until|till|til|through|hanggang|-)'
 
   const sameMonth = query.match(new RegExp(`\\b(${months})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*${connector}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+(20\\d{2}))?\\b`))
@@ -358,9 +383,45 @@ function parseQuantity(query: string) {
   return Math.min(99, Math.max(1, Number(match[1])))
 }
 
-function matchKitSlugs(query: string) {
-  const ranked = KIT_ALIASES
-    .map(kit => {
+function extraKitKeywords(name: string, slug: string) {
+  const hay = `${name} ${slug}`.toLowerCase()
+  const extra: string[] = []
+  if (/jbl|partybox/.test(hay)) {
+    extra.push('jbl', 'partybox', 'party box', 'speaker')
+  }
+  if (/starlink/.test(hay)) {
+    extra.push('starlink mini', 'starlink', 'star link')
+  }
+  if (/air-?3|drone/.test(hay)) {
+    extra.push('dji air 3', 'air 3', 'air3', 'drone')
+  }
+  if (/osmo/.test(hay)) {
+    extra.push('dji osmo 360', 'osmo 360', 'osmo', 'action camera', '360 camera')
+  }
+  return extra
+}
+
+export function chatKitAliases(catalog: ChatKit[] = []): KitAlias[] {
+  if (!catalog.length) {
+    return KIT_ALIASES
+  }
+
+  return catalog.map((product) => {
+    const name = product.name.toLowerCase()
+    const slugWords = product.slug.replace(/-/g, ' ')
+    const tokens = [...new Set([...name.split(/\s+/), ...slugWords.split(/\s+/)])]
+      .filter(token => token.length >= 3 && !NAME_STOP_WORDS.has(token) && !/^\d+$/.test(token))
+
+    return {
+      slug: product.slug,
+      keywords: [...new Set([name, slugWords, ...tokens, ...extraKitKeywords(product.name, product.slug)])],
+    }
+  })
+}
+
+function matchKitSlugs(query: string, catalog: ChatKit[] = []) {
+  const ranked = chatKitAliases(catalog)
+    .map((kit) => {
       const keyword = kit.keywords.find(item => query.includes(item))
       return keyword ? { slug: kit.slug, score: keyword.length } : null
     })
@@ -378,9 +439,9 @@ export function chatQuestionContext(messages: Array<{ role: string, content: str
     .join('\n')
 }
 
-export function parseChatQuoteIntent(question: string, today: string): ChatQuoteIntent {
+export function parseChatQuoteIntent(question: string, today: string, catalog: ChatKit[] = []): ChatQuoteIntent {
   const query = normalize(question)
-  const slugs = matchKitSlugs(query)
+  const slugs = matchKitSlugs(query, catalog)
   const range = parseFromToRange(query, today)
   const dates = [
     ...parseIsoDates(query),
@@ -395,8 +456,12 @@ export function parseChatQuoteIntent(question: string, today: string): ChatQuote
   const quantity = parseQuantity(query)
   const wantsPrice = PRICE_RE.test(query)
   const wantsAvailability = AVAIL_RE.test(query)
+  const wantsBooking = BOOK_RE.test(query) && !HOW_TO_RE.test(query)
   const hasRange = Boolean(startsOn || days || endsOn)
-  const looksLikeQuote = wantsPrice || (wantsAvailability && (hasRange || slugs.length > 0)) || (slugs.length > 0 && hasRange)
+  const looksLikeQuote = wantsPrice
+    || wantsBooking
+    || (wantsAvailability && (hasRange || slugs.length > 0))
+    || (slugs.length > 0 && hasRange)
 
   const empty: ChatQuoteIntent = {
     action: 'none',
@@ -411,8 +476,12 @@ export function parseChatQuoteIntent(question: string, today: string): ChatQuote
     return empty
   }
 
-  if (!slugs.length && wantsAvailability && !wantsPrice) {
+  if (!slugs.length && (wantsAvailability || wantsBooking) && !wantsPrice) {
     return { ...empty, action: 'ask-kit' }
+  }
+
+  if (slugs.length && !hasRange && wantsBooking && !wantsPrice && !wantsAvailability) {
+    return { ...empty, action: 'ask-dates' }
   }
 
   return {
@@ -430,18 +499,19 @@ export function chatQuoteRange(intent: ChatQuoteIntent, today: string) {
   let endsOn = intent.endsOn
   if (!endsOn) {
     const days = Math.min(CHAT_QUOTE_MAX_DAYS, Math.max(1, intent.days || 1))
-    endsOn = addCalendarDays(startsOn, days - 1)
+    endsOn = addCalendarDays(startsOn, days)
   }
-  if (endsOn < startsOn) {
-    endsOn = startsOn
+  if (endsOn <= startsOn) {
+    endsOn = addCalendarDays(startsOn, 1)
   }
-  if (inclusiveDayCount(startsOn, endsOn) > CHAT_QUOTE_MAX_DAYS) {
-    endsOn = addCalendarDays(startsOn, CHAT_QUOTE_MAX_DAYS - 1)
+  if (rentalPeriodDays(startsOn, endsOn) > CHAT_QUOTE_MAX_DAYS) {
+    endsOn = addCalendarDays(startsOn, CHAT_QUOTE_MAX_DAYS)
   }
 
   return {
     startsOn,
     endsOn,
+    pickupTime: DEFAULT_PICKUP_TIME,
     quantity: intent.quantity,
   }
 }
@@ -449,21 +519,18 @@ export function chatQuoteRange(intent: ChatQuoteIntent, today: string) {
 export function formatChatQuoteAnswer(quote: RentalQuote) {
   const start = formatBookingDate(quote.startsOn)
   const end = formatBookingDate(quote.endsOn)
-  const window = quote.startsOn === quote.endsOn
-    ? start
-    : `${start} to ${end}`
+  const clock = formatPickupClock(quote.pickupTime)
+  const window = `${start} ${clock} to ${end} ${clock}`
   const dayLabel = quote.days === 1 ? '1 day' : `${quote.days} days`
   const rental = formatMoney(quote.lineTotal)
   const deposit = formatMoney(quote.depositAmount)
   const path = `/products/${quote.product.slug}`
 
-  const dateNoun = quote.startsOn === quote.endsOn ? 'that date' : 'those dates'
-
   if (quote.canFulfill) {
-    return `${quote.product.name} is available for ${window} (${dayLabel}) — ${dateNoun} ${quote.startsOn === quote.endsOn ? 'is' : 'are'} not booked. The rental is ${rental}, plus a ${deposit} deposit. Book it at ${path}`
+    return `${quote.product.name} is available from ${window} (${dayLabel}) — those dates are not booked. You can book it. The rental is ${rental}, plus a ${deposit} deposit. Book it at ${path}`
   }
 
-  return `${quote.product.name} is booked for ${window} (${dayLabel}) — ${dateNoun} ${quote.startsOn === quote.endsOn ? 'is' : 'are'} not available. If it frees up, the rental would be ${rental}, plus a ${deposit} deposit. Choose other dates at ${path}`
+  return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}, plus a ${deposit} deposit. Choose other dates at ${path}`
 }
 
 export function formatLiveAvailabilityFacts(kits: Array<{
