@@ -360,7 +360,7 @@ Admin session required. Categories are the fixed list in `EXPENSE_CATEGORIES`. R
 | PATCH | `/api/admin/expenses/[id]` | Update pending or paid |
 | POST | `/api/admin/expenses/[id]/void` | Soft-void, audited |
 | GET | `/api/admin/recurring-expenses` | Templates |
-| POST | `/api/admin/recurring-expenses` | Create template. Records the start date when that day is today or earlier, then leaves the next bill on the following due date. |
+| POST | `/api/admin/recurring-expenses` | Create template. The first bill is always the start date. That bill is recorded when the start date is today or earlier. |
 | GET | `/api/admin/recurring-expenses/[id]` | Includes recent occurrences |
 | PATCH | `/api/admin/recurring-expenses/[id]` | Update unless ended |
 | POST | `/api/admin/recurring-expenses/[id]/pause` | `active` → `paused` |

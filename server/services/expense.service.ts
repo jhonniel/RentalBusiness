@@ -190,7 +190,6 @@ export async function getAdminRecurringExpense(client: Client, uuid: string) {
 }
 
 export async function createAdminRecurringExpense(event: H3Event, client: Client, input: RecurringExpenseInput) {
-  const nextOccurrenceOn = input.nextOccurrenceOn || input.startOn
   const row = await insertRecurringExpense(client, {
     name: input.name,
     category: input.category,
@@ -200,7 +199,7 @@ export async function createAdminRecurringExpense(event: H3Event, client: Client
     anchor_day: input.anchorDay ?? null,
     start_on: input.startOn,
     end_on: input.endOn || null,
-    next_occurrence_on: nextOccurrenceOn,
+    next_occurrence_on: input.startOn,
     vendor: emptyToNull(input.vendor),
     status: 'active',
     notes: emptyToNull(input.notes),
@@ -227,6 +226,10 @@ export async function updateAdminRecurringExpense(
     throw new AppError('Ended recurring expenses cannot be changed.', 409, ERROR_CODES.CONFLICT)
   }
 
+  const identity = await findRecurringExpenseIdentity(client, uuid)
+  const startBilled = identity
+    ? await findOccurrenceByDate(client, identity.id, input.startOn)
+    : null
   const row = await updateRecurringExpenseByUuid(client, uuid, {
     name: input.name,
     category: input.category,
@@ -236,7 +239,7 @@ export async function updateAdminRecurringExpense(
     anchor_day: input.anchorDay ?? null,
     start_on: input.startOn,
     end_on: input.endOn || null,
-    next_occurrence_on: input.nextOccurrenceOn || current.next_occurrence_on,
+    next_occurrence_on: startBilled ? (input.nextOccurrenceOn || current.next_occurrence_on) : input.startOn,
     vendor: emptyToNull(input.vendor),
     notes: emptyToNull(input.notes),
   })
@@ -249,7 +252,8 @@ export async function updateAdminRecurringExpense(
     previous: toPublicRecurringExpense(current) as unknown as Json,
     next: next as unknown as Json,
   })
-  return next
+  await recordOpenedRecurringBills(event, client, uuid)
+  return loadRecurring(client, uuid).then(toPublicRecurringExpense)
 }
 
 async function setRecurringStatus(

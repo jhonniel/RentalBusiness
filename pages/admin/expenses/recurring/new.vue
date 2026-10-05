@@ -60,7 +60,7 @@ async function onSubmit(payload: Record<string, unknown>) {
         Add recurring expense
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Save the template now. Post the next due date when the cost is incurred.
+        The first bill is recorded on the start date. Later bills follow that schedule.
       </p>
     </div>
 

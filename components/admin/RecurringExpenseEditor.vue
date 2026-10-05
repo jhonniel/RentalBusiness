@@ -32,10 +32,9 @@ const form = reactive({
   frequency: props.initial?.frequency ?? 'monthly',
   intervalCount: props.initial?.intervalCount ?? 1,
   anchorDay: props.initial?.anchorDay ?? '',
-  startOn: props.initial?.startOn ?? '',
-  endOn: props.initial?.endOn ?? '',
-  nextOccurrenceOn: props.initial?.nextOccurrenceOn ?? '',
-  vendor: props.initial?.vendor ?? '',
+    startOn: props.initial?.startOn ?? '',
+    endOn: props.initial?.endOn ?? '',
+    vendor: props.initial?.vendor ?? '',
   notes: props.initial?.notes ?? '',
 })
 
@@ -49,7 +48,6 @@ function onSubmit() {
     anchorDay: form.anchorDay === '' ? null : Number(form.anchorDay),
     startOn: form.startOn,
     endOn: form.endOn || undefined,
-    nextOccurrenceOn: form.nextOccurrenceOn || undefined,
     vendor: form.vendor,
     notes: form.notes,
   })
@@ -172,15 +170,6 @@ function onSubmit() {
           :disabled="disabled"
         >
       </label>
-      <label class="block text-sm">
-        <span class="text-stone-600">Next occurrence</span>
-        <input
-          v-model="form.nextOccurrenceOn"
-          class="mt-1 w-full rounded-md border border-stone-200 px-3 py-2"
-          type="date"
-          :disabled="disabled"
-        >
-      </label>
     </div>
 
     <label class="block text-sm">
@@ -194,7 +183,7 @@ function onSubmit() {
     </label>
 
     <p class="text-xs text-stone-500">
-      The start date is the first bill and is recorded once that day has arrived. The next date is the following bill.
+      Billing starts on the start date. Each following bill uses the frequency after that date.
     </p>
 
     <UButton
