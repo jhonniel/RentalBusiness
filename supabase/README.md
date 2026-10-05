@@ -44,6 +44,8 @@ Apply `20261005100000_rental_waiver_invites.sql` before using **Continue form** 
 
 Apply `20261005110000_rental_pickup_return_times.sql` so rentals store pickup and return instants. Return is the same clock time as pickup on the return date.
 
+Apply `20261006000000_rental_period_days.sql` so saved totals use that 24-hour length. Pickup on 5 Oct at 2:00 PM and return on 6 Oct at 2:00 PM is 1 day. The migration also reprices existing rental lines.
+
 Do not hard-code admin emails in the application.
 
 ## Availability

@@ -9,6 +9,7 @@ import {
   countCustomerProfiles,
   listAnalyticsExpenses,
   listAnalyticsPayments,
+  listAnalyticsRecurringExpenses,
   listAnalyticsProducts,
   listAnalyticsRentalItems,
   listAnalyticsRentals,
@@ -24,10 +25,11 @@ function first<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export async function getAdminAnalytics(client: Client): Promise<AdminAnalytics> {
-  const [payments, rentals, expenses, products, items, customerCount] = await Promise.all([
+  const [payments, rentals, expenses, recurringExpenses, products, items, customerCount] = await Promise.all([
     listAnalyticsPayments(client),
     listAnalyticsRentals(client),
     listAnalyticsExpenses(client),
+    listAnalyticsRecurringExpenses(client),
     listAnalyticsProducts(client),
     listAnalyticsRentalItems(client),
     countCustomerProfiles(client),
@@ -61,6 +63,20 @@ export async function getAdminAnalytics(client: Client): Promise<AdminAnalytics>
     salesByDay: salesByDay(payments, days),
     rentalsByStatus: rentalsByStatus(rentals),
     topProducts,
+    recentExpenses: expenses.slice(0, 8).map(expense => ({
+      uuid: expense.uuid,
+      name: expense.name,
+      amount: Number(expense.amount),
+      status: expense.status,
+      incurredOn: expense.incurred_on,
+    })),
+    recurringExpenses: recurringExpenses.map(expense => ({
+      uuid: expense.uuid,
+      name: expense.name,
+      amount: Number(expense.amount),
+      status: expense.status,
+      nextOccurrenceOn: expense.next_occurrence_on,
+    })),
     timezone: BUSINESS_TIMEZONE,
     asOf: today,
   }

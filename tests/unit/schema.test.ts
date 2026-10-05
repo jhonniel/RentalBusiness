@@ -35,6 +35,10 @@ const hardeningPolicies = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913220000_phase15_hardening.sql'),
   'utf8',
 )
+const rentalPeriodDays = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261006000000_rental_period_days.sql'),
+  'utf8',
+)
 const paymentMethods = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913230000_phase16_payment_methods.sql'),
   'utf8',
@@ -230,6 +234,11 @@ describe('phase 15 hardening', () => {
     expect(hardeningPolicies).toContain('to_status in (\'draft\', \'pending\', \'cancelled\')')
     expect(hardeningPolicies).toContain('grant update (read_at) on public.notifications to authenticated')
     expect(hardeningPolicies).toContain('settings_admin_select')
+  })
+
+  it('bills the next calendar date at the same clock as one day', () => {
+    expect(rentalPeriodDays).toContain('greatest(1, (v_rental.ends_on - v_rental.starts_on))')
+    expect(rentalPeriodDays).not.toContain('+ 1')
   })
 })
 

@@ -306,7 +306,7 @@ Serialized products also track per-asset status.
 
 Enabled on every application table. Details live in [security.md](./security.md). Customers read only their own rows. Admins use role-checked policies plus server-side service-role operations for privileged writes.
 
-Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental_items` and sync parent totals. Customers may update only `rental_requests.status` and `notifications.read_at`. `settings` is admin-select.
+Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental_items` and sync parent totals. Customers may update only `rental_requests.status` and `notifications.read_at`. `settings` is admin-select. `20261006000000_rental_period_days.sql` counts those days as the date difference, minimum 1, so a same-clock return the next day is one daily rate.
 
 Phase 16: `payment_methods` stores admin QR payment options. Authenticated customers may select active rows. Writes are admin-only. QR files live in the public `payment-qr-images` bucket.
 

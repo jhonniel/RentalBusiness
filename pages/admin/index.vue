@@ -149,10 +149,68 @@ const cards = computed(() => {
           </p>
         </section>
 
-        <section class="rounded-xl border border-stone-200 bg-white p-5">
+      <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <div class="flex items-center justify-between gap-3">
           <h3 class="text-sm font-medium text-stone-900">
-            Most-rented products
+            Expenses
           </h3>
+          <NuxtLink
+            to="/admin/expenses"
+            class="text-xs text-lumen-700 hover:text-lumen-800"
+          >
+            View all
+          </NuxtLink>
+        </div>
+        <p class="mt-1 text-xs text-stone-500">
+          Voided costs stay listed and are left out of Total Expenses. Recurring costs appear here until their next date is posted.
+        </p>
+        <ul
+          v-if="data?.recentExpenses.length || data?.recurringExpenses.length"
+          class="mt-4 space-y-3"
+        >
+          <li
+            v-for="expense in data.recentExpenses"
+            :key="expense.uuid"
+          >
+            <NuxtLink
+              :to="`/admin/expenses/${expense.uuid}`"
+              class="flex items-center justify-between gap-3 text-sm"
+            >
+              <span class="min-w-0">
+                <span class="block truncate text-stone-800">{{ expense.name }}</span>
+                <span class="text-xs capitalize text-stone-500">{{ expense.status }} · {{ formatBusinessDate(expense.incurredOn) }}</span>
+              </span>
+              <span class="shrink-0 text-stone-900">{{ formatMoney(expense.amount) }}</span>
+            </NuxtLink>
+          </li>
+          <li
+            v-for="expense in data.recurringExpenses"
+            :key="expense.uuid"
+          >
+            <NuxtLink
+              :to="`/admin/expenses/recurring/${expense.uuid}`"
+              class="flex items-center justify-between gap-3 text-sm"
+            >
+              <span class="min-w-0">
+                <span class="block truncate text-stone-800">{{ expense.name }}</span>
+                <span class="text-xs text-stone-500">Recurring · next {{ formatBusinessDate(expense.nextOccurrenceOn) }}</span>
+              </span>
+              <span class="shrink-0 text-stone-900">{{ formatMoney(expense.amount) }}</span>
+            </NuxtLink>
+          </li>
+        </ul>
+        <p
+          v-else
+          class="mt-4 text-sm text-stone-500"
+        >
+          No expenses yet.
+        </p>
+      </section>
+
+      <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <h3 class="text-sm font-medium text-stone-900">
+          Most-rented products
+        </h3>
           <ul
             v-if="data?.topProducts.length"
             class="mt-4 divide-y divide-stone-100"

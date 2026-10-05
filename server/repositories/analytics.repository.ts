@@ -32,10 +32,26 @@ export async function listAnalyticsRentals(client: Client) {
 export async function listAnalyticsExpenses(client: Client) {
   const { data, error } = await client
     .from('expenses')
-    .select('amount, status')
+    .select('uuid, name, amount, status, incurred_on')
+    .order('incurred_on', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (error) {
     throw new AppError('We could not load expenses.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
+export async function listAnalyticsRecurringExpenses(client: Client) {
+  const { data, error } = await client
+    .from('recurring_expenses')
+    .select('uuid, name, amount, status, next_occurrence_on')
+    .eq('status', 'active')
+    .order('next_occurrence_on', { ascending: true })
+
+  if (error) {
+    throw new AppError('We could not load recurring expenses.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
   }
 
   return data ?? []

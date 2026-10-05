@@ -24,11 +24,29 @@ export interface TopProduct {
   quantity: number
 }
 
+export interface DashboardExpense {
+  uuid: string
+  name: string
+  amount: number
+  status: string
+  incurredOn: string
+}
+
+export interface DashboardRecurringExpense {
+  uuid: string
+  name: string
+  amount: number
+  status: string
+  nextOccurrenceOn: string
+}
+
 export interface AdminAnalytics {
   kpis: AnalyticsKpis
   salesByDay: AnalyticsPoint[]
   rentalsByStatus: AnalyticsPoint[]
   topProducts: TopProduct[]
+  recentExpenses: DashboardExpense[]
+  recurringExpenses: DashboardRecurringExpense[]
   timezone: string
   asOf: string
 }
