@@ -20,7 +20,7 @@ export async function listAnalyticsPayments(client: Client) {
 export async function listAnalyticsRentals(client: Client) {
   const { data, error } = await client
     .from('rental_requests')
-    .select('status, starts_on')
+    .select('status, starts_on, ends_on, pickup_at, return_at')
 
   if (error) {
     throw new AppError('We could not load rentals.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })

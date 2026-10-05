@@ -308,7 +308,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products, recent expenses, active recurring expenses |
+| GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products, recent expenses, active recurring expenses. Active Rentals includes `active` and `overdue` rows, plus paid, approved, and ready-for-pickup rows whose pickup time has started and whose return time has not. |
 | GET | `/api/admin/calendar` | Rentals (including drafts) and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila. Days use pickup/return windows so a return morning still shows as booked. |
 | GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
 | GET | `/api/admin/settings` | Business profile for receipts |

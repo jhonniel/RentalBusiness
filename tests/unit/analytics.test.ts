@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { adminRentalListQuerySchema } from '../../utils/admin-validation'
-import { buildKpis, lastCalendarDays, paidSalesOn, topRentedProducts } from '../../utils/analytics'
+import { buildKpis, isOngoingRental, lastCalendarDays, paidSalesOn, topRentedProducts } from '../../utils/analytics'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 
 describe('analytics dates and sales', () => {
@@ -37,12 +37,37 @@ describe('analytics dates and sales', () => {
       totalSales: 14000,
       pendingRentals: 1,
       upcomingRentals: 1,
+      activeRentals: 1,
       overdueRentals: 1,
       totalExpenses: 500,
       netRevenue: 13500,
       totalCustomers: 4,
       inventoryValue: 2000,
     })
+  })
+})
+
+describe('ongoing rentals', () => {
+  it('counts an approved rental while its pickup window is still open', () => {
+    const rental = {
+      status: 'approved' as const,
+      starts_on: '2026-10-05',
+      ends_on: '2026-10-06',
+      pickup_at: '2026-10-05T06:00:00.000Z',
+      return_at: '2026-10-06T06:00:00.000Z',
+    }
+
+    expect(isOngoingRental(rental, new Date('2026-10-06T00:00:00.000Z'))).toBe(true)
+    expect(isOngoingRental(rental, new Date('2026-10-06T06:00:00.000Z'))).toBe(false)
+    expect(buildKpis({
+      payments: [],
+      rentals: [rental],
+      expenses: [],
+      products: [],
+      customerCount: 0,
+      today: '2026-10-06',
+      now: new Date('2026-10-06T00:00:00.000Z'),
+    }).activeRentals).toBe(1)
   })
 })
 

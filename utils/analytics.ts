@@ -11,6 +11,9 @@ export interface AnalyticsPaymentRow {
 export interface AnalyticsRentalRow {
   status: RentalStatus
   starts_on: string
+  ends_on?: string
+  pickup_at?: string | null
+  return_at?: string | null
 }
 
 export interface AnalyticsExpenseRow {
@@ -61,6 +64,37 @@ export function paidSalesOn(payments: AnalyticsPaymentRow[], startOn: string, en
   }, 0)
 }
 
+const COMMITTED_RENTAL_STATUSES = ['paid', 'approved', 'ready_for_pickup', 'active', 'overdue'] as const
+
+function rentalWindow(row: AnalyticsRentalRow) {
+  const start = Date.parse(row.pickup_at || `${row.starts_on}T00:00:00+08:00`)
+  const end = Date.parse(row.return_at || `${row.ends_on || row.starts_on}T00:00:00+08:00`)
+  const returnAt = row.return_at ? end : end + (Number.isNaN(end) ? 0 : 86_400_000)
+  if (Number.isNaN(start) || Number.isNaN(returnAt)) {
+    return null
+  }
+
+  return { start, end: returnAt }
+}
+
+export function isOngoingRental(row: AnalyticsRentalRow, now = new Date()): boolean {
+  if (!(COMMITTED_RENTAL_STATUSES as readonly string[]).includes(row.status)) {
+    return false
+  }
+
+  if (row.status === 'active' || row.status === 'overdue') {
+    return true
+  }
+
+  const window = rentalWindow(row)
+  if (!window) {
+    return false
+  }
+
+  const instant = now.getTime()
+  return window.start <= instant && instant < window.end
+}
+
 export function buildKpis(input: {
   payments: AnalyticsPaymentRow[]
   rentals: AnalyticsRentalRow[]
@@ -68,8 +102,10 @@ export function buildKpis(input: {
   products: AnalyticsProductRow[]
   customerCount: number
   today?: string
+  now?: Date
 }): AnalyticsKpis {
   const today = input.today ?? calendarDateInZone()
+  const now = input.now ?? new Date()
   const totalSales = paidSalesOn(input.payments, '1970-01-01', today)
   const todaySales = paidSalesOn(input.payments, today, today)
   const monthSales = paidSalesOn(input.payments, monthStart(today), today)
@@ -82,9 +118,11 @@ export function buildKpis(input: {
     todaySales,
     monthSales,
     pendingRentals: input.rentals.filter(row => ['pending', 'awaiting_payment'].includes(row.status)).length,
-    activeRentals: input.rentals.filter(row => ['active', 'overdue'].includes(row.status)).length,
+    activeRentals: input.rentals.filter(row => isOngoingRental(row, now)).length,
     upcomingRentals: input.rentals.filter(row =>
-      ['paid', 'approved', 'ready_for_pickup'].includes(row.status) && row.starts_on >= today,
+      ['paid', 'approved', 'ready_for_pickup'].includes(row.status)
+      && !isOngoingRental(row, now)
+      && (row.pickup_at ? Date.parse(row.pickup_at) > now.getTime() : row.starts_on >= today),
     ).length,
     overdueRentals: input.rentals.filter(row => row.status === 'overdue').length,
     totalExpenses,
