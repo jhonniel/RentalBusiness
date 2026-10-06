@@ -114,11 +114,11 @@ async function copyValue(value: string, label: string) {
     <CatalogNotice
       v-else-if="rental && !rental.identity"
       class="mt-8"
-      title="Upload identity documents first"
+      title="Photograph your ID first"
       description="A government ID and a selfie holding that ID are required before payment."
     >
       <UButton :to="`/rentals/${rental.code}/verify`">
-        Upload ID
+        Take ID photos
       </UButton>
     </CatalogNotice>
 

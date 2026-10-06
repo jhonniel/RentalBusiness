@@ -44,7 +44,7 @@ export const MAINTENANCE_CHAT_KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'book',
     keywords: ['book', 'booking', 'reserve', 'rental request', 'how to rent'],
-    answer: `Choose a kit, pick dates in ${BUSINESS_TIMEZONE}, sign the rental waiver, upload a government ID and selfie, then pay. Pickup, meetup, or delivery is arranged after approval.`,
+    answer: `Choose a kit, pick dates in ${BUSINESS_TIMEZONE}, sign the rental waiver, photograph a government ID and selfie, then pay. Pickup, meetup, or delivery is arranged after approval.`,
   },
   {
     id: 'pay',

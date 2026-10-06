@@ -110,13 +110,13 @@ Wait for: `Proceed to Phase 17`
 
 ## Phase 17 — Rental identity proof (completed)
 
-Customers sign the waiver with name, email, and phone filled from their account. They then upload a government ID and a selfie holding that ID. The request stays a draft until both are on file and the customer submits it. Files stay in `private-documents`. Admins review signed URLs on the rental and must confirm the booking before payment. A submitted request stays reserved for 24 hours; if the shop does not confirm it, the request is cancelled. Payment is blocked until that confirmation, the waiver, and identity documents are present.
+Customers sign the waiver with name, email, and phone filled from their account. They then photograph a government ID and a selfie holding that ID in the browser. Administrators still upload those files. The request stays a draft until both are on file and the customer submits it. Files stay in `private-documents`. Admins review signed URLs on the rental and must confirm the booking before payment. A submitted request stays reserved for 24 hours; if the shop does not confirm it, the request is cancelled. Payment is blocked until that confirmation, the waiver, and identity documents are present.
 
 Admins generate voucher codes on `/admin/vouchers`. Customers enter a code on the rental or pay page before payment. The discount reduces the rental total, not the deposit hold. A ₱0 total after a voucher can be approved without a paid payment.
 
 Administrators change their own password on `/admin/account`. They can promote a customer to a system admin from `/admin/customers`. Role still lives on `profiles.role`; clients never send it.
 
-Administrators can finish a customer draft on `/admin/rentals/[id]/continue` and send a one-time waiver sign link. The customer opens `/waivers/sign/{uuid}?token=` without signing in, reviews the Equipment Rental Agreement, agrees, signs, and can upload a government ID and selfie on that same page. After it is signed, the agreement stays visible and the sign form is locked until an administrator changes the waiver status back to unsigned. Unused invites expire after 72 hours. The raw token is stored as a sha256 hash only.
+Administrators can finish a customer draft on `/admin/rentals/[id]/continue` and send a one-time waiver sign link. The customer opens `/waivers/sign/{uuid}?token=` without signing in, reviews the Equipment Rental Agreement, agrees, signs, and can photograph a government ID and selfie on that same page. Administrators upload those files from the rental; they do not use the camera. After it is signed, the agreement stays visible and the sign form is locked until an administrator changes the waiver status back to unsigned. Unused invites expire after 72 hours. The raw token is stored as a sha256 hash only.
 
 ## Phase report template
 

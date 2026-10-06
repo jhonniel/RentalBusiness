@@ -269,7 +269,7 @@ async function cancelRental() {
           v-else
           class="mt-2 text-sm text-stone-600"
         >
-          Upload a government ID and a selfie holding that ID before payment.
+          Photograph a government ID and a selfie holding that ID before payment.
         </p>
       </section>
 
@@ -308,7 +308,7 @@ async function cancelRental() {
           class="w-full justify-center sm:w-auto"
           :to="`/rentals/${rental.code}/verify`"
         >
-          Upload ID
+          Take ID photos
         </UButton>
         <UButton
           v-if="canSignWaiver"

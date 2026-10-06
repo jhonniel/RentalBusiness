@@ -165,7 +165,7 @@ async function onSubmit() {
       Equipment Rental Agreement & Liability Waiver
     </h1>
     <p class="mt-2 text-stone-600">
-      Review the renter details from your account, read the current terms, confirm each acknowledgment, and sign. You will upload a government ID next.
+      Review the renter details from your account, read the current terms, confirm each acknowledgment, and sign. You will photograph a government ID next.
     </p>
 
     <CatalogNotice
@@ -185,7 +185,7 @@ async function onSubmit() {
         v-if="!rental.identity"
         :to="`/rentals/${rental.code}/verify`"
       >
-        Upload ID
+        Take ID photos
       </UButton>
       <UButton
         v-else

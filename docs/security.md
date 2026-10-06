@@ -112,7 +112,7 @@ Phase 7 additions:
 - Customers may re-read versions they signed after a newer current version is published
 - Signature payloads are PNG data URLs with a size cap; accept is limited to 20/min/user
 - An administrator may finish a customer `draft`, change pickup date, return date, and pickup time (including a shop time that has already passed today), record an in-person waiver signature, and send a guest sign link. After it is signed, the shop can copy an admin-only `/admin/rentals/{uuid}/waiver` URL; `GET /api/admin/rentals/[id]/waiver-pdf` requires an admin session. An administrator may `DELETE /api/admin/rentals/[id]/waiver` on an open signed rental to set it unsigned so it can be signed again; the previous signer, time, and version are audited and the signature image is not stored in that log. `rental_waiver_invites` is forced RLS; anon and authenticated have no grants. Only a sha256 token hash is stored. Public lookup compares the query `token` with a timing-safe hash check
-- Invite pages and APIs stay available during maintenance. `/waivers` is `noindex` and is disallowed in `robots.txt`. Tokens are never returned in JSON after send except as the one-time `waiverUrl` for the admin who created it. Email is optional so the shop can copy the link and send it another way. After sign, the same token can upload identity photos until the invite expires. Guest identity responses never include storage paths or signed URLs. `Permissions-Policy` allows `camera=(self)` so customers can photograph an ID on that page.
+- Invite pages and APIs stay available during maintenance. `/waivers` is `noindex` and is disallowed in `robots.txt`. Tokens are never returned in JSON after send except as the one-time `waiverUrl` for the admin who created it. Email is optional so the shop can copy the link and send it another way. After sign, the same token can submit identity photos captured in the browser until the invite expires. Guest identity responses never include storage paths or signed URLs. `Permissions-Policy` allows `camera=(self)` so customers can photograph an ID on that page.
 
 Privacy Policy additions:
 
@@ -189,7 +189,7 @@ Phase 17 additions:
 - Payment create requires a signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request
 - Admins may record a shop payment (`POST /api/admin/rentals/[id]/paid`) after the waiver and identity documents are on file. That writes a paid payment row and is the source of the sales ledger
 - Customers create rentals as `draft` only. `POST /api/rentals/[id]/submit` moves a draft to `pending` after the waiver and identity documents are on file
-- Identity upload requires a signed waiver on that rental for customers. Admins may upload identity photos for a `draft` or `pending` rental without that waiver
+- Customers photograph a government ID and selfie in the browser. Admins upload those files and do not use the camera. Identity submission requires a signed waiver on that rental for customers. Admins may upload identity photos for a `draft` or `pending` rental without that waiver
 - Image uploads accept JPG, PNG, WebP, and HEIC up to 15 MB. The server compresses them to JPEG before writing to Supabase Storage (S3)
 - Waiver email and phone are copied from the server-loaded profile
 

@@ -14,7 +14,7 @@ Currency is **PHP**. Business timezone is **Asia/Manila**. Public pages and APIs
 
 ## What the system does
 
-The storefront is the customer path: pick gear, lock dates, sign a waiver, upload identity documents, send the request, and pay. The admin console is the operations path: approve rentals, manage stock, record sales and expenses, and keep an audit trail.
+The storefront is the customer path: pick gear, lock dates, sign a waiver, photograph identity documents, send the request, and pay. The admin console is the operations path: approve rentals, manage stock, record sales and expenses, and keep an audit trail.
 
 Booking rules (pricing, availability, payment status) live on the server. Pages and components do not invent those rules.
 

@@ -162,6 +162,11 @@ describe('customer rental transitions', () => {
       identity: null,
     })).toBe('/rentals/JRY-20260913-00001/waiver')
     expect(customerRentalNextLabel({
+      status: 'draft',
+      waiver: { uuid: 'waiver' } as never,
+      identity: null,
+    })).toBe('Take ID photos')
+    expect(customerRentalNextLabel({
       status: 'pending',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },

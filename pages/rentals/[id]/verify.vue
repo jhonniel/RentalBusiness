@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { PublicRental, PublicRentalIdentity } from '~/types/rental'
 import { identityUploadFormData } from '~/utils/browser-image'
-import { IMAGE_UPLOAD_ACCEPT, IMAGE_UPLOAD_HELP } from '~/utils/image-upload'
 
 definePageMeta({
   layout: 'account',
@@ -14,8 +13,6 @@ const { authHeaders } = useAuth()
 const identifier = computed(() => String(route.params.id))
 const governmentFile = ref<File | null>(null)
 const selfieFile = ref<File | null>(null)
-const governmentInput = ref<HTMLInputElement | null>(null)
-const selfieInput = ref<HTMLInputElement | null>(null)
 const pending = ref(false)
 const formError = ref('')
 
@@ -38,16 +35,6 @@ useSiteMeta({
 const canUpload = computed(() => ['draft', 'pending'].includes(rental.value?.status ?? ''))
 const alreadySubmitted = computed(() => Boolean(rental.value?.identity))
 
-function onGovernmentChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  governmentFile.value = input.files?.[0] ?? null
-}
-
-function onSelfieChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  selfieFile.value = input.files?.[0] ?? null
-}
-
 async function onSubmit() {
   if (!rental.value) {
     return
@@ -55,7 +42,7 @@ async function onSubmit() {
 
   formError.value = ''
   if (!governmentFile.value || !selfieFile.value) {
-    formError.value = 'Upload a government ID and a selfie holding that same ID.'
+    formError.value = 'Photograph your government ID and a selfie holding that same ID.'
     return
   }
 
@@ -69,15 +56,9 @@ async function onSubmit() {
         selfie: selfieFile.value,
       }),
     })
-    toast.add({ title: 'Identity documents uploaded', color: 'success' })
+    toast.add({ title: 'Identity documents saved', color: 'success' })
     governmentFile.value = null
     selfieFile.value = null
-    if (governmentInput.value) {
-      governmentInput.value.value = ''
-    }
-    if (selfieInput.value) {
-      selfieInput.value.value = ''
-    }
     await refresh()
     await navigateTo(`/rentals/${rental.value.code}/pay`)
   }
@@ -99,7 +80,7 @@ async function onSubmit() {
       Identity verification
     </h1>
     <p class="mt-2 text-stone-600">
-      Upload a clear photo of your government ID and a selfie holding that same ID. These files stay private and are used only to confirm this rental.
+      Photograph your government ID and a selfie holding that same ID. These photos stay private and are used only to confirm this rental.
     </p>
 
     <CatalogNotice
@@ -113,7 +94,7 @@ async function onSubmit() {
       v-else-if="rental && !rental.waiver"
       class="mt-8"
       title="Sign the waiver first"
-      description="Complete the rental waiver before uploading identity documents."
+      description="Complete the rental waiver before photographing your ID."
     >
       <UButton :to="`/rentals/${rental.code}/waiver`">
         Sign waiver
@@ -148,7 +129,7 @@ async function onSubmit() {
       >
         Documents were submitted
         {{ rental.identity ? `on this rental.` : '.' }}
-        You can replace them before payment if a photo is unclear.
+        You can photograph them again before payment if a photo is unclear.
       </section>
 
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
@@ -156,16 +137,13 @@ async function onSubmit() {
           Government ID
         </h2>
         <p class="mt-1 text-sm text-stone-500">
-          Front of a valid government-issued ID. {{ IMAGE_UPLOAD_HELP }}
+          Open the camera and photograph the front of a valid government-issued ID.
         </p>
-        <input
-          ref="governmentInput"
-          type="file"
-          :accept="IMAGE_UPLOAD_ACCEPT"
-          class="mt-4 block w-full text-sm"
+        <CameraCapture
+          v-model="governmentFile"
+          facing="environment"
           :disabled="pending"
-          @change="onGovernmentChange"
-        >
+        />
       </section>
 
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
@@ -173,16 +151,13 @@ async function onSubmit() {
           Selfie with your ID
         </h2>
         <p class="mt-1 text-sm text-stone-500">
-          Hold the same ID next to your face. The name and photo on the ID should be readable.
+          Open the front camera and hold the same ID next to your face. The name and photo on the ID should be readable.
         </p>
-        <input
-          ref="selfieInput"
-          type="file"
-          :accept="IMAGE_UPLOAD_ACCEPT"
-          class="mt-4 block w-full text-sm"
+        <CameraCapture
+          v-model="selfieFile"
+          facing="user"
           :disabled="pending"
-          @change="onSelfieChange"
-        >
+        />
       </section>
 
       <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">

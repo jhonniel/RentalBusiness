@@ -158,7 +158,7 @@ async function onSubmit() {
       Request a rental
     </h1>
     <p class="mt-2 text-stone-600">
-      Confirm dates and your contact details. You will sign the waiver and upload a government ID before this request is sent.
+      Confirm dates and your contact details. You will sign the waiver and photograph a government ID before this request is sent.
     </p>
 
     <CatalogNotice

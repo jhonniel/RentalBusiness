@@ -5,7 +5,6 @@ import type { PublicRentalIdentity } from '~/types/rental'
 import { fieldErrors } from '~/utils/auth-validation'
 import { identityUploadFormData } from '~/utils/browser-image'
 import { formatBusinessDate } from '~/utils/datetime'
-import { IMAGE_UPLOAD_ACCEPT, IMAGE_UPLOAD_HELP } from '~/utils/image-upload'
 import { renderWaiverBody } from '~/utils/waiver'
 import { acceptWaiverInviteSchema } from '~/utils/waiver-validation'
 
@@ -24,8 +23,6 @@ const formError = ref('')
 const pending = ref(false)
 const governmentFile = ref<File | null>(null)
 const selfieFile = ref<File | null>(null)
-const governmentInput = ref<HTMLInputElement | null>(null)
-const selfieInput = ref<HTMLInputElement | null>(null)
 const acknowledgments = [
   {
     id: 'read',
@@ -92,7 +89,7 @@ const pageDescription = computed(() => {
     return 'You do not need an account. Review the rental, check each box, and sign.'
   }
   if (invite.value?.signed && showIdentityUpload.value) {
-    return 'This waiver is already signed. Upload a government ID and a selfie holding that ID. You do not need an account.'
+    return 'This waiver is already signed. Photograph your government ID and a selfie holding that ID. You do not need an account.'
   }
   if (invite.value?.signed) {
     return 'This waiver is already signed. You do not need an account to review it.'
@@ -111,16 +108,6 @@ watch(invite, (value) => {
   }
   signerName.value = [value.rental.customer?.firstName, value.rental.customer?.lastName].filter(Boolean).join(' ')
 }, { immediate: true })
-
-function onGovernmentChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  governmentFile.value = input.files?.[0] ?? null
-}
-
-function onSelfieChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  selfieFile.value = input.files?.[0] ?? null
-}
 
 async function onSubmit() {
   formError.value = ''
@@ -172,7 +159,7 @@ async function onSubmit() {
 async function onUploadIdentity() {
   formError.value = ''
   if (!governmentFile.value || !selfieFile.value) {
-    formError.value = 'Upload a government ID and a selfie holding that same ID.'
+    formError.value = 'Photograph your government ID and a selfie holding that same ID.'
     return
   }
 
@@ -186,15 +173,9 @@ async function onUploadIdentity() {
         extra: { token: token.value },
       }),
     })
-    toast.add({ title: 'Identity documents uploaded', color: 'success' })
+    toast.add({ title: 'Identity documents saved', color: 'success' })
     governmentFile.value = null
     selfieFile.value = null
-    if (governmentInput.value) {
-      governmentInput.value.value = ''
-    }
-    if (selfieInput.value) {
-      selfieInput.value.value = ''
-    }
     await refresh()
   }
   catch (error) {
@@ -397,16 +378,13 @@ async function onUploadIdentity() {
             Government ID
           </h2>
           <p class="mt-1 text-sm text-stone-500">
-            Front of a valid government-issued ID. {{ IMAGE_UPLOAD_HELP }}
+            Open the camera and photograph the front of a valid government-issued ID.
           </p>
-          <input
-            ref="governmentInput"
-            type="file"
-            :accept="IMAGE_UPLOAD_ACCEPT"
-            class="mt-4 block w-full text-sm"
+          <CameraCapture
+            v-model="governmentFile"
+            facing="environment"
             :disabled="pending"
-            @change="onGovernmentChange"
-          >
+          />
         </section>
 
         <section class="rounded-2xl border border-stone-200 bg-white p-5">
@@ -414,16 +392,13 @@ async function onUploadIdentity() {
             Selfie with your ID
           </h2>
           <p class="mt-1 text-sm text-stone-500">
-            Hold the same ID next to your face. The name and photo on the ID should be readable.
+            Open the front camera and hold the same ID next to your face. The name and photo on the ID should be readable.
           </p>
-          <input
-            ref="selfieInput"
-            type="file"
-            :accept="IMAGE_UPLOAD_ACCEPT"
-            class="mt-4 block w-full text-sm"
+          <CameraCapture
+            v-model="selfieFile"
+            facing="user"
             :disabled="pending"
-            @change="onSelfieChange"
-          >
+          />
         </section>
 
         <UButton
@@ -431,14 +406,14 @@ async function onUploadIdentity() {
           class="w-full"
           :loading="pending"
         >
-          Upload ID photos
+          Save ID photos
         </UButton>
       </form>
 
       <CatalogNotice
         v-if="invite.identitySubmitted"
         title="Identity documents received"
-        :description="`Government ID and selfie were uploaded for ${invite.rental.code}.`"
+        :description="`Government ID and selfie were received for ${invite.rental.code}.`"
       />
     </div>
     </section>

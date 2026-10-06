@@ -175,7 +175,7 @@ export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'w
     return 'Sign the waiver'
   }
   if (rental.status === 'draft' && !rental.identity) {
-    return 'Upload ID'
+    return 'Take ID photos'
   }
   if (canSubmitRentalRequest(rental)) {
     return 'Submit request'
