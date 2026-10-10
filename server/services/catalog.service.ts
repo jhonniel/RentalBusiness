@@ -164,6 +164,7 @@ function toProductWrite(input: ProductInput, categoryId: number, slug: string, s
     daily_price: input.dailyPrice,
     weekly_price: input.weeklyPrice,
     monthly_price: input.monthlyPrice,
+    long_stay_less: input.longStayLess,
     deposit_amount: input.depositAmount,
     late_fee: input.lateFee,
     replacement_value: input.replacementValue,

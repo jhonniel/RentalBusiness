@@ -29,6 +29,7 @@ const form = reactive({
   dailyPrice: props.product?.dailyPrice ?? 0,
   weeklyPrice: props.product?.weeklyPrice ?? '',
   monthlyPrice: props.product?.monthlyPrice ?? '',
+  longStayLess: props.product?.longStayLess ?? 0,
   depositAmount: props.product?.depositAmount ?? 0,
   lateFee: props.product?.lateFee ?? 0,
   replacementValue: props.product?.replacementValue ?? '',
@@ -250,6 +251,23 @@ async function onSubmit() {
           >{{ errors[field[0]] }}</span>
         </div>
       </div>
+      <label class="mt-4 block max-w-xs text-sm">
+        <span class="mb-1.5 block text-stone-700">Less per day, 3 days and up (₱)</span>
+        <UInput
+          v-model="form.longStayLess"
+          type="number"
+          min="0"
+          step="0.01"
+          :disabled="pending"
+        />
+        <span class="mt-1 block text-xs text-stone-500">
+          Taken off each day, for each unit, when the booking is 3 days or longer. A ₱100 less on one unit for 3 days removes ₱300. The deposit is not reduced.
+        </span>
+        <span
+          v-if="errors.longStayLess"
+          class="mt-1 block text-xs text-red-700"
+        >{{ errors.longStayLess }}</span>
+      </label>
     </section>
 
     <section class="rounded-xl border border-stone-200 bg-white p-5">

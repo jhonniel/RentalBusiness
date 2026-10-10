@@ -1,5 +1,7 @@
 import { fromMinorUnits, toMinorUnits } from './currency'
 
+export const LONG_STAY_LESS_DAYS = 3
+
 export function inclusiveRentalDays(startsOn: string, endsOn: string): number {
   if (startsOn > endsOn) {
     throw new TypeError('End date must be on or after the start date.')
@@ -22,6 +24,7 @@ export function quoteRentalLine(input: {
   depositAmount: number
   quantity: number
   days: number
+  longStayLess?: number
 }) {
   const quantity = Math.max(1, Math.trunc(input.quantity))
   const days = Math.max(1, Math.trunc(input.days))
@@ -42,11 +45,19 @@ export function quoteRentalLine(input: {
     best = Math.min(best, months * input.monthlyPrice + remainderCost)
   }
 
+  const rentAmount = fromMinorUnits(toMinorUnits(best * quantity))
+  const lessPerDay = Math.max(0, input.longStayLess ?? 0)
+  const lessAmount = days >= LONG_STAY_LESS_DAYS
+    ? fromMinorUnits(toMinorUnits(lessPerDay * days * quantity))
+    : 0
+
   return {
     days,
     quantity,
     dailyPrice: input.dailyPrice,
-    lineTotal: fromMinorUnits(toMinorUnits(best * quantity)),
+    rentAmount,
+    lessAmount,
+    lineTotal: fromMinorUnits(toMinorUnits(Math.max(0, rentAmount - lessAmount))),
     depositAmount: fromMinorUnits(toMinorUnits(input.depositAmount * quantity)),
   }
 }

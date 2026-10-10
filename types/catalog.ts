@@ -28,6 +28,7 @@ export interface PublicProduct {
   dailyPrice: number
   weeklyPrice: number | null
   monthlyPrice: number | null
+  longStayLess: number
   depositAmount: number
   lateFee: number
   replacementValue: number | null
@@ -94,6 +95,7 @@ export interface CatalogProduct {
   dailyPrice: number | null
   weeklyPrice: number | null
   monthlyPrice: number | null
+  longStayLess: number
   depositAmount: number | null
   lateFee: number | null
   replacementValue: number | null

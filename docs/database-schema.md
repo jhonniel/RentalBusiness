@@ -44,7 +44,8 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `id`, `uuid`, `slug` (unique, generated from `name`), `sku` (unique, generated from `name`; not shown on product forms)
 - `category_id` → product_categories
 - `name`, `description`, `short_description`
-- `daily_price`, `weekly_price`, `monthly_price`, `deposit_amount`, `late_fee`, `replacement_value`
+- `daily_price`, `weekly_price`, `monthly_price`, `long_stay_less`, `deposit_amount`, `late_fee`, `replacement_value`
+- `long_stay_less` is a per-day amount. Bookings of 3 days or more subtract `long_stay_less × days × quantity` from the rental. Shorter bookings ignore it. The deposit is not reduced.
 - `hidden_price_fields` (`text[]`, default `{}`) — which of `daily`, `weekly`, `monthly`, `deposit`, `late_fee`, `replacement_value` stay off the public catalog. Stored amounts still apply to quotes and bookings.
 - `quantity`, `status` (`draft` \| `active` \| `coming_soon` \| `hidden` \| `archived`). `coming_soon` is public and labeled, but not bookable.
 - `condition`, `specifications` (jsonb), `included_accessories` (jsonb), `rental_rules`
@@ -306,7 +307,7 @@ Serialized products also track per-asset status.
 
 Enabled on every application table. Details live in [security.md](./security.md). Customers read only their own rows. Admins use role-checked policies plus server-side service-role operations for privileged writes.
 
-Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental_items` and sync parent totals. Customers may update only `rental_requests.status` and `notifications.read_at`. `settings` is admin-select. `20261006000000_rental_period_days.sql` counts those days as the date difference, minimum 1, so a same-clock return the next day is one daily rate.
+Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental_items` and sync parent totals. Customers may update only `rental_requests.status` and `notifications.read_at`. `settings` is admin-select. `20261006000000_rental_period_days.sql` counts those days as the date difference, minimum 1, so a same-clock return the next day is one daily rate. `20261010000000_long_stay_less.sql` adds `products.long_stay_less` and subtracts it for bookings of 3 days or more.
 
 Phase 16: `payment_methods` stores admin QR payment options. Authenticated customers may select active rows. Writes are admin-only. QR files live in the public `payment-qr-images` bucket.
 

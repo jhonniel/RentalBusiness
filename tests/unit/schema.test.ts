@@ -39,6 +39,10 @@ const rentalPeriodDays = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20261006000000_rental_period_days.sql'),
   'utf8',
 )
+const longStayLess = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261010000000_long_stay_less.sql'),
+  'utf8',
+)
 const paymentMethods = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913230000_phase16_payment_methods.sql'),
   'utf8',
@@ -417,6 +421,15 @@ describe('occupying rental windows', () => {
     expect(occupyingWindows).toContain('return_at timestamptz')
     expect(occupyingWindows).toContain('rr.pickup_at < ((p_ends_on + 1)::timestamp at time zone \'Asia/Manila\')')
     expect(occupyingWindows).toContain('rr.return_at > (p_starts_on::timestamp at time zone \'Asia/Manila\')')
+  })
+})
+
+describe('long stay less', () => {
+  it('subtracts the product less for bookings of 3 days or more', () => {
+    expect(longStayLess).toContain('long_stay_less')
+    expect(longStayLess).toContain('if v_days >= 3 then')
+    expect(longStayLess).toContain('greatest(1, (v_rental.ends_on - v_rental.starts_on))')
+    expect(longStayLess).toContain('v_product.long_stay_less')
   })
 })
 

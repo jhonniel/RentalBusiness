@@ -138,6 +138,7 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     weeklyPrice: product.weekly_price === null ? null : Number(product.weekly_price),
     monthlyPrice: product.monthly_price === null ? null : Number(product.monthly_price),
     depositAmount: Number(product.deposit_amount),
+    longStayLess: Number(product.long_stay_less ?? 0),
     quantity: query.quantity,
     days,
   })
@@ -157,6 +158,8 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     days: line.days,
     quantity: line.quantity,
     dailyPrice: line.dailyPrice,
+    rentAmount: line.rentAmount,
+    lessAmount: line.lessAmount,
     lineTotal: line.lineTotal,
     depositAmount: line.depositAmount,
     subtotal: line.lineTotal,

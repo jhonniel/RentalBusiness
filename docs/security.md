@@ -171,7 +171,7 @@ Phase 13 additions:
 Phase 15 additions:
 
 - Customers may UPDATE only `rental_requests.status` and `notifications.read_at`
-- Item `daily_price` / `line_total` are overwritten from catalog prices (`quote_rental_line`)
+- Item `daily_price` / `line_total` are overwritten from catalog prices (`quote_rental_line`), including the 3-day less (`long_stay_less × days × quantity`)
 - Parent rental totals are synced from items; customers cannot keep a forged `total_amount`
 - Waiver accept requires the current published version and an open `draft`/`pending` rental
 - Customer status-history inserts are limited to `draft`, `pending`, and `cancelled`

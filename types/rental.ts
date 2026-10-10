@@ -79,6 +79,8 @@ export interface RentalQuote {
   days: number
   quantity: number
   dailyPrice: number
+  rentAmount: number
+  lessAmount: number
   lineTotal: number
   depositAmount: number
   subtotal: number

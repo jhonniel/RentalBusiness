@@ -123,7 +123,7 @@ All catalog write routes require an admin session. Mutations are limited to 40 r
 | POST | `/api/admin/products/[uuid]/blocked-dates` | Block inclusive `startsOn`–`endsOn` (optional `reason`). Past dates, `coming_soon`, and other non-active kits are rejected. |
 | DELETE | `/api/admin/blocked-dates/[uuid]` | Remove a blocked-date range |
 
-**Product body:** name, categoryUuid, prices, deposit, `hiddenPriceFields` (`daily` / `weekly` / `monthly` / `deposit` / `lateFee` / `replacementValue`), quantities, status (`draft` / `active` / `coming_soon` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` and unique `sku` are generated from `name` on the server. Extra fields such as `id`, `slug`, or `sku` are rejected. `coming_soon` kits appear in the public catalog with a Coming soon label and cannot be quoted, booked, or given blocked dates. Hidden price fields stay on the admin product and in quote math; the public catalog omits those amounts.
+**Product body:** name, categoryUuid, prices, `longStayLess` (peso per day, default 0), deposit, `hiddenPriceFields` (`daily` / `weekly` / `monthly` / `deposit` / `lateFee` / `replacementValue`), quantities, status (`draft` / `active` / `coming_soon` / `hidden` / `archived`), specifications, accessories, rental rules, featured flag. The public `slug` and unique `sku` are generated from `name` on the server. Extra fields such as `id`, `slug`, or `sku` are rejected. `coming_soon` kits appear in the public catalog with a Coming soon label and cannot be quoted, booked, or given blocked dates. Hidden price fields stay on the admin product and in quote math; the public catalog omits those amounts.
 
 ### Public catalog
 
@@ -175,7 +175,7 @@ Authenticated. Customers read and create only their own rows. Totals come from `
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| POST | `/api/rentals/quote` | Server quote + availability. Pickup date/time must be today or later in Asia/Manila |
+| POST | `/api/rentals/quote` | Server quote + availability. Pickup date/time must be today or later in Asia/Manila. A booking of 3 days or more subtracts the product `longStayLess` times the days and quantity from the rental. The deposit is unchanged. |
 | POST | `/api/rentals` | Create `draft` only. `pending` is rejected. Pickup date/time must be today or later in Asia/Manila. Return is the same clock time on `endsOn`. Stock must still be free after `draft` and later open rentals, and the window must not overlap admin-blocked days. A return at 2:00 PM keeps every earlier shop pickup that day closed. |
 | GET | `/api/rentals` | Own rentals, optional status, pagination |
 | GET | `/api/rentals/[id]` | By `uuid` or `code` |

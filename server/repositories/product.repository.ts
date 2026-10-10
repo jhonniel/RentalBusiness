@@ -16,6 +16,7 @@ const PRODUCT_SELECT = `
   daily_price,
   weekly_price,
   monthly_price,
+  long_stay_less,
   deposit_amount,
   late_fee,
   replacement_value,

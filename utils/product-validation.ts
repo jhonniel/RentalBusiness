@@ -26,6 +26,7 @@ export const productInputSchema = z.object({
   dailyPrice: money,
   weeklyPrice: optionalMoney,
   monthlyPrice: optionalMoney,
+  longStayLess: money.default(0),
   depositAmount: money.default(0),
   lateFee: money.default(0),
   replacementValue: optionalMoney,

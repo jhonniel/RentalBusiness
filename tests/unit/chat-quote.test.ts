@@ -28,6 +28,8 @@ function quote(overrides: Partial<RentalQuote> = {}): RentalQuote {
     days: 2,
     quantity: 1,
     dailyPrice: 1500,
+    rentAmount: 4500,
+    lessAmount: 0,
     lineTotal: 4500,
     depositAmount: 2000,
     subtotal: 4500,

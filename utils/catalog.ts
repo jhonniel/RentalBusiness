@@ -29,6 +29,7 @@ interface ProductRow {
   daily_price: number
   weekly_price: number | null
   monthly_price: number | null
+  long_stay_less?: number | null
   deposit_amount: number
   late_fee: number
   replacement_value: number | null
@@ -138,6 +139,7 @@ export function toPublicProduct(row: ProductRow, images: ImageRow[], supabaseUrl
     dailyPrice: Number(row.daily_price),
     weeklyPrice: row.weekly_price === null ? null : Number(row.weekly_price),
     monthlyPrice: row.monthly_price === null ? null : Number(row.monthly_price),
+    longStayLess: Number(row.long_stay_less ?? 0),
     depositAmount: Number(row.deposit_amount),
     lateFee: Number(row.late_fee),
     replacementValue: row.replacement_value === null ? null : Number(row.replacement_value),
@@ -174,6 +176,7 @@ export function toCatalogProduct(row: ProductRow, images: ImageRow[], supabaseUr
     dailyPrice: isPriceFieldHidden(hidden, 'daily') ? null : product.dailyPrice,
     weeklyPrice: isPriceFieldHidden(hidden, 'weekly') ? null : product.weeklyPrice,
     monthlyPrice: isPriceFieldHidden(hidden, 'monthly') ? null : product.monthlyPrice,
+    longStayLess: product.longStayLess,
     depositAmount: isPriceFieldHidden(hidden, 'deposit') ? null : product.depositAmount,
     lateFee: isPriceFieldHidden(hidden, 'lateFee') ? null : product.lateFee,
     replacementValue: isPriceFieldHidden(hidden, 'replacementValue') ? null : product.replacementValue,

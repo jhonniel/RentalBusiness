@@ -274,7 +274,16 @@ async function onSubmit() {
               <dt class="text-stone-500">
                 {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
               </dt>
-              <dd>{{ formatMoney(quote.lineTotal) }}</dd>
+              <dd>{{ formatMoney(quote.rentAmount) }}</dd>
+            </div>
+            <div
+              v-if="quote.lessAmount > 0"
+              class="flex justify-between gap-4"
+            >
+              <dt class="text-stone-500">
+                Less
+              </dt>
+              <dd>−{{ formatMoney(quote.lessAmount) }}</dd>
             </div>
             <div class="flex justify-between gap-4 font-medium text-stone-900">
               <dt>Rental total</dt>

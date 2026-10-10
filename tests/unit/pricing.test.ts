@@ -34,5 +34,35 @@ describe('rental quotes', () => {
     })
 
     expect(quote.lineTotal).toBe(5000)
+    expect(quote.lessAmount).toBe(0)
+  })
+
+  it('subtracts the daily less times the days for a booking of 3 days or more', () => {
+    const shortStay = quoteRentalLine({
+      dailyPrice: 1000,
+      weeklyPrice: null,
+      monthlyPrice: null,
+      depositAmount: 500,
+      quantity: 1,
+      days: 2,
+      longStayLess: 100,
+    })
+    expect(shortStay.lessAmount).toBe(0)
+    expect(shortStay.lineTotal).toBe(2000)
+    expect(shortStay.depositAmount).toBe(500)
+
+    const longStay = quoteRentalLine({
+      dailyPrice: 1000,
+      weeklyPrice: null,
+      monthlyPrice: null,
+      depositAmount: 500,
+      quantity: 2,
+      days: 3,
+      longStayLess: 100,
+    })
+    expect(longStay.rentAmount).toBe(6000)
+    expect(longStay.lessAmount).toBe(600)
+    expect(longStay.lineTotal).toBe(5400)
+    expect(longStay.depositAmount).toBe(1000)
   })
 })

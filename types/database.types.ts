@@ -133,6 +133,7 @@ export interface Database {
           daily_price: number
           weekly_price: number | null
           monthly_price: number | null
+          long_stay_less: number
           deposit_amount: number
           late_fee: number
           replacement_value: number | null
@@ -165,6 +166,7 @@ export interface Database {
           short_description?: string
           weekly_price?: number | null
           monthly_price?: number | null
+          long_stay_less?: number
           deposit_amount?: number
           late_fee?: number
           replacement_value?: number | null
@@ -188,6 +190,7 @@ export interface Database {
           daily_price?: number
           weekly_price?: number | null
           monthly_price?: number | null
+          long_stay_less?: number
           deposit_amount?: number
           late_fee?: number
           replacement_value?: number | null
