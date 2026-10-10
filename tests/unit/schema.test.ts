@@ -43,6 +43,10 @@ const longStayLess = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20261010000000_long_stay_less.sql'),
   'utf8',
 )
+const longStayLessDays = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261010010000_long_stay_less_days.sql'),
+  'utf8',
+)
 const paymentMethods = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913230000_phase16_payment_methods.sql'),
   'utf8',
@@ -430,6 +434,9 @@ describe('long stay less', () => {
     expect(longStayLess).toContain('if v_days >= 3 then')
     expect(longStayLess).toContain('greatest(1, (v_rental.ends_on - v_rental.starts_on))')
     expect(longStayLess).toContain('v_product.long_stay_less')
+    expect(longStayLessDays).toContain('long_stay_min_days')
+    expect(longStayLessDays).toContain('if v_days >= v_min_days then')
+    expect(longStayLessDays).toContain('v_product.long_stay_min_days')
   })
 })
 

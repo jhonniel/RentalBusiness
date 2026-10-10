@@ -46,7 +46,7 @@ Apply `20261005110000_rental_pickup_return_times.sql` so rentals store pickup an
 
 Apply `20261006000000_rental_period_days.sql` so saved totals use that 24-hour length. Pickup on 5 Oct at 2:00 PM and return on 6 Oct at 2:00 PM is 1 day. The migration also reprices existing rental lines.
 
-Apply `20261010000000_long_stay_less.sql` so each product can store a less amount per day. Bookings of 3 days or more subtract that amount times the days and the quantity. Shorter bookings and the deposit are unchanged.
+Apply `20261010000000_long_stay_less.sql`, then `20261010010000_long_stay_less_days.sql`. Each product stores a less amount per day and the number of days that turn it on. A booking that reaches that length subtracts the less times the days and the quantity. A zero less turns it off. The deposit is unchanged.
 
 Do not hard-code admin emails in the application.
 

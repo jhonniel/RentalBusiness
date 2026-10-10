@@ -134,7 +134,7 @@ const priceRows = computed(() => product.value ? visibleCatalogPrices(product.va
           v-if="product.longStayLess > 0"
           class="mt-3 text-sm text-stone-600"
         >
-          Bookings of 3 days or more are {{ formatMoney(product.longStayLess) }} less per day.
+          Bookings of {{ product.longStayMinDays }} days or more are {{ formatMoney(product.longStayLess) }} less per day.
         </p>
 
         <CatalogNotice

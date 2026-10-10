@@ -64,5 +64,18 @@ describe('rental quotes', () => {
     expect(longStay.lessAmount).toBe(600)
     expect(longStay.lineTotal).toBe(5400)
     expect(longStay.depositAmount).toBe(1000)
+
+    const laterStart = quoteRentalLine({
+      dailyPrice: 1000,
+      weeklyPrice: null,
+      monthlyPrice: null,
+      depositAmount: 0,
+      quantity: 1,
+      days: 4,
+      longStayLess: 50,
+      longStayMinDays: 5,
+    })
+    expect(laterStart.lessAmount).toBe(0)
+    expect(laterStart.lineTotal).toBe(4000)
   })
 })

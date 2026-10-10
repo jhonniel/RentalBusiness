@@ -27,6 +27,7 @@ export const productInputSchema = z.object({
   weeklyPrice: optionalMoney,
   monthlyPrice: optionalMoney,
   longStayLess: money.default(0),
+  longStayMinDays: z.coerce.number().int().min(1, 'Use at least 1 day.').default(3),
   depositAmount: money.default(0),
   lateFee: money.default(0),
   replacementValue: optionalMoney,

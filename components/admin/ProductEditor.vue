@@ -30,6 +30,7 @@ const form = reactive({
   weeklyPrice: props.product?.weeklyPrice ?? '',
   monthlyPrice: props.product?.monthlyPrice ?? '',
   longStayLess: props.product?.longStayLess ?? 0,
+  longStayMinDays: props.product?.longStayMinDays ?? 3,
   depositAmount: props.product?.depositAmount ?? 0,
   lateFee: props.product?.lateFee ?? 0,
   replacementValue: props.product?.replacementValue ?? '',
@@ -251,23 +252,39 @@ async function onSubmit() {
           >{{ errors[field[0]] }}</span>
         </div>
       </div>
-      <label class="mt-4 block max-w-xs text-sm">
-        <span class="mb-1.5 block text-stone-700">Less per day, 3 days and up (₱)</span>
-        <UInput
-          v-model="form.longStayLess"
-          type="number"
-          min="0"
-          step="0.01"
-          :disabled="pending"
-        />
-        <span class="mt-1 block text-xs text-stone-500">
-          Taken off each day, for each unit, when the booking is 3 days or longer. A ₱100 less on one unit for 3 days removes ₱300. The deposit is not reduced.
-        </span>
-        <span
-          v-if="errors.longStayLess"
-          class="mt-1 block text-xs text-red-700"
-        >{{ errors.longStayLess }}</span>
-      </label>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="block text-sm">
+          <span class="mb-1.5 block text-stone-700">Less per day (₱)</span>
+          <UInput
+            v-model="form.longStayLess"
+            type="number"
+            min="0"
+            step="0.01"
+            :disabled="pending"
+          />
+          <span
+            v-if="errors.longStayLess"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.longStayLess }}</span>
+        </label>
+        <label class="block text-sm">
+          <span class="mb-1.5 block text-stone-700">Apply from this many days</span>
+          <UInput
+            v-model="form.longStayMinDays"
+            type="number"
+            min="1"
+            step="1"
+            :disabled="pending"
+          />
+          <span
+            v-if="errors.longStayMinDays"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.longStayMinDays }}</span>
+        </label>
+      </div>
+      <p class="mt-2 text-xs text-stone-500">
+        Set the less to 0 to turn it off. Otherwise a booking that reaches the day count is reduced by the less times the days, for each unit. A ₱100 less from 3 days removes ₱300 on one unit. The deposit is not reduced.
+      </p>
     </section>
 
     <section class="rounded-xl border border-stone-200 bg-white p-5">

@@ -25,6 +25,7 @@ export function quoteRentalLine(input: {
   quantity: number
   days: number
   longStayLess?: number
+  longStayMinDays?: number
 }) {
   const quantity = Math.max(1, Math.trunc(input.quantity))
   const days = Math.max(1, Math.trunc(input.days))
@@ -47,7 +48,8 @@ export function quoteRentalLine(input: {
 
   const rentAmount = fromMinorUnits(toMinorUnits(best * quantity))
   const lessPerDay = Math.max(0, input.longStayLess ?? 0)
-  const lessAmount = days >= LONG_STAY_LESS_DAYS
+  const minDays = Math.max(1, Math.trunc(input.longStayMinDays ?? LONG_STAY_LESS_DAYS))
+  const lessAmount = lessPerDay > 0 && days >= minDays
     ? fromMinorUnits(toMinorUnits(lessPerDay * days * quantity))
     : 0
 

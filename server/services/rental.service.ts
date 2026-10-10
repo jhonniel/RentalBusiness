@@ -139,6 +139,7 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     monthlyPrice: product.monthly_price === null ? null : Number(product.monthly_price),
     depositAmount: Number(product.deposit_amount),
     longStayLess: Number(product.long_stay_less ?? 0),
+    longStayMinDays: Number(product.long_stay_min_days ?? 3),
     quantity: query.quantity,
     days,
   })
