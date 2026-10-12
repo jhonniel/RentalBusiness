@@ -32,6 +32,7 @@ export interface PublicProduct {
   longStayMinDays: number
   depositAmount: number
   lateFee: number
+  commissionPerDay: number
   replacementValue: number | null
   hiddenPriceFields: PriceFieldKey[]
   quantity: number

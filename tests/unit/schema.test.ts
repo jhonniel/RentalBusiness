@@ -47,6 +47,10 @@ const longStayLessDays = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20261010010000_long_stay_less_days.sql'),
   'utf8',
 )
+const quoteRentalLineUnique = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261012000000_quote_rental_line_unique.sql'),
+  'utf8',
+)
 const paymentMethods = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913230000_phase16_payment_methods.sql'),
   'utf8',
@@ -77,6 +81,10 @@ const siteMaintenance = readFileSync(
 )
 const waiverDownPayment = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260913310000_waiver_v1_1_nonrefundable_downpayment.sql'),
+  'utf8',
+)
+const waiverLateFee = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20261013000000_waiver_v1_2_late_fee.sql'),
   'utf8',
 )
 const productComingSoon = readFileSync(
@@ -410,6 +418,18 @@ describe('hidden product prices', () => {
   })
 })
 
+describe('waiver late fee schedule', () => {
+  it('publishes JRY-WAIVER-v1.2 without rewriting accepted earlier copies', () => {
+    expect(waiverLateFee).toContain('JRY-WAIVER-v1.2')
+    expect(waiverLateFee).toContain('A late fee applies once the equipment is not returned by the agreed return time.')
+    expect(waiverLateFee).toContain('Less than 6 hours after the return time, the late fee is ₱300.00.')
+    expect(waiverLateFee).toContain('6 hours or more, and up to 12 hours, after the return time, the late fee is half a day of the rented item.')
+    expect(waiverLateFee).toContain('More than 12 hours after the return time, the late return is charged as 1 day of rent.')
+    expect(waiverLateFee).toContain('Accepted JRY-WAIVER-v1.0 and JRY-WAIVER-v1.1 snapshots stay frozen')
+    expect(waiverLateFee).toContain('on conflict (version) do nothing')
+  })
+})
+
 describe('waiver down payment refund', () => {
   it('publishes JRY-WAIVER-v1.1 without rewriting accepted v1.0 copies', () => {
     expect(waiverDownPayment).toContain('JRY-WAIVER-v1.1')
@@ -437,6 +457,10 @@ describe('long stay less', () => {
     expect(longStayLessDays).toContain('long_stay_min_days')
     expect(longStayLessDays).toContain('if v_days >= v_min_days then')
     expect(longStayLessDays).toContain('v_product.long_stay_min_days')
+    expect(quoteRentalLineUnique).toContain('drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer)')
+    expect(quoteRentalLineUnique).toContain('drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer, numeric)')
+    expect(quoteRentalLineUnique).toContain('drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer, numeric, integer)')
+    expect(quoteRentalLineUnique).toContain('v_product.long_stay_min_days')
   })
 })
 
@@ -453,11 +477,28 @@ describe('development seed', () => {
   it('is marked development-only and seeds a local admin login', () => {
     expect(seed).toContain('Do not run against production')
     expect(seed).toContain('Starlink Mini')
-    expect(seed).toContain('JRY-WAIVER-v1.1')
+    expect(seed).toContain('JRY-WAIVER-v1.2')
     expect(seed).toContain('The down payment is not refundable once a rental is booked.')
     expect(seed).toContain('admin@jryrentals.local')
     expect(seed).toContain('insert into auth.users')
     expect(seed).toContain('insert into public.profiles')
     expect(seed).not.toMatch(/update public\.profiles\s+set[\s\S]*?role = 'admin'/)
+  })
+})
+
+describe('commissioner role', () => {
+  const commissionerRole = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261013010000_commissioner_role.sql'),
+    'utf8',
+  )
+
+  it('adds a commissioner role, a daily equipment commission, and a commission expense', () => {
+    expect(commissionerRole).toContain("role in ('admin', 'customer', 'commissioner')")
+    expect(commissionerRole).toContain('commission_per_day')
+    expect(commissionerRole).toContain('commissioner_id')
+    expect(commissionerRole).toContain("'commission'")
+    expect(commissionerRole).toContain('promote_profile_to_commissioner')
+    expect(commissionerRole).toContain('grant execute on function public.promote_profile_to_commissioner(uuid) to service_role')
+    expect(commissionerRole).toContain('only a customer can become a commissioner')
   })
 })

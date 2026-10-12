@@ -13,6 +13,7 @@ export const MAINTENANCE_PRODUCT_LIMIT = 3
 
 const PAGE_BYPASS_PREFIXES = [
   '/admin',
+  '/commissioner',
   '/login',
   '/register',
   '/forgot-password',
@@ -26,6 +27,7 @@ const PAGE_BYPASS_PREFIXES = [
 const API_BYPASS_PREFIXES = [
   '/api/maintenance',
   '/api/admin',
+  '/api/commissioner',
   '/api/auth',
   '/api/health',
   '/api/cron',

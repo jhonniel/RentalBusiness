@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CalendarDate, parseDate } from '@internationalized/date'
 import type { DateValue } from '@internationalized/date'
+import type { AvailabilityCalendar } from '~/types/availability'
 import { rangeIncludesUnavailableDates } from '~/utils/availability'
 import { calendarDateInZone, formatBookingDate } from '~/utils/datetime'
 
@@ -15,15 +16,22 @@ const props = defineProps<{
   min?: string
   until?: string
   flexible?: boolean
+  availability?: AvailabilityCalendar | null
 }>()
 
 const today = calendarDateInZone()
 const minDate = computed(() => props.min || today)
-const { calendar, enabled: canLoad } = useAvailabilityCalendar(() => ({
-  productUuid: props.productUuid,
-  productSlug: props.productSlug,
-  quantity: props.quantity,
-}))
+const { calendar: fetchedCalendar, enabled: fetchEnabled } = useAvailabilityCalendar(() => (
+  props.availability
+    ? {}
+    : {
+        productUuid: props.productUuid,
+        productSlug: props.productSlug,
+        quantity: props.quantity,
+      }
+))
+const calendar = computed(() => props.availability ?? fetchedCalendar.value)
+const canLoad = computed(() => Boolean(props.availability?.product.uuid) || fetchEnabled.value)
 
 const closed = computed(() => new Set((calendar.value?.unavailableDates ?? []).map(date => date.slice(0, 10))))
 const booked = computed(() => new Set((calendar.value?.bookedDates ?? []).map(date => date.slice(0, 10))))

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AvailabilityCalendar } from '~/types/availability'
 import {
   bookingsFromOccupyingWindows,
   selectablePickupTime,
@@ -19,14 +20,20 @@ const props = defineProps<{
   flexible?: boolean
   ownPickupAt?: string | null
   ownReturnAt?: string | null
+  availability?: AvailabilityCalendar | null
 }>()
 
 const slots = pickupTimeSlots()
-const { calendar } = useAvailabilityCalendar(() => ({
-  productUuid: props.productUuid,
-  productSlug: props.productSlug,
-  quantity: props.quantity,
-}))
+const { calendar: fetchedCalendar } = useAvailabilityCalendar(() => (
+  props.availability
+    ? {}
+    : {
+        productUuid: props.productUuid,
+        productSlug: props.productSlug,
+        quantity: props.quantity,
+      }
+))
+const calendar = computed(() => props.availability ?? fetchedCalendar.value)
 
 const occupyingWindows = computed(() => {
   const windows = calendar.value?.occupyingWindows ?? []

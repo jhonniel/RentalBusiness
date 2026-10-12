@@ -125,6 +125,7 @@ describe('maintenance mapping', () => {
 describe('maintenance access', () => {
   it('lets admins and auth pages through while blocking the storefront', () => {
     expect(isMaintenanceBypassPath('/admin/settings')).toBe(true)
+    expect(isMaintenanceBypassPath('/commissioner')).toBe(true)
     expect(isMaintenanceBypassPath('/login')).toBe(true)
     expect(isMaintenanceBypassPath('/maintenance')).toBe(true)
     expect(isMaintenanceBypassPath('/waivers/sign/11111111-1111-4111-8111-111111111111')).toBe(true)
@@ -134,6 +135,7 @@ describe('maintenance access', () => {
     expect(isMaintenanceBypassApiPath('/api/maintenance')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/maintenance/chat')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/admin/maintenance')).toBe(true)
+    expect(isMaintenanceBypassApiPath('/api/commissioner/rentals')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/auth/me')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/payments/webhook')).toBe(true)
     expect(isMaintenanceBypassApiPath('/api/cookie-policy/current')).toBe(true)

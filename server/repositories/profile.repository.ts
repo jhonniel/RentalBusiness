@@ -112,6 +112,25 @@ export async function listAdminProfiles(client: TypedClient) {
   return data ?? []
 }
 
+export async function listCommissionerProfiles(client: TypedClient) {
+  const { data, error } = await client
+    .from('profiles')
+    .select('uuid, user_id, first_name, last_name, created_at')
+    .eq('role', 'commissioner')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw new AppError(
+      'We could not load commissioners.',
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      { cause: error },
+    )
+  }
+
+  return data ?? []
+}
+
 export async function promoteProfileToAdmin(client: TypedClient, uuid: string) {
   const { error } = await client.rpc('promote_profile_to_admin', {
     p_profile_uuid: uuid,
@@ -120,6 +139,21 @@ export async function promoteProfileToAdmin(client: TypedClient, uuid: string) {
   if (error) {
     throw new AppError(
       'We could not make that customer a system user.',
+      400,
+      ERROR_CODES.VALIDATION_ERROR,
+      { cause: error },
+    )
+  }
+}
+
+export async function promoteProfileToCommissioner(client: TypedClient, uuid: string) {
+  const { error } = await client.rpc('promote_profile_to_commissioner', {
+    p_profile_uuid: uuid,
+  })
+
+  if (error) {
+    throw new AppError(
+      'We could not make that customer a commissioner.',
       400,
       ERROR_CODES.VALIDATION_ERROR,
       { cause: error },

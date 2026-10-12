@@ -168,6 +168,7 @@ function toProductWrite(input: ProductInput, categoryId: number, slug: string, s
     long_stay_min_days: input.longStayMinDays,
     deposit_amount: input.depositAmount,
     late_fee: input.lateFee,
+    commission_per_day: input.commissionPerDay,
     replacement_value: input.replacementValue,
     hidden_price_fields: toHiddenPriceFieldDb(input.hiddenPriceFields),
     quantity: input.quantity,

@@ -8,19 +8,19 @@ export function waiverInviteExpiresAt(now = new Date()) {
 
 export function isWaiverInviteOpen(invite: {
   usedAt?: string | null
-  expiresAt: string
-}, now = new Date()) {
-  return !invite.usedAt && isWaiverInviteUnexpired(invite, now)
+  expiresAt?: string
+}, _now = new Date()) {
+  return !invite.usedAt
 }
 
-export function isWaiverInviteUnexpired(invite: {
-  expiresAt: string
-}, now = new Date()) {
-  return new Date(invite.expiresAt).getTime() > now.getTime()
+export function isWaiverInviteUnexpired(_invite: {
+  expiresAt?: string
+}, _now = new Date()) {
+  return true
 }
 
 export function canUploadGuestIdentity(rental: Pick<PublicRental, 'status' | 'waiver'>) {
-  return ['draft', 'pending'].includes(rental.status) && Boolean(rental.waiver)
+  return ['draft', 'pending'].includes(rental.status)
 }
 
 export const WAIVER_INVITE_STATUSES = [

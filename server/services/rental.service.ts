@@ -107,7 +107,9 @@ async function loadActiveProduct(client: Client, query: { productUuid?: string, 
   return row
 }
 
-export async function buildQuote(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery): Promise<RentalQuote & {
+export async function buildQuote(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery, options?: {
+  exceptRentalUuid?: string
+}): Promise<RentalQuote & {
   productId: number
   hasBlockedDates: boolean
 }> {
@@ -120,6 +122,7 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
   const booked = await getBookedQuantity(client, product.id, window.startsOn, window.endsOn, {
     pickupAt: window.pickupAt,
     returnAt: window.returnAt,
+    exceptRentalUuid: options?.exceptRentalUuid,
   })
   const blockedRanges = await listBlockedRanges(client, product.id, window.startsOn, window.endsOn)
   const hasBlockedDates = blockedRanges.length > 0

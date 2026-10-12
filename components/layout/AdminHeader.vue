@@ -11,8 +11,8 @@ const { profile, logout } = useAuth()
 </script>
 
 <template>
-  <header class="flex min-h-[4.25rem] items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 sm:px-6 lg:px-8">
-    <div class="flex min-w-0 items-center gap-3">
+  <header class="flex min-h-[4.25rem] items-center justify-between gap-2 border-b border-stone-200 bg-white px-3 sm:gap-3 sm:px-6 lg:px-8">
+    <div class="flex min-w-0 items-center gap-2">
       <UButton
         class="lg:hidden"
         color="neutral"
@@ -31,22 +31,27 @@ const { profile, logout } = useAuth()
       </h1>
     </div>
 
-    <div class="flex shrink-0 items-center gap-2 text-xs text-stone-500 sm:gap-3">
+    <div class="flex min-w-0 items-center gap-1.5 text-xs text-stone-500 sm:gap-3">
       <NuxtLink
         to="/admin/account"
-        class="hidden max-w-48 truncate sm:inline hover:text-stone-800"
+        class="hidden max-w-48 truncate hover:text-stone-800 sm:inline"
       >
         {{ profile?.email }}
       </NuxtLink>
-      <span class="hidden sm:inline">Asia/Manila</span>
+      <span class="hidden md:inline">Asia/Manila</span>
       <span class="rounded-full bg-stone-100 px-2 py-1">PHP</span>
       <UButton
         color="neutral"
         variant="ghost"
         size="xs"
+        aria-label="Sign out"
         @click="logout"
       >
-        Sign out
+        <UIcon
+          name="i-lucide-log-out"
+          class="size-4 lg:hidden"
+        />
+        <span class="hidden lg:inline">Sign out</span>
       </UButton>
     </div>
   </header>

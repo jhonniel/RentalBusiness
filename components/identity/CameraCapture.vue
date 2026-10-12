@@ -163,7 +163,7 @@ function retake() {
       <UButton
         v-if="live"
         type="button"
-        class="w-full sm:w-auto"
+        class="w-full justify-center sm:w-auto"
         :disabled="disabled"
         @click="capture"
       >
@@ -174,7 +174,7 @@ function retake() {
         type="button"
         color="neutral"
         variant="outline"
-        class="w-full sm:w-auto"
+        class="w-full justify-center sm:w-auto"
         :disabled="disabled"
         @click="retake"
       >
@@ -183,7 +183,7 @@ function retake() {
       <UButton
         v-else
         type="button"
-        class="w-full sm:w-auto"
+        class="w-full justify-center sm:w-auto"
         :disabled="disabled"
         @click="openCamera"
       >
@@ -194,7 +194,7 @@ function retake() {
         type="button"
         color="neutral"
         variant="outline"
-        class="w-full sm:w-auto"
+        class="w-full justify-center sm:w-auto"
         @click="stopCamera"
       >
         Close camera

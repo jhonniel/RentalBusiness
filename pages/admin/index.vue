@@ -73,7 +73,7 @@ const cards = computed(() => {
         <USkeleton
           v-for="index in 11"
           :key="index"
-          class="h-24 min-w-[14rem] flex-1 basis-[14rem]"
+          class="h-24 w-full sm:w-auto sm:min-w-[14rem] sm:flex-1 sm:basis-[14rem]"
         />
       </div>
 
@@ -84,7 +84,7 @@ const cards = computed(() => {
         <article
           v-for="card in cards"
           :key="card.label"
-          class="min-w-[14rem] flex-1 basis-[14rem] rounded-xl border border-stone-200 bg-white p-4"
+          class="w-full min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:w-auto sm:min-w-[14rem] sm:flex-1 sm:basis-[14rem]"
         >
           <p class="text-xs uppercase tracking-wider text-stone-500">
             {{ card.label }}
@@ -104,7 +104,7 @@ const cards = computed(() => {
             <li
               v-for="point in data?.salesByDay"
               :key="point.label"
-              class="grid grid-cols-[minmax(0,4.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-xs"
+              class="grid grid-cols-[minmax(0,3.25rem)_minmax(0,1fr)_auto] items-center gap-2 text-xs"
             >
               <span class="text-stone-500">{{ point.label.slice(5) }}</span>
               <span class="h-2 overflow-hidden rounded-full bg-stone-100">
@@ -129,7 +129,7 @@ const cards = computed(() => {
             <li
               v-for="point in data.rentalsByStatus"
               :key="point.label"
-              class="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-xs sm:grid-cols-[8rem_minmax(0,1fr)_auto]"
+              class="grid grid-cols-[minmax(0,4.5rem)_minmax(0,1fr)_auto] items-center gap-2 text-xs sm:grid-cols-[8rem_minmax(0,1fr)_auto] sm:gap-3"
             >
               <span class="capitalize text-stone-500">{{ point.label.replaceAll('_', ' ') }}</span>
               <span class="h-2 overflow-hidden rounded-full bg-stone-100">

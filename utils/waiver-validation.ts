@@ -23,6 +23,14 @@ export const sendWaiverInviteSchema = z.object({
   email: z.string().trim().email('Enter a valid email address.').max(254).optional().or(z.literal('')),
 }).strict()
 
+export const completeWaiverInviteContactSchema = z.object({
+  token: z.string().trim().min(20, 'This sign link is invalid.').max(200),
+  firstName: z.string().trim().min(1, 'First name is required.').max(80),
+  lastName: z.string().trim().min(1, 'Last name is required.').max(80),
+  email: z.string().trim().email('Enter a valid email.').max(160),
+  phone: z.string().trim().min(1, 'Phone number is required.').max(30),
+}).strict()
+
 export const acceptWaiverInviteSchema = z.object({
   token: z.string().trim().min(20, 'This sign link is invalid.').max(200),
   waiverVersionUuid: z.string().uuid('Choose the current waiver version.'),
@@ -50,6 +58,7 @@ export const acceptAdminWaiverSchema = z.object({
 
 export type AcceptWaiverInput = z.infer<typeof acceptWaiverSchema>
 export type AcceptWaiverInviteInput = z.infer<typeof acceptWaiverInviteSchema>
+export type CompleteWaiverInviteContactInput = z.infer<typeof completeWaiverInviteContactSchema>
 export type SendWaiverInviteInput = z.infer<typeof sendWaiverInviteSchema>
 export type PublishWaiverInput = z.infer<typeof publishWaiverSchema>
 export type AcceptAdminWaiverInput = z.infer<typeof acceptAdminWaiverSchema>

@@ -30,6 +30,7 @@ export const productInputSchema = z.object({
   longStayMinDays: z.coerce.number().int().min(1, 'Use at least 1 day.').default(3),
   depositAmount: money.default(0),
   lateFee: money.default(0),
+  commissionPerDay: money.default(0),
   replacementValue: optionalMoney,
   hiddenPriceFields: z.array(z.enum(PRICE_FIELD_KEYS)).default([]).transform(fields => (
     PRICE_FIELD_KEYS.filter(key => fields.includes(key))

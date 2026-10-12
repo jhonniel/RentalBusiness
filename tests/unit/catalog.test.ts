@@ -230,6 +230,8 @@ describe('catalog mappers', () => {
     expect(catalog.replacementValue).toBeNull()
     expect(catalog.dailyPrice).toBe(2500)
     expect(catalog.depositAmount).toBe(10000)
+    expect(catalog).not.toHaveProperty('commissionPerDay')
+    expect(admin.commissionPerDay).toBe(0)
     expect(visibleCatalogPrices(catalog).map(row => row.key)).toEqual(['daily', 'deposit'])
     expect(catalogCardRate({
       dailyPrice: null,

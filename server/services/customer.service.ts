@@ -7,7 +7,9 @@ import { listCustomers } from '../repositories/customer.repository'
 import {
   findProfileByUuid,
   listAdminProfiles,
+  listCommissionerProfiles,
   promoteProfileToAdmin,
+  promoteProfileToCommissioner,
 } from '../repositories/profile.repository'
 import { recordAudit } from '../utils/audit'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -67,6 +69,19 @@ export async function listAdminSystemUsers(client: Client) {
   }))
 }
 
+export async function listAdminCommissioners(client: Client) {
+  const rows = await listCommissionerProfiles(client)
+  const emails = await accountEmails(rows.map(row => row.user_id))
+
+  return rows.map(row => ({
+    uuid: row.uuid,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: emails.get(row.user_id) || null,
+    createdAt: row.created_at,
+  }))
+}
+
 export async function promoteAdminCustomer(
   event: H3Event,
   client: Client,
@@ -103,5 +118,44 @@ export async function promoteAdminCustomer(
     firstName: target.first_name,
     lastName: target.last_name,
     role: 'admin' as const,
+  }
+}
+
+export async function promoteCommissionerCustomer(
+  event: H3Event,
+  client: Client,
+  actorUuid: string,
+  profileUuid: string,
+) {
+  const target = await findProfileByUuid(client, profileUuid)
+
+  if (!target) {
+    throw new AppError('Customer not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (!canPromoteProfile(actorUuid, target)) {
+    throw new AppError(
+      target.role === 'commissioner'
+        ? 'That account is already a commissioner.'
+        : 'You cannot change that account.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  await promoteProfileToCommissioner(client, target.uuid)
+  await recordAudit(event, client, {
+    action: 'profile.promote_commissioner',
+    entity: 'profiles',
+    entityId: target.uuid,
+    previous: { role: target.role },
+    next: { role: 'commissioner' },
+  })
+
+  return {
+    uuid: target.uuid,
+    firstName: target.first_name,
+    lastName: target.last_name,
+    role: 'commissioner' as const,
   }
 }

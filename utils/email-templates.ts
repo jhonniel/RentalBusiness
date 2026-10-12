@@ -1,7 +1,7 @@
 import type { ReceiptSnapshot } from '~/types/receipt'
 import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL } from './constants'
 import { formatMoney } from './currency'
-import { formatBusinessDate, formatBusinessDateTime } from './datetime'
+import { formatBusinessDate } from './datetime'
 import { escapeHtml } from './email'
 
 function publicOrigin() {
@@ -136,7 +136,6 @@ export function waiverInviteEmail(input: {
   startsOn: string
   endsOn: string
   waiverUrl: string
-  expiresAt: string
 }) {
   const html = layout(`Sign the rental waiver for ${input.rentalCode}`, `
     <p style="margin:0 0 16px;font-size:16px;">Hi ${escapeHtml(input.customerName)},</p>
@@ -151,7 +150,6 @@ export function waiverInviteEmail(input: {
       </a>
     </p>
     <p style="margin:0 0 16px;color:#57534e;font-size:14px;line-height:1.6;">
-      This link expires on ${escapeHtml(formatBusinessDateTime(input.expiresAt))} and can be used once.
       If the button does not work, copy this address:
     </p>
     <p style="margin:0;color:#325348;font-size:13px;word-break:break-all;">${escapeHtml(input.waiverUrl)}</p>

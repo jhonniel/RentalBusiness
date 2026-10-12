@@ -109,3 +109,13 @@ export async function requireAdmin(event: H3Event): Promise<PublicProfile> {
 
   return profile
 }
+
+export async function requireCommissioner(event: H3Event): Promise<PublicProfile> {
+  const profile = await getCurrentProfile(event)
+
+  if (profile.role !== 'commissioner') {
+    throw new AppError('You do not have access to this resource.', 403, ERROR_CODES.FORBIDDEN)
+  }
+
+  return profile
+}

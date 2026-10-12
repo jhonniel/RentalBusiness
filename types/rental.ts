@@ -54,6 +54,12 @@ export interface PublicRental {
     email?: string | null
     phone: string | null
   } | null
+  commissioner?: {
+    uuid: string
+    firstName: string
+    lastName: string
+  } | null
+  commissionAmount?: number
   createdAt: string
 }
 

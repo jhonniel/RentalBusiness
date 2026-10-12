@@ -204,6 +204,11 @@ export async function expireUnconfirmedRentals(event: H3Event, now = new Date())
   const summary = { considered: rows.length, cancelled: 0, skipped: 0, failed: 0 }
 
   for (const rental of rows) {
+    if (rental.commissioner_id != null) {
+      summary.skipped += 1
+      continue
+    }
+
     if (!isUnconfirmedRequestExpired(rental.status, rental.updated_at, now)
       || !canTransitionRentalStatus(rental.status, 'cancelled')) {
       summary.skipped += 1

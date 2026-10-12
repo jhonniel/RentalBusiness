@@ -1,4 +1,5 @@
 import type { PublicProfile, ProfileRow } from '~/types/auth'
+import { isTechnicalErrorMessage, SUPPORT_MESSAGE } from './errors'
 
 export const AUTH_PROVIDERS = ['email', 'google'] as const
 export const AUTH_NEXT_STORAGE_KEY = 'jry-auth-next'
@@ -136,7 +137,13 @@ export function safeRedirectPath(path: unknown, fallback = '/dashboard'): string
 }
 
 export function accountHomePath(role?: string | null) {
-  return role === 'admin' ? '/admin' : '/dashboard'
+  if (role === 'admin') {
+    return '/admin'
+  }
+  if (role === 'commissioner') {
+    return '/commissioner'
+  }
+  return '/dashboard'
 }
 
 export function canPromoteProfile(actorUuid: string, target: { uuid: string, role?: string | null }) {
@@ -154,6 +161,10 @@ export function resolvePostLoginPath(requested: unknown, role?: string | null) {
   }
 
   if (role === 'admin' && (requested === '/dashboard' || requested === '/dashboard/')) {
+    return home
+  }
+
+  if (role === 'commissioner' && (requested === '/dashboard' || requested === '/dashboard/' || requested === '/admin' || requested === '/admin/')) {
     return home
   }
 
@@ -309,8 +320,8 @@ export function mapAuthError(message: string): string {
     return 'Please choose a stronger password of at least 8 characters.'
   }
 
-  if (looksLikeInternalAuthError(message)) {
-    return 'We could not complete that request. Please try again.'
+  if (looksLikeInternalAuthError(message) || isTechnicalErrorMessage(message)) {
+    return SUPPORT_MESSAGE
   }
 
   return message.trim() || 'We could not complete that request. Please try again.'

@@ -2,6 +2,7 @@
 import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { supabaseModuleKey, supabaseModuleUrl } from './utils/supabase-config'
+import { supportErrorHandler } from './server/utils/support-error-handler'
 
 const rootDir = dirname(fileURLToPath(import.meta.url))
 
@@ -111,7 +112,15 @@ export default defineNuxtConfig({
   },
   compatibilityDate: '2025-07-15',
 
+  hooks: {
+    // Assigned after Nitro clones its config, so the dev error page stays in this process.
+    'nitro:init'(nitro) {
+      nitro.options.devErrorHandler = supportErrorHandler
+    },
+  },
+
   nitro: {
+    devErrorHandler: supportErrorHandler,
     compressPublicAssets: true,
     externals: {
       external: ['sharp'],

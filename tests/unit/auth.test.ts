@@ -105,10 +105,12 @@ describe('auth helpers', () => {
   it('routes administrators to the operations console after sign-in', () => {
     expect(accountHomePath('admin')).toBe('/admin')
     expect(accountHomePath('customer')).toBe('/dashboard')
+    expect(accountHomePath('commissioner')).toBe('/commissioner')
     expect(resolvePostLoginPath(undefined, 'admin')).toBe('/admin')
     expect(resolvePostLoginPath('/dashboard', 'admin')).toBe('/admin')
     expect(resolvePostLoginPath('/products', 'admin')).toBe('/products')
     expect(resolvePostLoginPath('/dashboard', 'customer')).toBe('/dashboard')
+    expect(resolvePostLoginPath('/dashboard', 'commissioner')).toBe('/commissioner')
   })
 
   it('lets an admin promote only another customer', () => {
@@ -120,7 +122,7 @@ describe('auth helpers', () => {
   it('hides provider error details', () => {
     expect(mapAuthError('Invalid login credentials')).toBe('Email or password is incorrect.')
     expect(mapAuthError('relation "secret" does not exist')).toBe(
-      'We could not complete that request. Please try again.',
+      'Contact the admin for support.',
     )
     expect(extractAuthErrorMessage('{"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}'))
       .toBe('Unsupported provider: provider is not enabled')

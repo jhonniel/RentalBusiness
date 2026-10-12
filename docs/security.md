@@ -27,13 +27,13 @@ Nitro sets `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`,
 - A missing profile fetch is not treated as “needs policies.” Only a loaded profile without Terms or Privacy versions goes to `/accept-policies`
 - No access tokens in `localStorage`
 - Named middleware (`auth`, `guest`, `admin`, `customer-home`) — not a global login wall, so the catalog stays public
-- After sign-in, the server-loaded profile role chooses the account home. Administrators are sent to the operations console so they do not open `/admin` by hand. Customers stay on `/dashboard`.
+- After sign-in, the server-loaded profile role chooses the account home. Administrators are sent to the operations console so they do not open `/admin` by hand. Commissioners are sent to `/commissioner`. Customers stay on `/dashboard`.
 - Google sign-in uses the same cookie session. New Google accounts without stored Terms/Privacy versions must accept them once. Accounts that already signed up are not sent back to that screen
 - Auth forms use `method="post"` and `@submit.prevent` (do not use `UAuthForm`)
 
 ## Authorization
 
-Roles live on `profiles.role` (`admin` | `customer`).
+Roles live on `profiles.role` (`admin` | `customer` | `commissioner`).
 
 Admin pages require:
 
@@ -54,14 +54,14 @@ Profile rules:
 - Users may update only `first_name`, `last_name`, `phone`
 - A trigger rejects changes to `role`, `user_id`, and `uuid` unless `app.allow_role_change` is set for the current transaction
 - New users always receive `role = 'customer'` from a security-definer trigger
-- Role promotion is `POST /api/admin/customers/[uuid]/promote` after `requireAdmin`. The service-role client calls `promote_profile_to_admin(uuid)`. Clients cannot send `role`. Admin customer and system-user lists include the sign-in email from Auth. That email is not returned on public or guest waiver payloads. Admins change their own password on `POST /api/auth/change-password` after the current password is checked. That route is admin-only.
+- Role promotion is `POST /api/admin/customers/[uuid]/promote` after `requireAdmin`. The service-role client calls `promote_profile_to_admin(uuid)`. `POST /api/admin/customers/[uuid]/commissioner` calls `promote_profile_to_commissioner(uuid)` and only a customer can become a commissioner. Clients cannot send `role`. Commissioner booking APIs require that role and use the service-role client. A commissioner can book one piece of equipment for a client. The booking is stored on the client and on `rental_requests.commissioner_id`. It is created as `pending`, so it holds the dates until an admin confirms it or an admin or that commissioner cancels or deletes it. Those holds are not cancelled by the 24-hour unconfirmed-request job. The commission is `products.commission_per_day` times the rental days times the quantity, snapshotted on the rental, and written as a pending `commission` expense. Cancel or delete voids that expense. Admin customer and system-user lists include the sign-in email from Auth. That email is not returned on public or guest waiver payloads. Admins change their own password on `POST /api/auth/change-password` after the current password is checked. That route is admin-only.
 
 Phase 2 additions:
 
 - Public catalog read is limited to active products and categories
 - Customers insert rentals only as `draft` or `pending` for their own profile
 - Customers cannot write `payment_transactions`, `receipts`, `expenses`, `email_logs`, or `audit_logs`
-- Accepted waiver versions cannot be updated or deleted. Publishing `JRY-WAIVER-v1.1` only rotates `is_current`; signed `JRY-WAIVER-v1.0` bodies stay frozen.
+- Accepted waiver versions cannot be updated or deleted. Publishing `JRY-WAIVER-v1.2` only rotates `is_current`; signed `JRY-WAIVER-v1.0` and `JRY-WAIVER-v1.1` bodies stay frozen. v1.2 states that a late fee applies once equipment is not returned by the agreed return time: less than 6 hours is ₱300, 6 hours up to 12 hours is half a day of the rented item, and more than 12 hours is charged as 1 day of rent.
 - `expense_occurrences` is unique on `(recurring_expense_id, occurs_on)` for idempotent cron
 - Storage: public `product-images`, public `payment-qr-images`, public `maintenance-images`, private `private-documents` (path prefixed by `auth.uid()`)
 
@@ -111,8 +111,8 @@ Phase 7 additions:
 - Accepted versions cannot change `title`, `body`, `version`, or `uuid`; `is_current` may rotate so a newer version can be published
 - Customers may re-read versions they signed after a newer current version is published
 - Signature payloads are PNG data URLs with a size cap; accept is limited to 20/min/user
-- An administrator may create a client booking with `POST /api/admin/rentals`. The rental is stored on the customer profile. A new email is opened with the service-role Auth admin API; the generated password is never returned or emailed. An existing customer is chosen by profile uuid. The route is admin-only. An administrator may finish a customer `draft`, change pickup date, return date, and pickup time (including a shop time that has already passed today), record an in-person waiver signature, and send a guest sign link. After it is signed, the shop can copy an admin-only `/admin/rentals/{uuid}/waiver` URL; `GET /api/admin/rentals/[id]/waiver-pdf` requires an admin session. An administrator may `DELETE /api/admin/rentals/[id]/waiver` on an open signed rental to set it unsigned so it can be signed again; the previous signer, time, and version are audited and the signature image is not stored in that log. `rental_waiver_invites` is forced RLS; anon and authenticated have no grants. Only a sha256 token hash is stored. Public lookup compares the query `token` with a timing-safe hash check
-- Invite pages and APIs stay available during maintenance. `/waivers` is `noindex` and is disallowed in `robots.txt`. Tokens are never returned in JSON after send except as the one-time `waiverUrl` for the admin who created it. Email is optional so the shop can copy the link and send it another way. After sign, the same token can submit identity photos captured in the browser until the invite expires. Guest identity responses never include storage paths or signed URLs. `Permissions-Policy` allows `camera=(self)` so customers can photograph an ID on that page.
+- An administrator may create a client booking with `POST /api/admin/rentals` using only the equipment and dates. Name, email, and phone are optional. The rental is stored on a customer profile, not the admin. A new email is opened with the service-role Auth admin API; the generated password is never returned or emailed. With no email, the server opens a placeholder customer at `booking.<random>@guests.jryrentals.online`. That address is never emailed or returned on the waiver link. The create response includes a one-time `waiverUrl`. On that link the customer can change the pickup date, return date, and pickup time while the rental is still an unsigned draft. Availability for that change ignores this rental, and the public calendar API does not accept an exclude id. They must enter any missing name, email, and phone, and photograph ID documents if they are not already uploaded, before the waiver can be signed. An existing customer is chosen by profile uuid. The route is admin-only. An administrator may finish a customer `draft`, change pickup date, return date, and pickup time (including a shop time that has already passed today), record an in-person waiver signature, and send a guest sign link. After it is signed, the shop can copy an admin-only `/admin/rentals/{uuid}/waiver` URL; `GET /api/admin/rentals/[id]/waiver-pdf` requires an admin session. An administrator may `DELETE /api/admin/rentals/[id]/waiver` on an open signed rental to set it unsigned so it can be signed again; the previous signer, time, and version are audited and the signature image is not stored in that log. `rental_waiver_invites` is forced RLS; anon and authenticated have no grants. Only a sha256 token hash is stored. Public lookup compares the query `token` with a timing-safe hash check
+- Invite pages and APIs stay available during maintenance. `/waivers` is `noindex` and is disallowed in `robots.txt`. Tokens are never returned in JSON after send except as the one-time `waiverUrl` for the admin who created it. Email is optional so the shop can copy the link and send it another way. The same token can submit contact details and identity photos captured in the browser before the waiver is signed, and can still submit identity photos after sign. Guest identity responses never include storage paths or signed URLs. `Permissions-Policy` allows `camera=(self)` so customers can photograph an ID on that page.
 
 Privacy Policy additions:
 
@@ -189,7 +189,7 @@ Phase 17 additions:
 - Payment create requires a signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request
 - Admins may record a shop payment (`POST /api/admin/rentals/[id]/paid`) after the waiver and identity documents are on file. The paid amount is the rent plus the deposit. `POST /api/admin/rentals/[id]/complete` after the return time removes that deposit from the paid amount so sales keep the rent
 - Customers create rentals as `draft` only. `POST /api/rentals/[id]/submit` moves a draft to `pending` after the waiver and identity documents are on file
-- Customers photograph a government ID and selfie in the browser. Admins upload those files and do not use the camera. Identity submission requires a signed waiver on that rental for customers. Admins may upload identity photos for a `draft` or `pending` rental without that waiver
+- Customers photograph a government ID and selfie in the browser. Admins upload those files and do not use the camera. A signed-in customer still needs a signed waiver before uploading identity documents. A guest waiver link can upload those photos for a `draft` or `pending` rental before the waiver is signed. Admins may upload identity photos for a `draft` or `pending` rental without that waiver
 - Image uploads accept JPG, PNG, WebP, and HEIC up to 15 MB. The server compresses them to JPEG before writing to Supabase Storage (S3)
 - Waiver email and phone are copied from the server-loaded profile
 

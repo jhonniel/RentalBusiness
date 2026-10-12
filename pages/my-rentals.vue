@@ -5,7 +5,7 @@ import { productVisual } from '~/utils/storefront'
 
 definePageMeta({
   layout: 'account',
-  middleware: 'auth',
+  middleware: ['auth', 'customer-home'],
 })
 
 useSiteMeta({

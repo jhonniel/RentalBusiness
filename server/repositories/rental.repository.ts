@@ -24,6 +24,13 @@ const RENTAL_SELECT = `
   total_amount,
   notes,
   created_at,
+  commissioner_id,
+  commission_amount,
+  commissioner:profiles!rental_requests_commissioner_id_fkey (
+    uuid,
+    first_name,
+    last_name
+  ),
   rental_identity_verifications (
     submitted_at
   ),
@@ -80,7 +87,7 @@ const RENTAL_SELECT = `
     name,
     discount_amount
   ),
-  profiles (
+  profiles!rental_requests_customer_id_fkey (
     uuid,
     first_name,
     last_name,
@@ -101,7 +108,7 @@ const CALENDAR_SELECT = `
       name
     )
   ),
-  profiles (
+  profiles!rental_requests_customer_id_fkey (
     first_name,
     last_name
   )
@@ -311,10 +318,25 @@ export async function findRentalByCode(client: Client, code: string) {
   return data
 }
 
+export async function listCommissionerRentals(client: Client, commissionerId: number) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .select(RENTAL_SELECT)
+    .eq('commissioner_id', commissionerId)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (error) {
+    throw new AppError('We could not load those bookings.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
 export async function findRentalIdentityById(client: Client, id: number) {
   const { data, error } = await client
     .from('rental_requests')
-    .select('id, uuid, code, status, customer_id')
+    .select('id, uuid, code, status, customer_id, commissioner_id')
     .eq('id', id)
     .maybeSingle()
 
@@ -328,7 +350,7 @@ export async function findRentalIdentityById(client: Client, id: number) {
 export async function findRentalIdentity(client: Client, uuid: string) {
   const { data, error } = await client
     .from('rental_requests')
-    .select('id, uuid, code, status, customer_id')
+    .select('id, uuid, code, status, customer_id, commissioner_id')
     .eq('uuid', uuid)
     .maybeSingle()
 
@@ -374,7 +396,7 @@ export async function listRentals(client: Client, filters: {
 export async function listPendingRentalIdentities(client: Client) {
   const { data, error } = await client
     .from('rental_requests')
-    .select('id, uuid, code, status, customer_id, updated_at')
+    .select('id, uuid, code, status, customer_id, commissioner_id, updated_at')
     .eq('status', 'pending')
     .order('updated_at', { ascending: true })
     .limit(200)

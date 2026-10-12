@@ -9,7 +9,9 @@ alter table public.products
 alter table public.products
   add constraint products_long_stay_min_days_check check (long_stay_min_days >= 1);
 
+drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer);
 drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer, numeric);
+drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer, numeric, integer);
 
 create function public.quote_rental_line(
   p_daily numeric,
@@ -18,8 +20,8 @@ create function public.quote_rental_line(
   p_deposit numeric,
   p_quantity integer,
   p_days integer,
-  p_long_stay_less numeric default 0,
-  p_long_stay_min_days integer default 3
+  p_long_stay_less numeric,
+  p_long_stay_min_days integer
 )
 returns table (
   daily_price numeric,

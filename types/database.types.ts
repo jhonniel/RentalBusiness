@@ -10,7 +10,7 @@ export type Json
     | { [key: string]: Json | undefined }
     | Json[]
 
-export type ProfileRole = 'admin' | 'customer'
+export type ProfileRole = 'admin' | 'customer' | 'commissioner'
 export type ProductStatus = 'draft' | 'active' | 'coming_soon' | 'hidden' | 'archived'
 export type EquipmentStatus = 'available' | 'reserved' | 'rented' | 'maintenance' | 'damaged' | 'lost' | 'retired'
 export type RentalStatus
@@ -40,6 +40,7 @@ export type ExpenseCategory
     | 'insurance'
     | 'equipment'
     | 'office'
+    | 'commission'
     | 'other'
 
 export interface Database {
@@ -89,7 +90,22 @@ export interface Database {
           marketing_opted_at?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'rental_requests_customer_id_fkey',
+            columns: ['id'],
+            isOneToOne: false,
+            referencedRelation: 'rental_requests',
+            referencedColumns: ['customer_id'],
+          },
+          {
+            foreignKeyName: 'rental_requests_commissioner_id_fkey',
+            columns: ['id'],
+            isOneToOne: false,
+            referencedRelation: 'rental_requests',
+            referencedColumns: ['commissioner_id'],
+          },
+        ]
       }
       product_categories: {
         Row: {
@@ -137,6 +153,7 @@ export interface Database {
           long_stay_min_days: number
           deposit_amount: number
           late_fee: number
+          commission_per_day: number
           replacement_value: number | null
           hidden_price_fields: string[]
           quantity: number
@@ -171,6 +188,7 @@ export interface Database {
           long_stay_min_days?: number
           deposit_amount?: number
           late_fee?: number
+          commission_per_day?: number
           replacement_value?: number | null
           hidden_price_fields?: string[]
           quantity?: number
@@ -196,6 +214,7 @@ export interface Database {
           long_stay_min_days?: number
           deposit_amount?: number
           late_fee?: number
+          commission_per_day?: number
           replacement_value?: number | null
           hidden_price_fields?: string[]
           quantity?: number
@@ -308,6 +327,9 @@ export interface Database {
           uuid: string
           code: string
           customer_id: number
+          commissioner_id: number | null
+          commission_per_day: number
+          commission_amount: number
           status: RentalStatus
           starts_on: string
           ends_on: string
@@ -329,6 +351,9 @@ export interface Database {
           ends_on: string
           pickup_at: string
           return_at: string
+          commissioner_id?: number | null
+          commission_per_day?: number
+          commission_amount?: number
           uuid?: string
           code?: string
           status?: RentalStatus
@@ -358,6 +383,13 @@ export interface Database {
           {
             foreignKeyName: 'rental_requests_customer_id_fkey'
             columns: ['customer_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'rental_requests_commissioner_id_fkey'
+            columns: ['commissioner_id']
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
@@ -712,6 +744,7 @@ export interface Database {
           status: 'pending' | 'paid' | 'void'
           notes: string | null
           incurred_on: string
+          rental_id: number | null
           created_at: string
           updated_at: string
         }
@@ -720,6 +753,7 @@ export interface Database {
           category: ExpenseCategory
           amount: number
           incurred_on: string
+          rental_id?: number | null
           uuid?: string
           description?: string | null
           vendor?: string | null
@@ -1247,6 +1281,12 @@ export interface Database {
         Returns: string
       }
       promote_profile_to_admin: {
+        Args: {
+          p_profile_uuid: string
+        }
+        Returns: undefined
+      }
+      promote_profile_to_commissioner: {
         Args: {
           p_profile_uuid: string
         }

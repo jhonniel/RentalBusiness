@@ -7,7 +7,7 @@ export default defineNuxtRouteMiddleware(async () => {
     await refreshProfile()
   }
 
-  if (profile.value?.role === 'admin') {
-    return navigateTo(accountHomePath('admin'))
+  if (profile.value?.role === 'admin' || profile.value?.role === 'commissioner') {
+    return navigateTo(accountHomePath(profile.value.role))
   }
 })

@@ -129,6 +129,19 @@ export async function insertExpense(client: Client, values: Database['public']['
   return data
 }
 
+export async function voidCommissionExpenses(client: Client, rentalId: number) {
+  const { error } = await client
+    .from('expenses')
+    .update({ status: 'void' })
+    .eq('rental_id', rentalId)
+    .eq('category', 'commission')
+    .neq('status', 'void')
+
+  if (error) {
+    throw new AppError('We could not void that commission.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+}
+
 export async function updateExpenseByUuid(
   client: Client,
   uuid: string,

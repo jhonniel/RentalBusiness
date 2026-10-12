@@ -33,6 +33,7 @@ interface ProductRow {
   long_stay_min_days?: number | null
   deposit_amount: number
   late_fee: number
+  commission_per_day?: number | null
   replacement_value: number | null
   hidden_price_fields?: string[] | null
   quantity: number
@@ -144,6 +145,7 @@ export function toPublicProduct(row: ProductRow, images: ImageRow[], supabaseUrl
     longStayMinDays: Math.max(1, Number(row.long_stay_min_days ?? 3) || 3),
     depositAmount: Number(row.deposit_amount),
     lateFee: Number(row.late_fee),
+    commissionPerDay: Number(row.commission_per_day ?? 0),
     replacementValue: row.replacement_value === null ? null : Number(row.replacement_value),
     hiddenPriceFields: parseHiddenPriceFields(row.hidden_price_fields),
     quantity: row.quantity,

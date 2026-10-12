@@ -8,7 +8,7 @@ import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
 import type { ContinueAdminRentalInput, CreateAdminRentalInput } from '../../utils/rental-validation'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
-import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toPublicRental } from '../../utils/rental'
+import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canContinueAdminRental } from '../../utils/waiver-invite'
 import { isUuid } from '../../utils/slug'
@@ -43,6 +43,7 @@ import {
   updatePaymentByUuid,
 } from '../repositories/payment.repository'
 import { expireUnconfirmedRentals } from './cron.service'
+import { voidCommissionExpenses } from '../repositories/expense.repository'
 import { listAdminBlockedDatesOverlapping } from './blocked-date.service'
 import { attachAdminIdentityUrls } from './identity.service'
 import { issueReceiptForPayment } from './receipt.service'
@@ -64,7 +65,7 @@ async function loadAdminRental(client: Client, identifier: string) {
     throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  const rental = toPublicRental(row)
+  const rental = toShopRental(row)
   rental.identity = await attachAdminIdentityUrls(client, rental.uuid, rental.identity)
   const identity = await findRentalIdentity(client, rental.uuid)
   const profile = identity ? await findProfileById(client, identity.customer_id) : null
@@ -92,7 +93,7 @@ export async function listAdminRentals(client: Client, query: {
   })
 
   return {
-    items: rows.map(toPublicRental),
+    items: rows.map(toShopRental),
     page: query.page,
     pageSize: query.pageSize,
     total,
@@ -228,7 +229,7 @@ export async function createAdminRental(
     throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  const rental = toPublicRental(row)
+  const rental = toShopRental(row)
   await recordAudit(event, client, {
     action: 'rental.create',
     entity: 'rental_requests',
@@ -363,7 +364,7 @@ export async function confirmAdminRental(event: H3Event, client: Client, profile
     metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
   })
 
-  const next = toPublicRental(row)
+  const next = toShopRental(row)
   await recordAudit(event, client, {
     action: 'rental.confirm',
     entity: 'rental_requests',
@@ -408,7 +409,7 @@ export async function approveAdminRental(event: H3Event, client: Client, profile
     metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
   })
 
-  const next = toPublicRental(row)
+  const next = toShopRental(row)
   await recordAudit(event, client, {
     action: 'rental.approve',
     entity: 'rental_requests',
@@ -660,7 +661,7 @@ export async function completeAdminRental(event: H3Event, client: Client, profil
     metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
   })
 
-  const next = toPublicRental(row)
+  const next = toShopRental(row)
   await recordAudit(event, client, {
     action: 'rental.complete',
     entity: 'rental_requests',
@@ -685,6 +686,7 @@ export async function deleteAdminRental(event: H3Event, client: Client, identifi
     await client.storage.from(STORAGE_BUCKETS.privateDocuments).remove(paths)
   }
 
+  await voidCommissionExpenses(client, identity.id)
   await deleteRentalByUuid(client, rental.uuid)
 
   await recordAudit(event, client, {

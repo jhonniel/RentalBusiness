@@ -21,7 +21,7 @@ const color = computed(() => {
   <UBadge
     :color="color"
     variant="subtle"
-    class="capitalize"
+    class="w-fit max-w-full capitalize"
   >
     {{ status.replaceAll('_', ' ') }}
   </UBadge>

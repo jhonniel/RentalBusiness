@@ -19,7 +19,6 @@ import {
 } from '../repositories/rental.repository'
 import { findIdentityByRentalId, upsertIdentityVerification } from '../repositories/identity.repository'
 import { findWaiverInviteByUuid } from '../repositories/waiver-invite.repository'
-import { findWaiverAcceptanceByRentalId } from '../repositories/waiver.repository'
 import { waiverInviteTokenMatches } from '../utils/waiver-invite-token'
 import { getSupabaseAdminClient } from '../utils/supabase'
 import { getOwnRental } from './rental.service'
@@ -127,11 +126,6 @@ export async function submitWaiverInviteIdentity(
 
   if (!['draft', 'pending'].includes(rental.status)) {
     throw new AppError('Identity documents can only be uploaded before payment.', 409, ERROR_CODES.CONFLICT)
-  }
-
-  const waiver = await findWaiverAcceptanceByRentalId(client, rental.id)
-  if (!waiver) {
-    throw new AppError('Sign the rental waiver before uploading identity documents.', 409, ERROR_CODES.CONFLICT)
   }
 
   return persistIdentityDocuments(event, client, {

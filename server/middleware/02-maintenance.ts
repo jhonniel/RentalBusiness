@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const profile = await getCurrentProfile(event)
-    if (profile.role === 'admin') {
+    if (profile.role === 'admin' || profile.role === 'commissioner') {
       return
     }
   }

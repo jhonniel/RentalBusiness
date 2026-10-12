@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
 import { APP_NAME } from '~/utils/constants'
+import { SUPPORT_MESSAGE } from '~/utils/errors'
 
 const props = defineProps<{
   error: NuxtError
@@ -18,7 +19,7 @@ const title = computed(() => {
     return 'Access denied'
   }
 
-  return 'Something went wrong'
+  return 'Contact the admin'
 })
 const description = computed(() => {
   if (isNotFound.value) {
@@ -29,7 +30,7 @@ const description = computed(() => {
     return 'You do not have permission to view this page.'
   }
 
-  return 'We could not complete that request. Please try again.'
+  return SUPPORT_MESSAGE
 })
 
 useSeoMeta({

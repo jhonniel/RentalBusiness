@@ -12,6 +12,7 @@ alter table public.products
   add constraint products_long_stay_less_check check (long_stay_less >= 0);
 
 drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer);
+drop function if exists public.quote_rental_line(numeric, numeric, numeric, numeric, integer, integer, numeric, integer);
 
 create function public.quote_rental_line(
   p_daily numeric,

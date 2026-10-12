@@ -39,7 +39,7 @@ watch(() => route.fullPath, () => {
         </p>
         <main
           id="main-content"
-          class="min-w-0 w-full flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
+          class="admin-main min-w-0 w-full max-w-full flex-1 overflow-x-clip px-3 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
         >
           <slot />
         </main>
@@ -49,10 +49,25 @@ watch(() => route.fullPath, () => {
     <USlideover
       v-model:open="mobileOpen"
       title="Admin menu"
+      :ui="{ content: 'w-[min(100vw,20rem)] max-w-[100vw]', body: 'overflow-y-auto p-0' }"
     >
       <template #body>
-        <AdminSidebar />
+        <AdminSidebar embedded />
       </template>
     </USlideover>
   </div>
 </template>
+
+<style>
+.admin-main form label > :not(span):not(input):not(button),
+.admin-main form > input,
+.admin-main form > select,
+.admin-main form > textarea {
+  width: 100%;
+  max-width: 100%;
+}
+
+.admin-main :where(table) {
+  max-width: 100%;
+}
+</style>

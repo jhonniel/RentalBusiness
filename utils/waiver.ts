@@ -99,6 +99,13 @@ export function firstWaiverAcceptance(
   return row ? toPublicWaiverAcceptance(row) : null
 }
 
+export const WAIVER_LATE_FEE_SCHEDULE = [
+  'Late fee: This applies once the equipment is not returned by the agreed return time.',
+  `  Less than 6 hours after the return time: ${formatMoney(300)}.`,
+  '  6 hours or more, and up to 12 hours, after the return time: half a day of the rented item.',
+  '  More than 12 hours after the return time: charged as 1 day of rent.',
+].join('\n')
+
 function waiverMoneyLine(label: string, amount: number | null | undefined, suffix = '') {
   if (amount === null || amount === undefined) {
     return `  ${label}: Not listed`
@@ -107,17 +114,115 @@ function waiverMoneyLine(label: string, amount: number | null | undefined, suffi
   return `  ${label}: ${formatMoney(amount)}${suffix}`
 }
 
-export function waiverEquipmentLines(items: WaiverEquipmentItem[]): string {
-  if (!items.length) {
-    return '- None listed on this rental.'
+function rentalItemText(item: WaiverEquipmentItem) {
+  const slug = 'slug' in item.product && typeof item.product.slug === 'string' ? item.product.slug : ''
+  return `${slug} ${item.product.name}`.toLowerCase()
+}
+
+export function isStarlinkRentalItem(item: WaiverEquipmentItem) {
+  return rentalItemText(item).includes('starlink')
+}
+
+export function isDroneRentalItem(item: WaiverEquipmentItem) {
+  const text = rentalItemText(item)
+  if (isStarlinkRentalItem(item) || text.includes('osmo')) {
+    return false
   }
 
-  return items.map((item) => {
+  return text.includes('drone')
+    || text.includes('mavic')
+    || text.includes('avata')
+    || (text.includes('dji') && (text.includes('air') || text.includes('mini')))
+}
+
+export function isCameraRentalItem(item: WaiverEquipmentItem) {
+  const text = rentalItemText(item)
+  if (isDroneRentalItem(item) || isStarlinkRentalItem(item)) {
+    return false
+  }
+
+  return text.includes('osmo')
+    || text.includes('camera')
+    || text.includes('sony')
+    || text.includes('gopro')
+    || text.includes('a7')
+}
+
+const RENTED_EQUIPMENT_SECTIONS = [
+  { heading: '7. DRONE RENTAL', include: (items: WaiverEquipmentItem[]) => items.some(isDroneRentalItem) },
+  { heading: '8. STARLINK MINI', include: (items: WaiverEquipmentItem[]) => items.some(isStarlinkRentalItem) },
+  { heading: '9. CAMERA EQUIPMENT', include: (items: WaiverEquipmentItem[]) => items.some(isCameraRentalItem) },
+] as const
+
+export function waiverSectionsForRental(body: string, items: WaiverEquipmentItem[]) {
+  let next = body
+  for (const section of RENTED_EQUIPMENT_SECTIONS) {
+    if (section.include(items)) {
+      continue
+    }
+
+    const heading = section.heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    next = next.replace(new RegExp(`(?:\\r?\\n)${heading}\\r?\\n[\\s\\S]*?(?=\\r?\\n\\d+\\. )`), '')
+  }
+
+  return renumberWaiverSections(next.replace(/\n{3,}/g, '\n\n'))
+}
+
+function renumberWaiverSections(body: string) {
+  const heading = /^(\d+)\. ([A-Z][A-Z0-9 &'/,.-]+)$/
+  const lines = body.split('\n')
+  const numbers = lines.flatMap((line) => {
+    const match = line.match(heading)
+    return match ? [Number(match[1])] : []
+  })
+  const nextNumber = new Map(numbers.map((number, index) => [number, index + 1]))
+
+  return lines.map((line) => {
+    const match = line.match(heading)
+    if (match) {
+      return `${nextNumber.get(Number(match[1]))}. ${match[2]}`
+    }
+
+    return line.replace(/\bsection (\d+)\b/g, (full, raw) => {
+      const updated = nextNumber.get(Number(raw))
+      return updated ? `section ${updated}` : full
+    })
+  }).join('\n')
+}
+
+export interface WaiverTextPart {
+  text: string
+  bold: boolean
+}
+
+export function waiverDisplayLines(body: string): WaiverTextPart[][] {
+  return body.split('\n').map((line) => {
+    const match = line.match(/^- (.+?)( × \d+)$/)
+    if (!match) {
+      return [{ text: line, bold: false }]
+    }
+
+    return [
+      { text: '- ', bold: false },
+      { text: match[1], bold: true },
+      { text: match[2], bold: false },
+    ]
+  })
+}
+
+export function waiverEquipmentLines(items: WaiverEquipmentItem[], lateFeeSchedule = false): string {
+  if (!items.length) {
+    return lateFeeSchedule
+      ? `- None listed on this rental.\n${WAIVER_LATE_FEE_SCHEDULE}`
+      : '- None listed on this rental.'
+  }
+
+  const list = items.map((item) => {
     const lines = [`- ${item.product.name} × ${item.quantity}`]
     if (item.product.depositAmount !== undefined) {
       lines.push(waiverMoneyLine('Deposit', item.product.depositAmount))
     }
-    if (item.product.lateFee !== undefined) {
+    if (!lateFeeSchedule && item.product.lateFee !== undefined) {
       lines.push(waiverMoneyLine('Late fee', item.product.lateFee, ' per day'))
     }
     if (item.product.replacementValue !== undefined) {
@@ -125,6 +230,8 @@ export function waiverEquipmentLines(items: WaiverEquipmentItem[]): string {
     }
     return lines.join('\n')
   }).join('\n')
+
+  return lateFeeSchedule ? `${list}\n${WAIVER_LATE_FEE_SCHEDULE}` : list
 }
 
 export function adminSignedWaiverPath(identifier: string) {
@@ -136,14 +243,13 @@ export function adminSignedWaiverUrl(origin: string, identifier: string) {
 }
 
 export function renderWaiverBody(body: string, items: WaiverEquipmentItem[]): string {
-  const list = waiverEquipmentLines(items)
+  const list = waiverEquipmentLines(items, body.includes('JRY-WAIVER-v1.2'))
+  const withEquipment = body.includes('{{RENTAL_EQUIPMENT}}')
+    ? body.replaceAll('{{RENTAL_EQUIPMENT}}', list)
+    : body.replace(
+        /Equipment may include, but is not limited to:\r?\n(?:- .+\r?\n)+/,
+        `Equipment on this rental:\n${list}\n`,
+      )
 
-  if (body.includes('{{RENTAL_EQUIPMENT}}')) {
-    return body.replaceAll('{{RENTAL_EQUIPMENT}}', list)
-  }
-
-  return body.replace(
-    /Equipment may include, but is not limited to:\r?\n(?:- .+\r?\n)+/,
-    `Equipment on this rental:\n${list}\n`,
-  )
+  return waiverSectionsForRental(withEquipment, items)
 }

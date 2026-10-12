@@ -1,3 +1,4 @@
+import { loggedErrorText } from '../../utils/errors'
 import { logger } from '../utils/logger'
 
 export default defineNitroPlugin((nitroApp) => {
@@ -5,7 +6,7 @@ export default defineNitroPlugin((nitroApp) => {
     logger.error('Nitro request failed', {
       requestId: event?.context.requestId,
       path: event?.path,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
+      error: loggedErrorText(error),
     })
   })
 })

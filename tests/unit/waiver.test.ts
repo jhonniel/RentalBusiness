@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { formatMoney } from '../../utils/currency'
-import { firstWaiverAcceptance, isSignatureDataUrl, renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion, adminSignedWaiverPath, adminSignedWaiverUrl } from '../../utils/waiver'
+import { firstWaiverAcceptance, isSignatureDataUrl, renderWaiverBody, toPublicWaiverAcceptance, toPublicWaiverVersion, adminSignedWaiverPath, adminSignedWaiverUrl, waiverDisplayLines } from '../../utils/waiver'
 import { acceptAdminWaiverSchema, acceptWaiverSchema, publishWaiverSchema } from '../../utils/waiver-validation'
 
 function signatureData(length = 2600) {
@@ -157,17 +157,63 @@ describe('waiver mapper', () => {
     expect(body).toContain('per day')
     expect(body).toContain('Replacement value:')
     expect(body).toContain(formatMoney(28000))
+
+    const scheduled = renderWaiverBody(
+      'Agreement version: JRY-WAIVER-v1.2\nEquipment on this rental:\n{{RENTAL_EQUIPMENT}}\n',
+      [{
+        quantity: 1,
+        product: {
+          name: 'Starlink Mini',
+          depositAmount: 8000,
+          lateFee: 300,
+          replacementValue: 28000,
+        },
+      }],
+    )
+    expect(scheduled).toContain('This applies once the equipment is not returned by the agreed return time.')
+    expect(scheduled).toContain(`Less than 6 hours after the return time: ${formatMoney(300)}.`)
+    expect(scheduled).toContain('6 hours or more, and up to 12 hours, after the return time: half a day of the rented item.')
+    expect(scheduled).toContain('More than 12 hours after the return time: charged as 1 day of rent.')
+    expect(scheduled).not.toContain('per day')
+  })
+
+  it('shows only the rented equipment clause and bolds that equipment', () => {
+    const source = readFileSync(resolve(process.cwd(), 'supabase/waiver-jry-v1.txt'), 'utf8')
+    const starlink = renderWaiverBody(source, [{ quantity: 1, product: { name: 'Starlink Mini' } }])
+    const drone = renderWaiverBody(source, [{ quantity: 1, product: { name: 'DJI Air 3' } }])
+    const camera = renderWaiverBody(source, [{ quantity: 1, product: { name: 'DJI Osmo 360' } }])
+
+    expect(starlink).toContain('7. STARLINK MINI')
+    expect(starlink).toContain('8. PERSONAL DATA AND RECORDED CONTENT')
+    expect(starlink).not.toContain('DRONE RENTAL')
+    expect(starlink).not.toContain('CAMERA EQUIPMENT')
+    expect(starlink).toContain('12. LATE RETURN')
+    expect(starlink).toContain('charged under section 12.')
+    expect(drone).toContain('7. DRONE RENTAL')
+    expect(drone).not.toContain('STARLINK MINI')
+    expect(drone).not.toContain('CAMERA EQUIPMENT')
+    expect(camera).toContain('7. CAMERA EQUIPMENT')
+    expect(camera).not.toContain('DRONE RENTAL')
+    expect(camera).not.toContain('STARLINK MINI')
+    expect(waiverDisplayLines('- Starlink Mini × 1')).toEqual([[
+      { text: '- ', bold: false },
+      { text: 'Starlink Mini', bold: true },
+      { text: ' × 1', bold: false },
+    ]])
   })
 })
 
 describe('waiver down payment refund', () => {
-  it('requires a current v1.1 source that freezes the down payment after booking', () => {
+  it('requires a current v1.2 source with the late-return schedule', () => {
     const source = readFileSync(resolve(process.cwd(), 'supabase/waiver-jry-v1.txt'), 'utf8')
 
-    expect(source).toContain('Agreement version: JRY-WAIVER-v1.1')
+    expect(source).toContain('Agreement version: JRY-WAIVER-v1.2')
     expect(source).toContain('16. DOWN PAYMENT AND REFUND')
     expect(source).toContain('The down payment is not refundable once the Renter has booked the rental.')
-    expect(source).toContain('They understand that the down payment is not refundable once the rental is booked.')
-    expect(source).not.toContain('Agreement version: JRY-WAIVER-v1.0')
+    expect(source).toContain('A late fee applies once the equipment is not returned by the agreed return time.')
+    expect(source).toContain('Less than 6 hours after the return time, the late fee is ₱300.00.')
+    expect(source).toContain('6 hours or more, and up to 12 hours, after the return time, the late fee is half a day of the rented item.')
+    expect(source).toContain('More than 12 hours after the return time, the late return is charged as 1 day of rent.')
+    expect(source).not.toContain('Agreement version: JRY-WAIVER-v1.1')
   })
 })

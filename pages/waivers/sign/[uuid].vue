@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import type { PublicWaiverInvite } from '~/types/waiver-invite'
+import type { AvailabilityCalendar } from '~/types/availability'
 import type { PublicWaiverAcceptance } from '~/types/waiver'
 import type { PublicRentalIdentity } from '~/types/rental'
 import { fieldErrors } from '~/utils/auth-validation'
 import { identityUploadFormData } from '~/utils/browser-image'
 import { formatBusinessDate } from '~/utils/datetime'
 import { renderWaiverBody } from '~/utils/waiver'
-import { acceptWaiverInviteSchema } from '~/utils/waiver-validation'
+import { acceptWaiverInviteSchema, completeWaiverInviteContactSchema } from '~/utils/waiver-validation'
+import { updateWaiverInviteScheduleSchema } from '~/utils/rental-validation'
+import { defaultRentalReturnOn, formatPickupClock, formatRentalReturnLabel } from '~/utils/rental-window'
+
+const { formatMoney } = useCurrency()
 
 definePageMeta({
   layout: 'blank',
@@ -18,6 +23,16 @@ const uuid = computed(() => String(route.params.uuid || ''))
 const token = computed(() => typeof route.query.token === 'string' ? route.query.token : '')
 const pad = ref<{ toDataUrl: () => string, hasInk: { value: boolean } } | null>(null)
 const signerName = ref('')
+const firstName = ref('')
+const lastName = ref('')
+const email = ref('')
+const phone = ref('')
+const contactReady = ref(false)
+const startsOn = ref('')
+const endsOn = ref('')
+const pickupTime = ref('')
+const scheduleReady = ref(false)
+const dateCalendar = ref<AvailabilityCalendar | null>(null)
 const errors = ref<Record<string, string>>({})
 const formError = ref('')
 const pending = ref(false)
@@ -81,12 +96,13 @@ useSiteMeta({
 
 const unavailable = computed(() => error.value?.statusCode === 503)
 const invalid = computed(() => Boolean(error.value) && error.value?.statusCode !== 503)
-const showIdentityUpload = computed(() => Boolean(invite.value?.canUploadIdentity && !invite.value?.identitySubmitted))
+const showIdentityUpload = computed(() => Boolean(invite.value?.signed && invite.value.canUploadIdentity && !invite.value.identitySubmitted))
+const needsIdentityBeforeSign = computed(() => Boolean(invite.value?.canSign && invite.value.canUploadIdentity && !invite.value.identitySubmitted))
 const canSign = computed(() => Boolean(invite.value?.canSign && invite.value.waiver))
 const pageTitle = computed(() => 'Equipment Rental Agreement')
 const pageDescription = computed(() => {
   if (invite.value?.canSign) {
-    return 'You do not need an account. Review the rental, check each box, and sign.'
+    return 'Change the dates if you need to. Fill in any missing name, email, or phone. Photograph your ID if it is not already on file, then sign. You do not need an account.'
   }
   if (invite.value?.signed && showIdentityUpload.value) {
     return 'This waiver is already signed. Photograph your government ID and a selfie holding that ID. You do not need an account.'
@@ -102,12 +118,86 @@ const waiverBody = computed(() =>
     : '',
 )
 
+const agreement = computed(() => {
+  const lines = waiverBody.value.split('\n')
+  const preamble: string[] = []
+  const sections: { number: string, title: string, body: string }[] = []
+  let current: { number: string, title: string, lines: string[] } | null = null
+
+  for (const line of lines) {
+    const heading = line.match(/^(\d+)\.\s+([A-Z][A-Z0-9 &'/,.-]+)$/)
+    if (heading) {
+      current = { number: heading[1], title: heading[2], lines: [] }
+      sections.push({ number: current.number, title: current.title, body: '' })
+      continue
+    }
+    if (current) {
+      current.lines.push(line)
+      sections[sections.length - 1].body = current.lines.join('\n').trim()
+    }
+    else if (!/^(JRY RENTALS|EQUIPMENT RENTAL AGREEMENT|Business:|Tagline:|Agreement version:)/.test(line.trim())) {
+      preamble.push(line)
+    }
+  }
+
+  return {
+    preamble: preamble.join('\n').trim(),
+    sections,
+  }
+})
+
+const renterName = computed(() => {
+  const name = [invite.value?.contact?.firstName, invite.value?.contact?.lastName].filter(Boolean).join(' ')
+  return name || 'Customer'
+})
+
 watch(invite, (value) => {
-  if (!value || signerName.value) {
+  if (!value) {
     return
   }
-  signerName.value = [value.rental.customer?.firstName, value.rental.customer?.lastName].filter(Boolean).join(' ')
+  if (!scheduleReady.value) {
+    endsOn.value = value.rental.endsOn
+    startsOn.value = value.rental.startsOn
+    pickupTime.value = value.rental.pickupTime || '09:00'
+    scheduleReady.value = true
+  }
+  if (value.canEditSchedule && !dateCalendar.value) {
+    void loadDateCalendar()
+  }
+  if (!contactReady.value) {
+    firstName.value = value.contact?.firstName || ''
+    lastName.value = value.contact?.lastName || ''
+    email.value = value.contact?.email || ''
+    phone.value = value.contact?.phone || ''
+    contactReady.value = true
+  }
+  if (!signerName.value) {
+    signerName.value = [firstName.value, lastName.value].filter(Boolean).join(' ')
+  }
 }, { immediate: true })
+
+watch(startsOn, (value, previous) => {
+  if (!scheduleReady.value || !value) {
+    return
+  }
+  if (endsOn.value <= value || (previous && endsOn.value === defaultRentalReturnOn(previous))) {
+    endsOn.value = defaultRentalReturnOn(value)
+  }
+})
+
+async function loadDateCalendar() {
+  if (!token.value) {
+    return
+  }
+  try {
+    dateCalendar.value = await $fetch<AvailabilityCalendar>(`/api/waivers/invites/${uuid.value}/calendar`, {
+      query: { token: token.value },
+    })
+  }
+  catch {
+    dateCalendar.value = null
+  }
+}
 
 async function onSubmit() {
   formError.value = ''
@@ -120,6 +210,42 @@ async function onSubmit() {
 
   if (!allAcknowledged.value) {
     formError.value = 'Confirm every acknowledgment before you sign.'
+    return
+  }
+
+  const schedule = invite.value.canEditSchedule
+    ? updateWaiverInviteScheduleSchema.safeParse({
+        token: token.value,
+        startsOn: startsOn.value,
+        endsOn: endsOn.value,
+        pickupTime: pickupTime.value,
+      })
+    : null
+  if (schedule && !schedule.success) {
+    errors.value = fieldErrors(schedule.error)
+    formError.value = schedule.error.issues[0]?.message || 'Choose a pickup and return date.'
+    return
+  }
+
+  if (!signerName.value.trim()) {
+    signerName.value = [firstName.value, lastName.value].filter(Boolean).join(' ')
+  }
+
+  const contact = completeWaiverInviteContactSchema.safeParse({
+    token: token.value,
+    firstName: firstName.value,
+    lastName: lastName.value,
+    email: email.value,
+    phone: phone.value,
+  })
+  if (!contact.success) {
+    errors.value = fieldErrors(contact.error)
+    formError.value = contact.error.issues[0]?.message || 'Enter your name, email, and phone number.'
+    return
+  }
+
+  if (needsIdentityBeforeSign.value && (!governmentFile.value || !selfieFile.value)) {
+    formError.value = 'Photograph your government ID and a selfie holding that same ID.'
     return
   }
 
@@ -138,6 +264,26 @@ async function onSubmit() {
 
   pending.value = true
   try {
+    if (schedule?.success) {
+      await $fetch<PublicWaiverInvite>(`/api/waivers/invites/${uuid.value}/schedule`, {
+        method: 'POST',
+        body: schedule.data,
+      })
+    }
+    await $fetch(`/api/waivers/invites/${uuid.value}/contact`, {
+      method: 'POST',
+      body: contact.data,
+    })
+    if (needsIdentityBeforeSign.value && governmentFile.value && selfieFile.value) {
+      await $fetch<PublicRentalIdentity>(`/api/waivers/invites/${uuid.value}/identity`, {
+        method: 'POST',
+        body: await identityUploadFormData({
+          governmentId: governmentFile.value,
+          selfie: selfieFile.value,
+          extra: { token: token.value },
+        }),
+      })
+    }
     await $fetch<PublicWaiverAcceptance>(`/api/waivers/invites/${uuid.value}/accept`, {
       method: 'POST',
       body: parsed.data,
@@ -150,6 +296,7 @@ async function onSubmit() {
       ? (error as { data?: { message?: string } }).data
       : null
     formError.value = payload?.message || 'We could not record that waiver.'
+    await refresh()
   }
   finally {
     pending.value = false
@@ -191,231 +338,428 @@ async function onUploadIdentity() {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-[#f4f6f4]">
-    <header class="border-b border-[#12201a]/8 bg-white">
-      <div class="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
+  <div class="waiver-page min-h-dvh max-w-full overflow-x-clip bg-[#f3f5f4] text-[#12201a]">
+    <header class="border-b border-[#12201a]/10 bg-white">
+      <div class="mx-auto flex w-full min-w-0 max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <AppLogo />
-        <p class="text-xs text-stone-500">
+        <p class="max-w-[7.5rem] text-right text-[11px] font-medium leading-4 tracking-wide text-[#5b6b64] sm:max-w-none sm:text-xs">
           No account needed
         </p>
       </div>
     </header>
 
-    <section class="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
+    <main class="mx-auto w-full min-w-0 max-w-3xl px-4 py-6 sm:px-6 sm:py-12">
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#5b6b64] sm:tracking-[0.18em]">
         JRY Rentals
       </p>
-      <h1 class="mt-2 text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+      <h1 class="font-display mt-3 break-words text-[1.75rem] leading-tight text-[#12201a] [word-spacing:normal] sm:text-4xl">
         {{ pageTitle }}
       </h1>
-      <p class="mt-2 text-stone-600">
+      <p class="mt-3 max-w-2xl text-sm leading-7 text-[#4a5a54]">
         {{ pageDescription }}
       </p>
-    </div>
 
-    <CatalogNotice
-      v-if="unavailable"
-      class="mt-8"
-      title="Waivers are not connected"
-      description="Add live Supabase credentials and apply the waiver-invite migration."
-    />
-
-    <CatalogNotice
-      v-else-if="invalid"
-      class="mt-8"
-      title="This sign link is invalid"
-      description="Ask the shop to send a new waiver link. Expired links cannot be opened again."
-    />
-
-    <div
-      v-else-if="invite"
-      class="mt-8 space-y-6"
-    >
-      <AuthAlert
-        v-if="formError"
-        :description="formError"
+      <CatalogNotice
+        v-if="unavailable"
+        class="mt-8"
+        title="Waivers are not connected"
+        description="Add live Supabase credentials and apply the waiver-invite migration."
       />
 
       <CatalogNotice
-        v-if="invite.signed"
-        title="Waiver already signed"
-        :description="`${invite.signerName || 'The customer'} already agreed and signed this rental waiver.`"
+        v-else-if="invalid"
+        class="mt-8"
+        title="This sign link is invalid"
+        description="Ask the shop to send a new waiver link."
       />
 
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-medium text-stone-900">
-          Booking details
-        </h2>
-        <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt class="text-stone-500">Renter</dt>
-            <dd class="mt-0.5 text-stone-800">
-              {{ [invite.rental.customer?.firstName, invite.rental.customer?.lastName].filter(Boolean).join(' ') || 'Renter' }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-stone-500">Booking ID</dt>
-            <dd class="mt-0.5 text-stone-800">
-              {{ invite.rental.code }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-stone-500">Rental start</dt>
-            <dd class="mt-0.5 text-stone-800">
-              {{ formatBusinessDate(invite.rental.startsOn) }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-stone-500">Rental return</dt>
-            <dd class="mt-0.5 text-stone-800">
-              {{ formatBusinessDate(invite.rental.endsOn) }}
-            </dd>
-          </div>
-        </dl>
-        <ul class="mt-4 divide-y divide-stone-100 border-t border-stone-100 text-sm">
-          <li
-            v-for="item in invite.rental.items"
-            :key="item.uuid"
-            class="flex justify-between gap-4 py-2"
-          >
-            <span class="text-stone-800">{{ item.product.name }}</span>
-            <span class="text-stone-500">× {{ item.quantity }}</span>
-          </li>
-        </ul>
-      </section>
-
-      <section
-        v-if="invite.waiver"
-        class="rounded-2xl border border-stone-200 bg-white p-5"
+      <div
+        v-else-if="invite"
+        class="mt-8 space-y-5"
       >
-        <p class="text-xs uppercase tracking-wider text-lumen-700">
-          Version {{ invite.waiver.version }}
-        </p>
-        <h2 class="mt-2 text-lg font-medium text-stone-900">
-          {{ invite.waiver.title }}
-        </h2>
-        <div class="mt-4 max-h-[32rem] overflow-y-auto rounded-xl border border-stone-100 bg-stone-50 p-4">
-          <p class="whitespace-pre-wrap text-sm leading-6 text-stone-700">
-            {{ waiverBody }}
-          </p>
-        </div>
-      </section>
+        <AuthAlert
+          v-if="formError"
+          :description="formError"
+        />
 
-      <form
-        v-if="canSign"
-        class="space-y-6"
-        method="post"
-        @submit.prevent="onSubmit"
-      >
-        <section class="rounded-2xl border border-stone-200 bg-white p-5">
-          <h2 class="text-sm font-medium text-stone-900">
-            Renter acknowledgment
-          </h2>
-          <label
-            v-for="item in acknowledgments"
-            :key="item.id"
-            class="mt-3 flex items-start gap-3 text-sm text-stone-700"
+        <CatalogNotice
+          v-if="invite.signed"
+          title="Waiver already signed"
+          :description="`${invite.signerName || 'The customer'} already agreed and signed this rental waiver.`"
+        />
+
+        <section class="min-w-0 overflow-hidden rounded-2xl border border-[#12201a]/10 bg-white shadow-sm">
+          <div class="flex flex-col gap-2 border-b border-[#12201a]/8 px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4 sm:px-6">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#5b6b64]">
+                Booking
+              </p>
+              <h2 class="mt-1 break-all text-lg font-medium text-[#12201a]">
+                {{ invite.rental.code }}
+              </h2>
+            </div>
+            <p class="text-sm text-[#4a5a54] sm:text-right">
+              {{ renterName }}
+            </p>
+          </div>
+          <dl class="grid gap-px bg-[#12201a]/8 sm:grid-cols-2">
+            <div class="bg-white px-4 py-4 sm:px-6">
+              <dt class="text-xs font-medium uppercase tracking-wide text-[#5b6b64]">
+                Pickup
+              </dt>
+              <dd class="mt-1 text-sm text-[#12201a]">
+                {{ formatBusinessDate(invite.canEditSchedule ? startsOn : invite.rental.startsOn) }}
+                <span class="mt-0.5 block text-[#4a5a54]">
+                  {{ formatPickupClock(invite.canEditSchedule ? pickupTime : invite.rental.pickupTime) }}
+                </span>
+              </dd>
+            </div>
+            <div class="bg-white px-4 py-4 sm:px-6">
+              <dt class="text-xs font-medium uppercase tracking-wide text-[#5b6b64]">
+                Return
+              </dt>
+              <dd class="mt-1 text-sm text-[#12201a]">
+                {{ formatRentalReturnLabel(invite.canEditSchedule ? endsOn : invite.rental.endsOn, invite.canEditSchedule ? pickupTime : invite.rental.pickupTime) }}
+              </dd>
+            </div>
+          </dl>
+          <div
+            v-if="invite.canEditSchedule"
+            class="border-t border-[#12201a]/8 px-4 py-5 sm:px-6"
           >
-            <input
-              v-model="accepted[item.id]"
-              type="checkbox"
-              class="mt-1"
-              :disabled="pending"
+            <p class="text-sm leading-6 text-[#4a5a54]">
+              Change the dates if you need to. The equipment must still be free.
+            </p>
+            <div class="mt-4 grid min-w-0 gap-4 sm:grid-cols-2">
+              <BookingDateField
+                v-model="startsOn"
+                label="Pickup date"
+                :availability="dateCalendar"
+                :until="endsOn || undefined"
+                :disabled="pending"
+              />
+              <BookingPickupTime
+                v-model="pickupTime"
+                :availability="dateCalendar"
+                :starts-on="startsOn"
+                :ends-on="endsOn"
+                :disabled="pending"
+              />
+              <BookingDateField
+                v-model="endsOn"
+                label="Return date"
+                :availability="dateCalendar"
+                :min="startsOn || undefined"
+                :disabled="pending"
+              />
+            </div>
+            <p
+              v-if="errors.startsOn || errors.endsOn || errors.pickupTime"
+              class="mt-3 text-xs text-red-700"
             >
-            <span>{{ item.label }}</span>
-          </label>
+              {{ errors.startsOn || errors.endsOn || errors.pickupTime }}
+            </p>
+          </div>
+          <ul class="divide-y divide-[#12201a]/8 border-t border-[#12201a]/8">
+            <li
+              v-for="item in invite.rental.items"
+              :key="item.uuid"
+              class="flex items-center justify-between gap-3 px-4 py-3 text-sm sm:px-6"
+            >
+              <span class="min-w-0 font-medium break-words text-[#12201a]">{{ item.product.name }}</span>
+              <span class="text-[#5b6b64]">Qty {{ item.quantity }}</span>
+            </li>
+          </ul>
+          <div class="flex flex-col gap-3 border-t border-[#12201a]/8 px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#5b6b64]">
+                Amount to pay
+              </p>
+              <p class="mt-1 break-words text-sm text-[#4a5a54]">
+                Rent {{ formatMoney(invite.rental.totalAmount) }}
+                <template v-if="invite.rental.depositAmount > 0">
+                  · Deposit {{ formatMoney(invite.rental.depositAmount) }}
+                </template>
+              </p>
+            </div>
+            <p class="text-lg font-medium text-[#12201a]">
+              {{ formatMoney(invite.rental.amountDue) }}
+            </p>
+          </div>
         </section>
 
-        <section class="rounded-2xl border border-stone-200 bg-white p-5">
-          <h2 class="text-sm font-medium text-stone-900">
-            Digital signature
-          </h2>
-          <label class="mt-4 block text-sm">
-            <span class="mb-1.5 block text-sm text-stone-700">Full name</span>
-            <UInput
-              v-model="signerName"
+        <article
+          v-if="invite.waiver"
+          class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white px-4 py-5 shadow-sm sm:px-8 sm:py-8"
+        >
+          <header class="border-b border-[#12201a]/8 pb-5">
+            <p class="break-all text-xs font-semibold uppercase tracking-[0.12em] text-lumen-700">
+              {{ invite.waiver.version }}
+            </p>
+            <h2 class="font-display mt-2 break-words text-xl leading-tight text-[#12201a] [word-spacing:normal] sm:text-2xl">
+              {{ invite.waiver.title }}
+            </h2>
+          </header>
+          <WaiverAgreementText
+            v-if="agreement.preamble"
+            class="whitespace-pre-wrap pt-5 text-sm leading-7 text-[#3b4a44]"
+            :text="agreement.preamble"
+          />
+          <WaiverAgreementText
+            v-else-if="!agreement.sections.length"
+            class="whitespace-pre-wrap pt-5 text-sm leading-7 text-[#3b4a44]"
+            :text="waiverBody"
+          />
+          <section
+            v-for="section in agreement.sections"
+            :key="section.number"
+            class="border-t border-[#12201a]/8 pt-5 mt-5 first:mt-0"
+          >
+            <h3 class="break-words text-xs font-semibold uppercase leading-5 tracking-wide text-[#12201a] [word-spacing:normal]">
+              {{ section.number }}. {{ section.title }}
+            </h3>
+            <WaiverAgreementText
+              class="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#3b4a44]"
+              :text="section.body"
+            />
+          </section>
+        </article>
+
+        <form
+          v-if="canSign"
+          class="space-y-5"
+          method="post"
+          @submit.prevent="onSubmit"
+        >
+          <section class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+            <h2 class="text-base font-medium text-[#12201a]">
+              Your details
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+              Required before you sign. Details the shop already entered are filled in.
+            </p>
+            <div class="mt-5 grid min-w-0 gap-4 sm:grid-cols-2">
+              <label class="block text-sm">
+                <span class="mb-1.5 block text-[#3b4a44]">First name</span>
+                <UInput
+                  v-model="firstName"
+                  class="w-full"
+                  :disabled="pending"
+                />
+                <span
+                  v-if="errors.firstName"
+                  class="mt-1 block text-xs text-red-700"
+                >{{ errors.firstName }}</span>
+              </label>
+              <label class="block text-sm">
+                <span class="mb-1.5 block text-[#3b4a44]">Last name</span>
+                <UInput
+                  v-model="lastName"
+                  class="w-full"
+                  :disabled="pending"
+                />
+                <span
+                  v-if="errors.lastName"
+                  class="mt-1 block text-xs text-red-700"
+                >{{ errors.lastName }}</span>
+              </label>
+              <label class="block text-sm">
+                <span class="mb-1.5 block text-[#3b4a44]">Email</span>
+                <UInput
+                  v-model="email"
+                  class="w-full"
+                  type="email"
+                  :disabled="pending || invite.contact?.emailLocked"
+                />
+                <span
+                  v-if="errors.email"
+                  class="mt-1 block text-xs text-red-700"
+                >{{ errors.email }}</span>
+              </label>
+              <label class="block text-sm">
+                <span class="mb-1.5 block text-[#3b4a44]">Phone number</span>
+                <UInput
+                  v-model="phone"
+                  class="w-full"
+                  type="tel"
+                  :disabled="pending"
+                />
+                <span
+                  v-if="errors.phone"
+                  class="mt-1 block text-xs text-red-700"
+                >{{ errors.phone }}</span>
+              </label>
+            </div>
+          </section>
+
+          <template v-if="needsIdentityBeforeSign">
+            <section class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+              <h2 class="text-base font-medium text-[#12201a]">
+                Government ID
+              </h2>
+              <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+                Open the camera and photograph the front of a valid government-issued ID.
+              </p>
+              <CameraCapture
+                v-model="governmentFile"
+                facing="environment"
+                :disabled="pending"
+              />
+            </section>
+
+            <section class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+              <h2 class="text-base font-medium text-[#12201a]">
+                Selfie with your ID
+              </h2>
+              <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+                Open the front camera and hold the same ID next to your face. The name and photo on the ID should be readable.
+              </p>
+              <CameraCapture
+                v-model="selfieFile"
+                facing="user"
+                :disabled="pending"
+              />
+            </section>
+          </template>
+
+          <section class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+            <h2 class="text-base font-medium text-[#12201a]">
+              Acknowledgment
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+              Confirm each statement before you sign.
+            </p>
+            <div class="mt-4 divide-y divide-[#12201a]/8">
+              <label
+                v-for="item in acknowledgments"
+                :key="item.id"
+                class="flex items-start gap-3 py-3 text-sm leading-6 text-[#3b4a44]"
+              >
+                <input
+                  v-model="accepted[item.id]"
+                  type="checkbox"
+                  class="mt-1 size-4 shrink-0 accent-[#12201a]"
+                  :disabled="pending"
+                >
+                <span class="min-w-0">{{ item.label }}</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+            <h2 class="text-base font-medium text-[#12201a]">
+              Signature
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+              Type your full name and sign in the box. This is your agreement to the terms above.
+            </p>
+            <label class="mt-5 block text-sm">
+              <span class="mb-1.5 block text-[#3b4a44]">Full name</span>
+              <UInput
+                v-model="signerName"
+                class="w-full"
+                :disabled="pending"
+              />
+              <span
+                v-if="errors.signerName"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.signerName }}</span>
+            </label>
+            <div class="mt-4 max-w-full overflow-hidden">
+              <span class="mb-1.5 block text-sm text-[#3b4a44]">Signature</span>
+              <ClientOnly>
+                <SignaturePad ref="pad" />
+                <template #fallback>
+                  <div class="h-40 rounded-xl border border-dashed border-[#12201a]/15 bg-[#f7f8f7]" />
+                </template>
+              </ClientOnly>
+              <span
+                v-if="errors.signatureData"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.signatureData }}</span>
+            </div>
+          </section>
+
+          <div class="rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+            <UButton
+              type="submit"
+              class="w-full justify-center"
+              size="lg"
+              :loading="pending"
+              :disabled="!allAcknowledged"
+            >
+              I agree and sign
+            </UButton>
+            <p class="mt-3 text-center text-xs leading-5 text-[#5b6b64]">
+              Signing records this agreement for {{ invite.rental.code }}.
+            </p>
+          </div>
+        </form>
+
+        <form
+          v-if="showIdentityUpload"
+          class="space-y-5"
+          method="post"
+          @submit.prevent="onUploadIdentity"
+        >
+          <section class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+            <h2 class="text-base font-medium text-[#12201a]">
+              Government ID
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+              Open the camera and photograph the front of a valid government-issued ID.
+            </p>
+            <CameraCapture
+              v-model="governmentFile"
+              facing="environment"
               :disabled="pending"
             />
-            <span
-              v-if="errors.signerName"
-              class="mt-1 block text-xs text-red-700"
-            >{{ errors.signerName }}</span>
-          </label>
-          <div class="mt-4">
-            <span class="mb-1.5 block text-sm text-stone-700">Signature</span>
-            <ClientOnly>
-              <SignaturePad ref="pad" />
-              <template #fallback>
-                <div class="h-40 rounded-xl border border-dashed border-stone-300 bg-stone-50" />
-              </template>
-            </ClientOnly>
-            <span
-              v-if="errors.signatureData"
-              class="mt-1 block text-xs text-red-700"
-            >{{ errors.signatureData }}</span>
-          </div>
-        </section>
+          </section>
 
-        <UButton
-          type="submit"
-          class="w-full"
-          :loading="pending"
-          :disabled="!allAcknowledged"
-        >
-          I agree and sign
-        </UButton>
-      </form>
+          <section class="min-w-0 rounded-2xl border border-[#12201a]/10 bg-white p-4 shadow-sm sm:p-6">
+            <h2 class="text-base font-medium text-[#12201a]">
+              Selfie with your ID
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-[#5b6b64]">
+              Open the front camera and hold the same ID next to your face. The name and photo on the ID should be readable.
+            </p>
+            <CameraCapture
+              v-model="selfieFile"
+              facing="user"
+              :disabled="pending"
+            />
+          </section>
 
-      <form
-        v-if="showIdentityUpload"
-        class="space-y-6"
-        method="post"
-        @submit.prevent="onUploadIdentity"
-      >
-        <section class="rounded-2xl border border-stone-200 bg-white p-5">
-          <h2 class="text-sm font-medium text-stone-900">
-            Government ID
-          </h2>
-          <p class="mt-1 text-sm text-stone-500">
-            Open the camera and photograph the front of a valid government-issued ID.
-          </p>
-          <CameraCapture
-            v-model="governmentFile"
-            facing="environment"
-            :disabled="pending"
-          />
-        </section>
+          <UButton
+            type="submit"
+            class="w-full justify-center"
+            size="lg"
+            :loading="pending"
+          >
+            Save ID photos
+          </UButton>
+        </form>
 
-        <section class="rounded-2xl border border-stone-200 bg-white p-5">
-          <h2 class="text-sm font-medium text-stone-900">
-            Selfie with your ID
-          </h2>
-          <p class="mt-1 text-sm text-stone-500">
-            Open the front camera and hold the same ID next to your face. The name and photo on the ID should be readable.
-          </p>
-          <CameraCapture
-            v-model="selfieFile"
-            facing="user"
-            :disabled="pending"
-          />
-        </section>
-
-        <UButton
-          type="submit"
-          class="w-full"
-          :loading="pending"
-        >
-          Save ID photos
-        </UButton>
-      </form>
-
-      <CatalogNotice
-        v-if="invite.identitySubmitted"
-        title="Identity documents received"
-        :description="`Government ID and selfie were received for ${invite.rental.code}.`"
-      />
-    </div>
-    </section>
+        <CatalogNotice
+          v-if="invite.identitySubmitted"
+          title="Identity documents received"
+          :description="`Government ID and selfie were received for ${invite.rental.code}.`"
+        />
+      </div>
+    </main>
   </div>
 </template>
+
+<style scoped>
+.waiver-page :deep(p),
+.waiver-page :deep(span),
+.waiver-page :deep(h1),
+.waiver-page :deep(h2),
+.waiver-page :deep(h3),
+.waiver-page :deep(li),
+.waiver-page :deep(label),
+.waiver-page :deep(a),
+.waiver-page :deep(button) {
+  word-spacing: normal;
+}
+</style>

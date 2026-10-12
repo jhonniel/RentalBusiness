@@ -108,7 +108,7 @@ onMounted(() => {
     <p :class="plain ? 'text-sm text-stone-500' : 'mt-1 text-sm text-stone-500'">
       {{ waiver
         ? 'The customer already agreed and signed this rental waiver.'
-        : 'Copy this link and send it in Messenger, SMS, or email. The customer can open it without an account, agree to the terms, and sign.' }}
+        : 'Copy this link and send it in Messenger, SMS, or email. The customer fills any missing name, email, phone, and ID photos, then signs.' }}
     </p>
 
     <AuthAlert

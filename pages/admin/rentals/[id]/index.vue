@@ -339,6 +339,13 @@ async function removeRental() {
             >
               {{ rental.customer.phone }}
             </p>
+            <p
+              v-if="rental.commissioner"
+              class="mt-3 text-stone-700"
+            >
+              Commissioner {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+              · commission {{ formatMoney(rental.commissionAmount || 0) }}
+            </p>
           </section>
 
           <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
@@ -394,7 +401,7 @@ async function removeRental() {
               v-if="sendWaiver && canInvite"
               class="mt-2 text-stone-600"
             >
-              This booking is saved. Send the waiver link so the client can open it and sign.
+              This booking is saved. Copy the waiver link from the confirmation, or create one here. The customer fills any missing name, email, phone, and ID photos before they can sign.
             </p>
         <template v-if="rental.waiver">
           <dl class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -489,9 +496,10 @@ async function removeRental() {
             <summary class="cursor-pointer text-sm font-medium text-lumen-700">
               View agreement snapshot
             </summary>
-            <p class="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs leading-5 text-stone-700">
-              {{ waiverSnapshot }}
-            </p>
+            <WaiverAgreementText
+              class="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs leading-5 text-stone-700"
+              :text="waiverSnapshot"
+            />
           </details>
           <AdminSignedWaiverLink
             class="mt-4"

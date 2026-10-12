@@ -46,7 +46,11 @@ Apply `20261005110000_rental_pickup_return_times.sql` so rentals store pickup an
 
 Apply `20261006000000_rental_period_days.sql` so saved totals use that 24-hour length. Pickup on 5 Oct at 2:00 PM and return on 6 Oct at 2:00 PM is 1 day. The migration also reprices existing rental lines.
 
-Apply `20261010000000_long_stay_less.sql`, then `20261010010000_long_stay_less_days.sql`. Each product stores a less amount per day and the number of days that turn it on. A booking that reaches that length subtracts the less times the days and the quantity. A zero less turns it off. The deposit is unchanged.
+Apply `20261010000000_long_stay_less.sql`, then `20261010010000_long_stay_less_days.sql`. Each product stores a less amount per day and the number of days that turn it on. A booking that reaches that length subtracts the less times the days and the quantity. A zero less turns it off. The deposit is unchanged. Then apply `20261012000000_quote_rental_line_unique.sql` so only one `quote_rental_line` function remains. Two overloads make every rental item insert fail.
+
+Apply `20261013000000_waiver_v1_2_late_fee.sql` to publish `JRY-WAIVER-v1.2`. A late return under 6 hours is ₱300, 6 hours up to 12 hours is half a day of the rented item, and more than 12 hours is charged as 1 day of rent. Signed v1.0 and v1.1 copies stay unchanged.
+
+Apply `20261013010000_commissioner_role.sql` to add the commissioner role, a per-day commission on each product, and commission expenses. Paste it before using commissioner bookings or opening rentals, because rental reads include the new commissioner link.
 
 Do not hard-code admin emails in the application.
 

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import { findProfileByUserId, findProfileIdentity, findProfileIdentityByUuid, updateOwnProfile } from '../repositories/profile.repository'
 import { isExistingAuthEmailError } from '../utils/auth-email-error'
+import { createPlaceholderBookingEmail } from '../utils/placeholder-booking-email'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { getSupabaseAdminClient } from '../utils/supabase'
 
@@ -52,8 +53,8 @@ async function findOrCreateCustomerUser(email: string, firstName: string, lastNa
 
 export async function ensureBookingCustomer(client: Client, input: {
   customerUuid?: string
-  firstName: string
-  lastName: string
+  firstName?: string
+  lastName?: string
   phone?: string
   email?: string
 }) {
@@ -70,17 +71,15 @@ export async function ensureBookingCustomer(client: Client, input: {
     userId = existing.user_id
   }
   else {
-    const email = input.email?.trim().toLowerCase()
-    if (!email) {
-      throw new AppError('Enter the client email or choose an existing customer.', 422, ERROR_CODES.VALIDATION_ERROR)
-    }
-    userId = await findOrCreateCustomerUser(email, input.firstName, input.lastName)
+    const email = input.email?.trim().toLowerCase() || createPlaceholderBookingEmail()
+    userId = await findOrCreateCustomerUser(email, input.firstName?.trim() || '', input.lastName?.trim() || '')
   }
 
+  const current = await findProfileByUserId(client, userId)
   await updateOwnProfile(client, userId, {
-    firstName: input.firstName,
-    lastName: input.lastName,
-    phone: input.phone || null,
+    firstName: input.firstName?.trim() || current?.first_name || '',
+    lastName: input.lastName?.trim() || current?.last_name || '',
+    phone: input.phone?.trim() || current?.phone || null,
   })
 
   const identity = await findProfileIdentity(client, userId)

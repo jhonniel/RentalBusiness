@@ -138,6 +138,33 @@ export function toPublicRental(row: RentalRow): PublicRental {
   }
 }
 
+export function toShopRental(row: RentalRow & {
+  commission_amount?: number | null
+  commissioner?: {
+    uuid: string
+    first_name: string
+    last_name: string
+  } | {
+    uuid: string
+    first_name: string
+    last_name: string
+  }[] | null
+}): PublicRental {
+  const rental = toPublicRental(row)
+  const person = Array.isArray(row.commissioner) ? row.commissioner[0] : row.commissioner
+  return {
+    ...rental,
+    commissioner: person
+      ? {
+          uuid: person.uuid,
+          firstName: person.first_name,
+          lastName: person.last_name,
+        }
+      : null,
+    commissionAmount: Number(row.commission_amount ?? 0),
+  }
+}
+
 export function isRentalCode(value: string): boolean {
   return /^(JRY|LUM)-\d{8}-\d+$/.test(value)
 }

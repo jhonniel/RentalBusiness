@@ -76,14 +76,21 @@ export const createAdminRentalSchema = addDateWindowChecks(z.object({
   ...rentalWindow,
   notes: z.string().trim().max(1000).optional().or(z.literal('')),
   customerUuid: z.string().uuid().optional(),
-  firstName: z.string().trim().min(1, 'First name is required.').max(80),
-  lastName: z.string().trim().min(1, 'Last name is required.').max(80),
+  firstName: z.string().trim().max(80).optional().or(z.literal('')),
+  lastName: z.string().trim().max(80).optional().or(z.literal('')),
   phone: z.string().trim().max(30).optional().or(z.literal('')),
   email: z.string().trim().email('Enter a valid email.').max(160).optional().or(z.literal('')),
-}).strict().refine(data => Boolean(data.customerUuid || data.email), {
-  message: 'Enter the client email or choose an existing customer.',
-  path: ['email'],
-}))
+}).strict())
+
+export const createCommissionerRentalSchema = addWindowChecks(z.object({
+  productUuid: z.string().uuid('Choose equipment.'),
+  ...rentalWindow,
+  notes: z.string().trim().max(1000).optional().or(z.literal('')),
+  firstName: z.string().trim().max(80).optional().or(z.literal('')),
+  lastName: z.string().trim().max(80).optional().or(z.literal('')),
+  phone: z.string().trim().max(30).optional().or(z.literal('')),
+  email: z.string().trim().email('Enter a valid email.').max(160).optional().or(z.literal('')),
+}).strict())
 
 export const continueAdminRentalSchema = addDateWindowChecks(z.object({
   ...rentalWindow,
@@ -93,8 +100,17 @@ export const continueAdminRentalSchema = addDateWindowChecks(z.object({
   phone: z.string().trim().max(30).optional().or(z.literal('')),
 }).strict())
 
+export const updateWaiverInviteScheduleSchema = addWindowChecks(z.object({
+  token: z.string().trim().min(20, 'This sign link is invalid.').max(200),
+  startsOn: z.string().date('Choose a start date.'),
+  endsOn: z.string().date('Choose a return date.'),
+  pickupTime: pickupTimeField,
+}).strict())
+
 export type CreateRentalInput = z.infer<typeof createRentalSchema>
 export type CreateAdminRentalInput = z.infer<typeof createAdminRentalSchema>
+export type CreateCommissionerRentalInput = z.infer<typeof createCommissionerRentalSchema>
 export type ContinueAdminRentalInput = z.infer<typeof continueAdminRentalSchema>
+export type UpdateWaiverInviteScheduleInput = z.infer<typeof updateWaiverInviteScheduleSchema>
 export type RentalQuoteQuery = z.infer<typeof rentalQuoteQuerySchema>
 export type AdminRentalQuoteQuery = z.infer<typeof adminRentalQuoteSchema>

@@ -27,12 +27,13 @@ export async function listOccupyingRanges(
   productId: number,
   startsOn: string,
   endsOn: string,
+  exceptRentalUuid?: string,
 ) {
   const rangeStart = businessDateTimeToUtc(startsOn, '00:00')
   const rangeEnd = businessDateTimeToUtc(addCalendarDays(endsOn, 1), '00:00')
   const { data, error } = await getSupabaseAdminClient()
     .from('rental_requests')
-    .select('starts_on, ends_on, pickup_at, return_at, rental_items!inner(quantity, product_id)')
+    .select('uuid, starts_on, ends_on, pickup_at, return_at, rental_items!inner(quantity, product_id)')
     .in('status', [...HOLD_STATUSES])
     .lt('pickup_at', rangeEnd)
     .gt('return_at', rangeStart)
@@ -42,7 +43,7 @@ export async function listOccupyingRanges(
     throw new AppError('We could not check availability.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
   }
 
-  return (data ?? []).flatMap((row) => {
+  return (data ?? []).filter(row => row.uuid !== exceptRentalUuid).flatMap((row) => {
     const items = Array.isArray(row.rental_items) ? row.rental_items : [row.rental_items]
     return items
       .filter(item => item.product_id === productId)
@@ -61,9 +62,9 @@ export async function getBookedQuantity(
   productId: number,
   startsOn: string,
   endsOn: string,
-  window?: { pickupAt: string, returnAt: string },
+  window?: { pickupAt: string, returnAt: string, exceptRentalUuid?: string },
 ) {
-  const ranges = await listOccupyingRanges(client, productId, startsOn, endsOn)
+  const ranges = await listOccupyingRanges(client, productId, startsOn, endsOn, window?.exceptRentalUuid)
   const pickupAt = window?.pickupAt || businessDateTimeToUtc(startsOn, '00:00')
   const returnAt = window?.returnAt || businessDateTimeToUtc(addCalendarDays(endsOn, 1), '00:00')
 

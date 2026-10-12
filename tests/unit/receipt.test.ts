@@ -124,7 +124,6 @@ describe('email templates', () => {
       startsOn: '2026-09-13',
       endsOn: '2026-09-14',
       waiverUrl: 'https://jryrentals.online/waivers/sign/11111111-1111-4111-8111-111111111111?token=secret',
-      expiresAt: '2026-10-08T00:00:00.000Z',
     })
     expect(invite.subject).toContain('LUM-20260913-00001')
     expect(invite.html).toContain('Agree and sign the waiver')

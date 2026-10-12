@@ -5,21 +5,44 @@ const route = useRoute()
 
 defineProps<{
   compact?: boolean
+  embedded?: boolean
 }>()
 
 function isActive(to?: string) {
-  return to === '/admin' ? route.path === '/admin' : Boolean(to && route.path.startsWith(to))
+  if (!to) {
+    return false
+  }
+
+  if (to === '/admin') {
+    return route.path === '/admin'
+  }
+
+  if (route.path === to) {
+    return true
+  }
+
+  const moreSpecific = adminNavItems.some(item =>
+    item.to
+    && item.to.length > to.length
+    && (route.path === item.to || route.path.startsWith(`${item.to}/`)),
+  )
+
+  return !moreSpecific && route.path.startsWith(`${to}/`)
 }
 </script>
 
 <template>
-  <aside class="flex h-full flex-col border-r border-stone-200 bg-white">
+  <aside
+    class="flex flex-col bg-white"
+    :class="embedded ? 'min-h-full border-0' : 'h-full border-r border-stone-200'"
+  >
     <div class="flex h-[4.25rem] items-center border-b border-stone-200 px-4">
       <AppLogo :compact="compact" />
     </div>
 
     <nav
-      class="flex-1 overflow-y-auto px-3 py-4"
+      class="px-3 py-4"
+      :class="embedded ? 'pb-8' : 'min-h-0 flex-1 overflow-y-auto'"
       aria-label="Admin"
     >
       <ul class="space-y-1">

@@ -23,7 +23,7 @@ export const COOKIE_CONSENT_STORAGE_KEY = 'jry-cookie-consent'
 
 export const CURRENT_PHASE = 17
 
-export const USER_ROLES = ['admin', 'customer'] as const
+export const USER_ROLES = ['admin', 'customer', 'commissioner'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
 export const RENTAL_STATUSES = [
@@ -133,6 +133,7 @@ export const EXPENSE_CATEGORIES = [
   'insurance',
   'equipment',
   'office',
+  'commission',
   'other',
 ] as const
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]

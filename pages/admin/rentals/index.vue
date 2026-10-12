@@ -68,8 +68,8 @@ async function removeRental(uuid: string) {
 
 <template>
   <div class="w-full space-y-6">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div class="min-w-0">
         <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
           Operations
         </p>
@@ -83,6 +83,7 @@ async function removeRental(uuid: string) {
       <UButton
         to="/admin/rentals/new"
         icon="i-lucide-plus"
+        class="w-full justify-center sm:w-auto"
       >
         New booking
       </UButton>
@@ -149,34 +150,48 @@ async function removeRental(uuid: string) {
       <li
         v-for="rental in data.items"
         :key="rental.uuid"
-        class="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+        class="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center"
       >
         <NuxtLink
           :to="`/admin/rentals/${rental.code}`"
-          class="grid min-w-0 gap-3 hover:opacity-80 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)_auto_auto] lg:items-center"
+          class="grid min-w-0 flex-1 gap-2 hover:opacity-80 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.2fr)_auto_auto] lg:items-center lg:gap-3"
         >
           <div class="min-w-0">
-            <p class="font-medium text-stone-900">
-              {{ rental.items[0]?.product.name || rental.code }}
-            </p>
+            <div class="flex items-start justify-between gap-3">
+              <p class="font-medium text-stone-900">
+                {{ rental.items[0]?.product.name || rental.code }}
+              </p>
+              <StatusBadge
+                class="shrink-0 lg:hidden"
+                :status="rental.status"
+              />
+            </div>
             <p class="mt-1 text-sm break-words text-stone-500">
               {{ rental.code }}
               · {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Customer' }}
+              <template v-if="rental.commissioner">
+                · Commissioner {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+              </template>
             </p>
           </div>
-          <p class="text-sm text-stone-500">
-            {{ formatBusinessDateTime(rental.pickupAt) }} – {{ formatBusinessDateTime(rental.returnAt) }}
-          </p>
-          <span class="text-sm">{{ formatMoney(rental.totalAmount) }}</span>
-          <StatusBadge :status="rental.status" />
+          <div class="text-sm leading-5 text-stone-600">
+            <p>{{ formatBusinessDateTime(rental.pickupAt) }}</p>
+            <p>{{ formatBusinessDateTime(rental.returnAt) }}</p>
+          </div>
+          <span class="text-sm font-medium text-stone-900">{{ formatMoney(rental.totalAmount) }}</span>
+          <StatusBadge
+            class="hidden shrink-0 lg:inline-flex"
+            :status="rental.status"
+          />
         </NuxtLink>
-        <div class="flex flex-wrap items-center justify-end gap-2">
+        <div class="flex flex-wrap gap-2 lg:shrink-0 lg:justify-end">
           <UButton
             v-if="canOpenAdminContinue(rental)"
             :to="`/admin/rentals/${rental.uuid}/continue`"
             color="neutral"
             variant="outline"
             size="sm"
+            class="min-w-[8rem] flex-1 justify-center lg:flex-none"
           >
             {{ canContinueAdminRental(rental) ? 'Continue' : 'Waiver' }}
           </UButton>
@@ -184,6 +199,7 @@ async function removeRental(uuid: string) {
             <UButton
               color="error"
               size="sm"
+              class="min-w-[8rem] flex-1 justify-center lg:flex-none"
               :loading="deletePending"
               @click="removeRental(rental.uuid)"
             >
@@ -193,6 +209,7 @@ async function removeRental(uuid: string) {
               color="neutral"
               variant="ghost"
               size="sm"
+              class="min-w-[8rem] flex-1 justify-center lg:flex-none"
               :disabled="deletePending"
               @click="deleteCode = ''"
             >
@@ -204,6 +221,7 @@ async function removeRental(uuid: string) {
             color="error"
             variant="ghost"
             size="sm"
+            class="min-w-[8rem] flex-1 justify-center lg:flex-none"
             @click="deleteCode = rental.code"
           >
             Delete

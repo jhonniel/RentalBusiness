@@ -378,9 +378,10 @@ watch(canGuestLink, (value) => {
           {{ currentWaiver.title }}
         </h4>
         <div class="max-h-80 overflow-y-auto rounded-xl border border-stone-100 bg-stone-50 p-4">
-          <p class="whitespace-pre-wrap text-sm leading-6 text-stone-700">
-            {{ waiverBody }}
-          </p>
+          <WaiverAgreementText
+            class="whitespace-pre-wrap text-sm leading-6 text-stone-700"
+            :text="waiverBody"
+          />
         </div>
 
         <label

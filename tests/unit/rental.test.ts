@@ -99,15 +99,13 @@ describe('rental validation', () => {
     expect(parsed.customerUuid).toBe('22222222-2222-4222-8222-222222222222')
   })
 
-  it('requires a client email when no customer is chosen', () => {
+  it('accepts equipment and dates without a client', () => {
     const today = calendarDateInZone()
     expect(createAdminRentalSchema.safeParse({
       productUuid: '11111111-1111-4111-8111-111111111111',
       startsOn: today,
       endsOn: addCalendarDays(today, 1),
-      firstName: 'Ana',
-      lastName: 'Reyes',
-    }).success).toBe(false)
+    }).success).toBe(true)
   })
 })
 

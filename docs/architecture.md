@@ -77,7 +77,7 @@ Protected business operations follow:
 | `auth` | Sign-in, register, password reset |
 | `blank` | Isolated flows such as print receipts and the public maintenance page |
 
-After sign-in, the app loads `profiles.role` from `GET /api/auth/me` and sends the account to its home: administrators open the operations console, customers open `/dashboard`. The header Account control uses the same home. Administrators who open `/dashboard` are redirected. Admin pages still use the `admin` middleware, which allows access only when the database role is `admin`. Do not trust a role value from the client. An administrator can change their own password on `/admin/account`. Another administrator can promote a customer to a system user from `/admin/customers`.
+After sign-in, the app loads `profiles.role` from `GET /api/auth/me` and sends the account to its home: administrators open the operations console, customers open `/dashboard`. The header Account control uses the same home. Administrators who open `/dashboard` are redirected. Admin pages still use the `admin` middleware, which allows access only when the database role is `admin`. Do not trust a role value from the client. An administrator can change their own name and password on `/admin/account`. Another administrator can promote a customer to a system user from `/admin/customers`.
 
 When an administrator enables maintenance, visitors are sent to `/maintenance` and public storefront APIs return 503. Public storefront pages show a floating chat-support widget on the bottom-right edge. The maintenance page keeps an in-page chat. Admins can still sign in and use `/admin`. Auth, health, cron, and payment webhook routes stay available.
 
@@ -98,9 +98,9 @@ When an administrator enables maintenance, visitors are sent to `/maintenance` a
 ## Error handling
 
 - `AppError` carries a user-safe message, HTTP status, and stable code.
-- `toClientError` strips stack traces and database details.
+- `toClientError` strips stack traces and database details. A technical failure is logged on the server and the screen says to contact the admin for support.
 - Server logs use `server/utils/logger.ts` and never print secrets.
-- `error.vue` renders friendly 404 and 5xx pages.
+- `error.vue` renders friendly 404 and 5xx pages. A failed server request, including a development build failure, logs the real error and shows a page that asks the visitor to contact the admin. The response does not include a stack trace, file path, or source line.
 
 ## Environment
 

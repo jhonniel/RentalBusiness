@@ -1,5 +1,5 @@
 import { logger } from '~/server/utils/logger'
-import { toClientError } from '~/utils/errors'
+import { loggedErrorText, toClientError } from '~/utils/errors'
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook('vue:error', (error) => {
@@ -8,6 +8,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     logger.error('Vue render error', {
       code: clientError.code,
       statusCode: clientError.statusCode,
+      error: loggedErrorText(error),
     })
   })
 
@@ -17,6 +18,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     logger.error('Nuxt app error', {
       code: clientError.code,
       statusCode: clientError.statusCode,
+      error: loggedErrorText(error),
     })
   })
 })

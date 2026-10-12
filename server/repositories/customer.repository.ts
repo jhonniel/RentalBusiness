@@ -11,7 +11,7 @@ export async function listCustomers(client: Client, filters: {
 }) {
   let query = client
     .from('profiles')
-    .select('uuid, user_id, first_name, last_name, phone, created_at, rental_requests(count)', { count: 'exact' })
+    .select('uuid, user_id, first_name, last_name, phone, created_at, rental_requests!rental_requests_customer_id_fkey(count)', { count: 'exact' })
     .eq('role', 'customer')
     .order('created_at', { ascending: false })
     .range(filters.from, filters.to)

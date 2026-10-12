@@ -19,7 +19,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 | id | bigint | Internal PK |
 | uuid | uuid | Public id, unique |
 | user_id | uuid | FK → auth.users |
-| role | text | `admin` \| `customer` |
+| role | text | `admin` \| `customer` \| `commissioner` |
 | first_name | text | |
 | last_name | text | |
 | phone | text | |
@@ -44,7 +44,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `id`, `uuid`, `slug` (unique, generated from `name`), `sku` (unique, generated from `name`; not shown on product forms)
 - `category_id` → product_categories
 - `name`, `description`, `short_description`
-- `daily_price`, `weekly_price`, `monthly_price`, `long_stay_less`, `long_stay_min_days`, `deposit_amount`, `late_fee`, `replacement_value`
+- `daily_price`, `weekly_price`, `monthly_price`, `long_stay_less`, `long_stay_min_days`, `deposit_amount`, `late_fee`, `commission_per_day`, `replacement_value`
 - `long_stay_less` is a per-day amount. `long_stay_min_days` is the booking length that turns it on (default 3). A booking that reaches that length subtracts `long_stay_less × days × quantity`. A zero less turns it off. The deposit is not reduced.
 - `hidden_price_fields` (`text[]`, default `{}`) — which of `daily`, `weekly`, `monthly`, `deposit`, `late_fee`, `replacement_value` stay off the public catalog. Stored amounts still apply to quotes and bookings.
 - `quantity`, `status` (`draft` \| `active` \| `coming_soon` \| `hidden` \| `archived`). `coming_soon` is public and labeled, but not bookable.
@@ -230,9 +230,9 @@ Never trust client-reported payment status. Inserts and updates are server-only 
 **expenses**
 
 - `id`, `uuid`, `name`, `category`, `description`, `amount`
-- `vendor`, `reference`, `status`, `notes`, `incurred_on`
+- `vendor`, `reference`, `status`, `notes`, `incurred_on`, `rental_id` (set for a commissioner commission, cleared if that rental is deleted)
 
-Expense categories: `internet`, `electricity`, `maintenance`, `repairs`, `software`, `subscription`, `marketing`, `transportation`, `staff`, `insurance`, `equipment`, `office`, `other`.
+Expense categories: `internet`, `electricity`, `maintenance`, `repairs`, `software`, `subscription`, `marketing`, `transportation`, `staff`, `insurance`, `equipment`, `office`, `commission`, `other`.
 
 **recurring_expenses**
 
@@ -307,7 +307,7 @@ Serialized products also track per-asset status.
 
 Enabled on every application table. Details live in [security.md](./security.md). Customers read only their own rows. Admins use role-checked policies plus server-side service-role operations for privileged writes.
 
-Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental_items` and sync parent totals. Customers may update only `rental_requests.status` and `notifications.read_at`. `settings` is admin-select. `20261006000000_rental_period_days.sql` counts those days as the date difference, minimum 1, so a same-clock return the next day is one daily rate. `20261010000000_long_stay_less.sql` adds `products.long_stay_less`. `20261010010000_long_stay_less_days.sql` adds `products.long_stay_min_days` so each product chooses the booking length that turns that less on.
+Phase 15: `quote_rental_line` and item triggers copy catalog prices onto `rental_items` and sync parent totals. Customers may update only `rental_requests.status` and `notifications.read_at`. `settings` is admin-select. `20261006000000_rental_period_days.sql` counts those days as the date difference, minimum 1, so a same-clock return the next day is one daily rate. `20261010000000_long_stay_less.sql` adds `products.long_stay_less`. `20261010010000_long_stay_less_days.sql` adds `products.long_stay_min_days` so each product chooses the booking length that turns that less on. `20261012000000_quote_rental_line_unique.sql` drops the older `quote_rental_line` overloads so the rental-item trigger has one function to call.
 
 Phase 16: `payment_methods` stores admin QR payment options. Authenticated customers may select active rows. Writes are admin-only. QR files live in the public `payment-qr-images` bucket.
 
@@ -319,6 +319,6 @@ Site maintenance: `site_maintenance` is a singleton. `maintenance_images` are pu
 
 ## Seed data
 
-`supabase/seed.sql` is development-only. It inserts categories, featured products, serialized assets, the current waiver version (`JRY-WAIVER-v1.1`, copied from `supabase/waiver-jry-v1.txt`, with a non-refundable down-payment clause), business settings, a Starlink recurring expense, and a sample maintenance expense. Existing databases pick up v1.1 from `20260913310000_waiver_v1_1_nonrefundable_downpayment.sql` without rewriting accepted v1.0 snapshots. The current Privacy Policy text is `supabase/privacy-jry-v1.txt` (`JRY-PRIVACY-v1.0`). The current Terms & Conditions text is `supabase/terms-jry-v1.txt` (`JRY-TC-v1.0`). The current Cookie Policy text is `supabase/cookies-jry-v1.txt` (`JRY-COOKIE-v1.0`).
+`supabase/seed.sql` is development-only. It inserts categories, featured products, serialized assets, the current waiver version (`JRY-WAIVER-v1.2`, copied from `supabase/waiver-jry-v1.txt`, with the late-return schedule and a non-refundable down-payment clause), business settings, a Starlink recurring expense, and a sample maintenance expense. Existing databases pick up v1.2 from `20261013000000_waiver_v1_2_late_fee.sql` without rewriting accepted v1.0 or v1.1 snapshots. The current Privacy Policy text is `supabase/privacy-jry-v1.txt` (`JRY-PRIVACY-v1.0`). The current Terms & Conditions text is `supabase/terms-jry-v1.txt` (`JRY-TC-v1.0`). The current Cookie Policy text is `supabase/cookies-jry-v1.txt` (`JRY-COOKIE-v1.0`).
 
 It also creates a development Auth user `admin@jryrentals.local` / `JryAdmin!dev` and sets that profile to `admin`. Never run the seed against production.

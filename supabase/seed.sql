@@ -276,11 +276,11 @@ on conflict (asset_code) do nothing;
 update public.waiver_versions
 set is_current = false
 where is_current = true
-  and version is distinct from 'JRY-WAIVER-v1.1';
+  and version is distinct from 'JRY-WAIVER-v1.2';
 
 insert into public.waiver_versions (version, title, body, is_current, published_at)
 values (
-  'JRY-WAIVER-v1.1',
+  'JRY-WAIVER-v1.2',
   'Equipment Rental Agreement & Liability Waiver',
   $waiver$
 JRY RENTALS
@@ -288,7 +288,7 @@ EQUIPMENT RENTAL AGREEMENT & LIABILITY WAIVER
 
 Business: JRY Rentals
 Tagline: Rent. Create. Explore.
-Agreement version: JRY-WAIVER-v1.1
+Agreement version: JRY-WAIVER-v1.2
 
 This Equipment Rental Agreement and Liability Waiver (“Agreement”) is entered into between JRY Rentals (“Rental Provider”) and the individual or organization renting the equipment (“Renter”).
 
@@ -415,12 +415,18 @@ The Renter agrees to return the equipment:
 - With all accessories and components.
 - In substantially the same condition in which it was received, excluding normal wear and tear.
 
-Late returns may result in additional rental charges.
+A return after the agreed return time is a late return and is charged under section 14.
 
 If a late return prevents JRY Rentals from fulfilling another confirmed booking, the Renter may also be responsible for reasonable resulting costs, subject to applicable law and the rental terms.
 
 14. LATE RETURN
-If equipment is not returned on time, JRY Rentals may charge additional rental fees according to the applicable rental rate and booking terms.
+A late fee applies once the equipment is not returned by the agreed return time.
+
+Less than 6 hours after the return time, the late fee is ₱300.00.
+
+6 hours or more, and up to 12 hours, after the return time, the late fee is half a day of the rented item.
+
+More than 12 hours after the return time, the late return is charged as 1 day of rent.
 
 The Renter agrees to communicate with JRY Rentals as soon as possible if a delay is expected.
 
@@ -531,11 +537,11 @@ on conflict (version) do nothing;
 
 update public.waiver_versions
 set is_current = false
-where version is distinct from 'JRY-WAIVER-v1.1';
+where version is distinct from 'JRY-WAIVER-v1.2';
 
 update public.waiver_versions
 set is_current = true
-where version = 'JRY-WAIVER-v1.1';
+where version = 'JRY-WAIVER-v1.2';
 
 insert into public.business_profiles (
   name,

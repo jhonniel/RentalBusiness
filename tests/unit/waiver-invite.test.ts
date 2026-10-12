@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
-import { continueAdminRentalSchema } from '../../utils/rental-validation'
+import { continueAdminRentalSchema, updateWaiverInviteScheduleSchema } from '../../utils/rental-validation'
 import { acceptWaiverInviteSchema, sendWaiverInviteSchema } from '../../utils/waiver-validation'
 import {
   canContinueAdminRental,
@@ -69,11 +69,15 @@ describe('admin continue and waiver invite rules', () => {
       usedAt: '2026-10-05T00:00:00.000Z',
       expiresAt: '2099-01-01T00:00:00.000Z',
     })).toBe(false)
+    expect(isWaiverInviteOpen({
+      usedAt: null,
+      expiresAt: '2000-01-01T00:00:00.000Z',
+    })).toBe(true)
     expect(isWaiverInviteUnexpired({
-      expiresAt: '2099-01-01T00:00:00.000Z',
+      expiresAt: '2000-01-01T00:00:00.000Z',
     })).toBe(true)
     expect(canUploadGuestIdentity({ status: 'draft', waiver: { uuid: 'waiver' } as never })).toBe(true)
-    expect(canUploadGuestIdentity({ status: 'draft', waiver: null })).toBe(false)
+    expect(canUploadGuestIdentity({ status: 'draft', waiver: null })).toBe(true)
     expect(canUploadGuestIdentity({ status: 'paid', waiver: { uuid: 'waiver' } as never })).toBe(false)
   })
 })
@@ -136,6 +140,16 @@ describe('waiver invite validation', () => {
       firstName: 'Ana',
       lastName: 'Reyes',
       totalAmount: 1,
+    }).success).toBe(false)
+    expect(updateWaiverInviteScheduleSchema.safeParse({
+      token: 'a'.repeat(32),
+      startsOn,
+      endsOn,
+    }).success).toBe(true)
+    expect(updateWaiverInviteScheduleSchema.safeParse({
+      token: 'a'.repeat(32),
+      startsOn: addCalendarDays(calendarDateInZone(), -1),
+      endsOn: calendarDateInZone(),
     }).success).toBe(false)
   })
 })

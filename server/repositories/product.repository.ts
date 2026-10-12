@@ -20,6 +20,7 @@ const PRODUCT_SELECT = `
   long_stay_min_days,
   deposit_amount,
   late_fee,
+  commission_per_day,
   replacement_value,
   hidden_price_fields,
   quantity,
@@ -100,6 +101,20 @@ export async function listPublicProductNames(client: Client) {
 
   if (error) {
     throw new AppError('We could not load products.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
+export async function listBookableProducts(client: Client) {
+  const { data, error } = await client
+    .from('products')
+    .select('uuid, name, sku, commission_per_day')
+    .eq('status', 'active')
+    .order('name', { ascending: true })
+
+  if (error) {
+    throw new AppError('We could not load equipment.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
   }
 
   return data ?? []

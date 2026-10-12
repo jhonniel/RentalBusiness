@@ -33,10 +33,15 @@ const {
   pending: systemPending,
   refresh: refreshSystemUsers,
 } = await useFetch<AdminSystemUser[]>('/api/admin/system-users')
+const {
+  data: commissioners,
+  refresh: refreshCommissioners,
+} = await useFetch<AdminSystemUser[]>('/api/admin/commissioners')
 
 const unavailable = computed(() => error.value?.statusCode === 503 || systemError.value?.statusCode === 503)
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0) / 20)))
 const confirmUuid = ref<string | null>(null)
+const confirmRole = ref<'admin' | 'commissioner' | null>(null)
 const promoting = ref(false)
 
 watch(search, () => {
@@ -48,19 +53,34 @@ function displayName(person: { firstName: string, lastName: string }) {
 }
 
 async function promote(customer: AdminCustomer) {
+  if (!confirmRole.value) {
+    return
+  }
   promoting.value = true
+  const asCommissioner = confirmRole.value === 'commissioner'
   try {
-    await $fetch(`/api/admin/customers/${customer.uuid}/promote`, { method: 'POST' })
+    await $fetch(
+      asCommissioner
+        ? `/api/admin/customers/${customer.uuid}/commissioner`
+        : `/api/admin/customers/${customer.uuid}/promote`,
+      { method: 'POST' },
+    )
     confirmUuid.value = null
-    toast.add({ title: `${displayName(customer)} is now a system user`, color: 'success' })
-    await Promise.all([refresh(), refreshSystemUsers()])
+    confirmRole.value = null
+    toast.add({
+      title: asCommissioner
+        ? `${displayName(customer)} is now a commissioner`
+        : `${displayName(customer)} is now a system user`,
+      color: 'success',
+    })
+    await Promise.all([refresh(), refreshSystemUsers(), refreshCommissioners()])
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
       ? (error as { data?: { message?: string } }).data
       : null
     toast.add({
-      title: payload?.message || 'We could not make that customer a system user.',
+      title: payload?.message || 'We could not change that account.',
       color: 'error',
     })
   }
@@ -80,7 +100,7 @@ async function promote(customer: AdminCustomer) {
         Customers
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Customer profiles and the system users who can run the shop.
+        Customer profiles, system users, and commissioners who book equipment for clients.
       </p>
     </div>
 
@@ -142,6 +162,44 @@ async function promote(customer: AdminCustomer) {
         </ul>
       </section>
 
+      <section class="space-y-3">
+        <div>
+          <h3 class="text-sm font-medium text-stone-900">
+            Commissioners
+          </h3>
+          <p class="mt-1 text-sm text-stone-500">
+            These accounts can book equipment for a client. You set the commission per day on each product.
+          </p>
+        </div>
+        <AdminNotice
+          v-if="!commissioners?.length"
+          title="No commissioners"
+          description="Promote a customer to let them book equipment and earn a commission."
+        />
+        <ul
+          v-else
+          class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
+        >
+          <li
+            v-for="user in commissioners"
+            :key="user.uuid"
+            class="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          >
+            <div class="min-w-0">
+              <p class="font-medium text-stone-900">
+                {{ displayName(user) }}
+              </p>
+              <p class="text-sm break-words text-stone-500">
+                {{ user.email || 'No account email' }} · joined {{ formatBusinessDate(user.createdAt) }}
+              </p>
+            </div>
+            <p class="text-sm text-stone-600">
+              Commissioner
+            </p>
+          </li>
+        </ul>
+      </section>
+
       <form
         class="rounded-xl border border-stone-200 bg-white p-4"
         method="get"
@@ -161,6 +219,12 @@ async function promote(customer: AdminCustomer) {
         <USkeleton class="h-16 w-full" />
         <USkeleton class="h-16 w-full" />
       </div>
+
+      <AdminNotice
+        v-else-if="error"
+        title="Customers could not be loaded"
+        description="Refresh this page. Customer accounts will appear here when the list loads."
+      />
 
       <AdminNotice
         v-else-if="!data?.items.length"
@@ -194,8 +258,15 @@ async function promote(customer: AdminCustomer) {
             <template v-if="confirmUuid === customer.uuid">
               <UButton
                 size="xs"
-                :loading="promoting"
-                @click="promote(customer)"
+                :loading="promoting && confirmRole === 'commissioner'"
+                @click="confirmRole = 'commissioner'; promote(customer)"
+              >
+                Make commissioner
+              </UButton>
+              <UButton
+                size="xs"
+                :loading="promoting && confirmRole === 'admin'"
+                @click="confirmRole = 'admin'; promote(customer)"
               >
                 Make system user
               </UButton>
@@ -204,7 +275,7 @@ async function promote(customer: AdminCustomer) {
                 variant="ghost"
                 size="xs"
                 :disabled="promoting"
-                @click="confirmUuid = null"
+                @click="confirmUuid = null; confirmRole = null"
               >
                 Cancel
               </UButton>
@@ -216,7 +287,7 @@ async function promote(customer: AdminCustomer) {
               size="xs"
               @click="confirmUuid = customer.uuid"
             >
-              Make admin
+              Change role
             </UButton>
           </div>
         </li>
