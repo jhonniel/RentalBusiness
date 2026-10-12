@@ -5,6 +5,7 @@ import type { VoucherInput } from '../../utils/voucher-validation'
 import type { VoucherStatus } from '../../utils/constants'
 import { calendarDateInZone } from '../../utils/datetime'
 import { fromMinorUnits, toMinorUnits } from '../../utils/currency'
+import { amountDue } from '../../utils/rental'
 import {
   normalizeVoucherCode,
   quoteVoucherDiscount,
@@ -165,7 +166,10 @@ export async function applyOwnRentalVoucher(
     discountAmount,
     totalAmount,
   })
-  await syncOpenPaymentAmount(admin, identity.id, totalAmount)
+  await syncOpenPaymentAmount(admin, identity.id, amountDue({
+    totalAmount,
+    depositAmount: rental.depositAmount,
+  }))
 
   await recordAudit(event, admin, {
     action: 'rental.voucher.apply',
@@ -202,7 +206,10 @@ export async function removeOwnRentalVoucher(event: H3Event, client: Client, ide
     discountAmount: 0,
     totalAmount: rental.subtotal,
   })
-  await syncOpenPaymentAmount(admin, identity.id, rental.subtotal)
+  await syncOpenPaymentAmount(admin, identity.id, amountDue({
+    totalAmount: rental.subtotal,
+    depositAmount: rental.depositAmount,
+  }))
 
   await recordAudit(event, admin, {
     action: 'rental.voucher.remove',

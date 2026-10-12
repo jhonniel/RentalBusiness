@@ -68,16 +68,24 @@ async function removeRental(uuid: string) {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Operations
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Rentals
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Finish a customer draft, send a waiver sign link, confirm new requests, or delete a request.
-      </p>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
+          Operations
+        </p>
+        <h2 class="mt-2 text-2xl font-medium text-stone-900">
+          Rentals
+        </h2>
+        <p class="mt-1 text-sm text-stone-600">
+          Create a booking for a client, send the waiver link, finish a draft, or confirm a request.
+        </p>
+      </div>
+      <UButton
+        to="/admin/rentals/new"
+        icon="i-lucide-plus"
+      >
+        New booking
+      </UButton>
     </div>
 
     <form

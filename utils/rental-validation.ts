@@ -71,6 +71,20 @@ export const adminRentalQuoteSchema = addDateWindowChecks(z.object({
   path: ['productUuid'],
 }))
 
+export const createAdminRentalSchema = addDateWindowChecks(z.object({
+  productUuid: z.string().uuid('Choose a product.'),
+  ...rentalWindow,
+  notes: z.string().trim().max(1000).optional().or(z.literal('')),
+  customerUuid: z.string().uuid().optional(),
+  firstName: z.string().trim().min(1, 'First name is required.').max(80),
+  lastName: z.string().trim().min(1, 'Last name is required.').max(80),
+  phone: z.string().trim().max(30).optional().or(z.literal('')),
+  email: z.string().trim().email('Enter a valid email.').max(160).optional().or(z.literal('')),
+}).strict().refine(data => Boolean(data.customerUuid || data.email), {
+  message: 'Enter the client email or choose an existing customer.',
+  path: ['email'],
+}))
+
 export const continueAdminRentalSchema = addDateWindowChecks(z.object({
   ...rentalWindow,
   notes: z.string().trim().max(1000).optional().or(z.literal('')),
@@ -80,6 +94,7 @@ export const continueAdminRentalSchema = addDateWindowChecks(z.object({
 }).strict())
 
 export type CreateRentalInput = z.infer<typeof createRentalSchema>
+export type CreateAdminRentalInput = z.infer<typeof createAdminRentalSchema>
 export type ContinueAdminRentalInput = z.infer<typeof continueAdminRentalSchema>
 export type RentalQuoteQuery = z.infer<typeof rentalQuoteQuerySchema>
 export type AdminRentalQuoteQuery = z.infer<typeof adminRentalQuoteSchema>

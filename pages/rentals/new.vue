@@ -278,8 +278,8 @@ async function onSubmit() {
             <dd>{{ formatMoney(quote.depositAmount) }}</dd>
           </div>
           <div class="flex justify-between gap-4 font-medium text-stone-900">
-            <dt>Rental total</dt>
-            <dd>{{ formatMoney(quote.totalAmount) }}</dd>
+            <dt>Amount due</dt>
+            <dd>{{ formatMoney(quote.totalAmount + quote.depositAmount) }}</dd>
           </div>
         </dl>
         <p

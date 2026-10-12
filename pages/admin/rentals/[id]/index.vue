@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
 import { formatBusinessDateTime } from '~/utils/datetime'
-import { canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
+import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { renderWaiverBody } from '~/utils/waiver'
 import { canContinueAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
 
@@ -17,6 +17,7 @@ const identifier = computed(() => String(route.params.id))
 const approving = ref(false)
 const confirming = ref(false)
 const paying = ref(false)
+const completing = ref(false)
 const paymentMethod = ref<(typeof SHOP_PAYMENT_METHODS)[number]>('cash')
 const deleteOpen = ref(false)
 const deletePending = ref(false)
@@ -52,11 +53,19 @@ const canResetWaiver = computed(() => rental.value ? canResetAdminWaiver(rental.
 const resetOpen = ref(false)
 const resetting = ref(false)
 const canMarkPaid = computed(() => rental.value ? canMarkAdminRentalPaid(rental.value) : false)
+const canFinish = computed(() => rental.value ? canCompleteAdminRental(rental.value) : false)
+const sendWaiver = computed(() => route.hash === '#waiver')
+
+onMounted(() => {
+  if (sendWaiver.value) {
+    document.getElementById('waiver')?.scrollIntoView({ block: 'start' })
+  }
+})
 const canApprove = computed(() =>
   rental.value?.status === 'paid'
   || Boolean(
     rental.value
-    && rental.value.totalAmount === 0
+    && amountDue(rental.value) === 0
     && rental.value.voucher
     && rental.value.status === 'awaiting_payment',
   ),
@@ -110,6 +119,31 @@ async function confirmBooking() {
   }
   finally {
     confirming.value = false
+  }
+}
+
+async function finishRental() {
+  if (!rental.value) {
+    return
+  }
+
+  completing.value = true
+  try {
+    await $fetch(`/api/admin/rentals/${rental.value.uuid}/complete`, { method: 'POST' })
+    toast.add({ title: 'Rental finished and deposit removed from sales', color: 'success' })
+    await refresh()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not finish that rental.',
+      color: 'error',
+    })
+  }
+  finally {
+    completing.value = false
   }
 }
 
@@ -263,6 +297,13 @@ async function removeRental() {
             </UButton>
           </div>
           <UButton
+            v-if="canFinish"
+            :loading="completing"
+            @click="finishRental"
+          >
+            Mark rental done
+          </UButton>
+          <UButton
             v-if="canApprove"
             :loading="approving"
             @click="approve"
@@ -329,17 +370,32 @@ async function removeRental() {
             >
               Voucher {{ rental.voucher.code }} · −{{ formatMoney(rental.discountAmount) }}
             </p>
-            <p class="mt-3 text-sm font-medium">
-              Total {{ formatMoney(rental.totalAmount) }}
+            <p class="mt-3 text-sm text-stone-600">
+              Rent {{ formatMoney(rental.totalAmount) }}
+            </p>
+            <p class="text-sm text-stone-600">
+              Deposit {{ formatMoney(rental.depositAmount) }}
+            </p>
+            <p class="mt-1 text-sm font-medium">
+              Amount due {{ formatMoney(amountDue(rental)) }}
             </p>
           </section>
         </div>
 
         <div class="space-y-6">
-          <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
+          <section
+            id="waiver"
+            class="rounded-xl border border-stone-200 bg-white p-5 text-sm"
+          >
             <h3 class="font-medium text-stone-900">
               Rental agreement
             </h3>
+            <p
+              v-if="sendWaiver && canInvite"
+              class="mt-2 text-stone-600"
+            >
+              This booking is saved. Send the waiver link so the client can open it and sign.
+            </p>
         <template v-if="rental.waiver">
           <dl class="mt-3 grid gap-3 sm:grid-cols-2">
             <div>

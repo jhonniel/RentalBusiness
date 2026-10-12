@@ -195,7 +195,7 @@ export function rentalSubmittedStaffEmail(input: {
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>
     <p style="margin:16px 0 0;font-weight:600;">Rental total ${escapeHtml(formatMoney(input.totalAmount))}</p>
-    <p style="margin:8px 0 0;color:#57534e;font-size:14px;">Deposit hold ${escapeHtml(formatMoney(input.depositAmount))}</p>
+    <p style="margin:8px 0 0;color:#57534e;font-size:14px;">Deposit ${escapeHtml(formatMoney(input.depositAmount))} is collected with the rent and leaves sales when the rental is finished.</p>
     ${input.notes ? `<p style="margin:16px 0 0;color:#57534e;font-size:14px;">Notes: ${escapeHtml(input.notes)}</p>` : ''}
     <p style="margin:24px 0 0;"><a href="${escapeHtml(input.adminUrl)}" style="color:#325348;">Open this request</a></p>
   `)

@@ -197,8 +197,8 @@ async function cancelRental() {
             <dd>{{ formatMoney(rental.depositAmount) }}</dd>
           </div>
           <div class="flex justify-between font-medium">
-            <dt>Rental total</dt>
-            <dd>{{ formatMoney(rental.totalAmount) }}</dd>
+            <dt>Amount due</dt>
+            <dd>{{ formatMoney(rental.totalAmount + rental.depositAmount) }}</dd>
           </div>
         </dl>
       </section>

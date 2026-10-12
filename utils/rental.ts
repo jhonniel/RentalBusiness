@@ -5,6 +5,7 @@ import { firstPayments, type PaymentRow } from './payment'
 import { firstReceipts, type ReceiptRow } from './receipt'
 import { toPublicRentalVoucher, type VoucherRedemptionRow } from './voucher'
 import { firstWaiverAcceptance, type WaiverAcceptanceRow } from './waiver'
+import { fromMinorUnits, toMinorUnits } from './currency'
 import { DEFAULT_PICKUP_TIME, pickupTimeFromInstant, resolveRentalWindow } from './rental-window'
 
 interface ProductRef {
@@ -163,11 +164,52 @@ export function canSubmitRentalRequest(rental: Pick<PublicRental, 'status' | 'wa
   return rental.status === 'draft' && Boolean(rental.waiver) && Boolean(rental.identity)
 }
 
-export function canMarkAdminRentalPaid(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity' | 'totalAmount'>) {
+export function amountDue(rental: { totalAmount: number, depositAmount?: number }) {
+  return fromMinorUnits(toMinorUnits(Math.max(0, rental.totalAmount) + Math.max(0, rental.depositAmount ?? 0)))
+}
+
+export function collectedPaymentFields(rental: { totalAmount: number, depositAmount?: number }) {
+  return {
+    includesDeposit: true,
+    depositAmount: Math.max(0, rental.depositAmount ?? 0),
+    rentAmount: Math.max(0, rental.totalAmount),
+  }
+}
+
+export function paymentCollectedDeposit(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return false
+  }
+
+  const record = metadata as { includesDeposit?: unknown, depositReturnedAt?: unknown }
+  return record.includesDeposit === true && !record.depositReturnedAt
+}
+
+export function paymentAmountAfterDepositReturn(amount: number, depositAmount: number) {
+  return fromMinorUnits(toMinorUnits(Math.max(0, amount - Math.max(0, depositAmount))))
+}
+
+const COMPLETABLE_RENTAL_STATUSES = ['paid', 'approved', 'ready_for_pickup', 'active', 'overdue', 'returned'] as const
+
+export function canCompleteAdminRental(
+  rental: { status: RentalStatus, returnAt?: string | null, endsOn: string },
+  now = new Date(),
+) {
+  if (!(COMPLETABLE_RENTAL_STATUSES as readonly string[]).includes(rental.status)) {
+    return false
+  }
+
+  const returnAt = rental.returnAt
+    ? Date.parse(rental.returnAt)
+    : Date.parse(`${rental.endsOn}T00:00:00+08:00`)
+  return Number.isFinite(returnAt) && returnAt <= now.getTime()
+}
+
+export function canMarkAdminRentalPaid(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity' | 'totalAmount' | 'depositAmount'>) {
   return ['draft', 'pending', 'awaiting_payment'].includes(rental.status)
     && Boolean(rental.waiver)
     && Boolean(rental.identity)
-    && rental.totalAmount > 0
+    && amountDue(rental) > 0
 }
 
 export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>) {

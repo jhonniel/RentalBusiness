@@ -142,7 +142,7 @@ function printReceipt() {
         </div>
         <div class="flex justify-between">
           <dt class="text-stone-500">
-            Deposit hold
+            Deposit
           </dt>
           <dd>{{ formatMoney(snapshot.amounts.depositAmount, snapshot.currency) }}</dd>
         </div>

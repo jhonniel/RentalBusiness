@@ -200,8 +200,8 @@ watch(detailsOpen, (open) => {
         @saved="onBlockSaved"
       />
 
-      <div class="hidden overflow-hidden rounded-xl border border-stone-200 bg-white md:block">
-        <div class="grid grid-cols-7 border-b border-stone-100 bg-stone-50 text-xs font-medium text-stone-500">
+      <div class="hidden min-w-0 overflow-x-auto rounded-xl border border-stone-200 bg-white md:block">
+        <div class="grid min-w-0 grid-cols-7 border-b border-stone-100 bg-stone-50 text-xs font-medium text-stone-500">
           <p
             v-for="label in weekdayLabels"
             :key="label"
@@ -210,12 +210,12 @@ watch(detailsOpen, (open) => {
             {{ label }}
           </p>
         </div>
-        <div class="grid grid-cols-7">
+        <div class="grid min-w-0 grid-cols-7">
           <button
             v-for="(date, index) in cells"
             :key="date || `empty-${index}`"
             type="button"
-            class="min-h-28 border-b border-r border-stone-100 p-2 text-left last:border-r-0 disabled:cursor-default"
+            class="min-h-28 min-w-0 border-b border-r border-stone-100 p-2 text-left last:border-r-0 disabled:cursor-default"
             :class="date && dayIsViewed(date)
               ? 'bg-lumen-50 ring-2 ring-inset ring-lumen-600'
               : date && dayIsPast(date)
@@ -268,8 +268,8 @@ watch(detailsOpen, (open) => {
         </div>
       </div>
 
-      <div class="rounded-xl border border-stone-200 bg-white p-3 md:hidden">
-        <div class="grid grid-cols-7 text-center text-[11px] font-medium text-stone-500">
+      <div class="w-full min-w-0 rounded-xl border border-stone-200 bg-white p-3 md:hidden">
+        <div class="grid w-full min-w-0 grid-cols-7 text-center text-[11px] font-medium text-stone-500">
           <p
             v-for="label in weekdayLabels"
             :key="`mobile-${label}`"
@@ -277,12 +277,12 @@ watch(detailsOpen, (open) => {
             {{ label.slice(0, 1) }}
           </p>
         </div>
-        <div class="mt-2 grid grid-cols-7 gap-1">
+        <div class="mt-2 grid w-full min-w-0 grid-cols-7 gap-1">
           <button
             v-for="(date, index) in cells"
             :key="date || `mobile-empty-${index}`"
             type="button"
-            class="relative aspect-square rounded-md text-sm"
+            class="relative aspect-square min-h-0 min-w-0 rounded-md text-sm"
             :class="!date
               ? 'invisible'
               : dayIsViewed(date)

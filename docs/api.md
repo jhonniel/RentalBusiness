@@ -215,6 +215,7 @@ Current terms are public. Acceptance requires a signed-in owner of a `draft` or 
 
 An administrator can finish a customer draft on `/admin/rentals/[id]/continue`, change pickup date, return date, and pickup time (including a shop time that has already passed today), upload the government ID and selfie there, and have the customer agree and sign on that page. Continue also auto-creates a guest `/waivers/sign/{uuid}?token=` link the shop can copy even after the waiver is signed. That public page always shows the Equipment Rental Agreement. Unsigned rentals get the acknowledgments, signature pad, and I agree and sign button. After it is signed, the form is locked and the customer can still photograph ID photos in the browser without an account. An administrator can change that signed status back to unsigned on an open rental (`draft` through `ready_for_pickup`) so they can agree and sign again; the previous signature is kept in the audit log, not in the rental. Continue also shows an admin-only View signed waiver button. Customers cannot open that signed PDF. The raw token is never stored; `rental_waiver_invites` keeps a sha256 hash only. The invite expires after 72 hours. Signing uses the token once; the same link can still accept ID photos until it expires. Sending a new invite expires unused links for that rental. Guest accept stamps the rental owner’s profile and marks the invite used.
 
+**Create booking body:** productUuid, startsOn, endsOn, pickupTime, quantity, firstName, lastName, phone?, notes?, and either customerUuid or email. Today’s past shop times are allowed. The rental stays `draft`. After it is created, the rental page is where the shop sends `POST /api/admin/rentals/[id]/waiver-invite`.  
 **Continue body:** startsOn, endsOn, pickupTime, quantity, firstName, lastName, phone?, notes?  
 **Admin quote:** `POST /api/admin/rentals/quote` uses the same window as continue and does not reject a pickup time that has already passed today. Public `POST /api/rentals/quote` still requires a later pickup time.  
 **Invite body:** email?  
@@ -253,7 +254,7 @@ Rental payloads include `payments` (`uuid`, amount, currency, provider, status, 
 
 ### Payments
 
-Customers see active bank and QR methods from `GET /api/payment-methods` and send the rental total there. Server-created intents remain available for a future live adapter. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request are required for customer checkout. An administrator can also `POST /api/admin/rentals/[id]/paid` after the waiver and identity are on file; that writes a paid shop payment and records the rental in sales. Customer payment status otherwise changes only from a verified webhook or a server-side provider retrieve.
+Customers see active bank and QR methods from `GET /api/payment-methods` and send the rent plus the deposit. After the return time, an administrator marks the rental done and that deposit is removed from the paid amount so sales keep the rent. Server-created intents remain available for a future live adapter. Amount and currency come from the rental total (PHP). Clients cannot send `amount` or `status`. A signed waiver, submitted identity documents, and a shop-confirmed (`awaiting_payment`) request are required for customer checkout. An administrator can also `POST /api/admin/rentals/[id]/paid` after the waiver and identity are on file; that writes a paid shop payment and records the rental in sales. Customer payment status otherwise changes only from a verified webhook or a server-side provider retrieve.
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -319,6 +320,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | DELETE | `/api/admin/maintenance/images/[uuid]` | Remove image and storage object |
 | GET | `/api/admin/audit-logs` | Append-only audit trail. Search action/entity/public id. Paginated |
 | GET | `/api/admin/rentals` | All rentals, search code, status, pagination |
+| POST | `/api/admin/rentals` | Admin creates a `draft` for a client. Body: product uuid, dates, pickup time, quantity, name, phone?, notes?, and either `customerUuid` or `email`. A new email opens a customer account on the server; the generated password is never returned. The booking is attached to that customer, not the admin. Audited |
 | GET | `/api/admin/rentals/[id]` | By uuid or code |
 | POST | `/api/admin/rentals/quote` | Admin pricing for continue. Allows a pickup time that has already passed today. Occupying windows still block `canFulfill` |
 | DELETE | `/api/admin/rentals/[id]` | Permanently delete a rental by uuid or code. Removes items, payments, receipts, waiver, identity files, and status history. Admin only, audited |
@@ -330,7 +332,8 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | POST | `/api/admin/rentals/[id]/waiver` | Record an in-person agree-and-sign on the continue form. Audited |
 | POST | `/api/admin/rentals/[id]/identity` | Admin ID and selfie upload for `draft`/`pending`. No waiver required. Compressed JPEG on S3 |
 | POST | `/api/admin/rentals/[id]/confirm` | `pending` → `awaiting_payment`, or `approved` when a voucher covers the full total. Dates stay reserved. Audited |
-| POST | `/api/admin/rentals/[id]/paid` | Admin records a shop payment (`cash`, `gcash`, `maya`, or `bank`). Creates a paid `payment_transactions` row so the rental appears in sales. Moves `draft`/`pending`/`awaiting_payment` to `paid` after waiver and identity are on file. Audited |
+| POST | `/api/admin/rentals/[id]/paid` | Admin records a shop payment (`cash`, `gcash`, `maya`, or `bank`) for the rent plus the deposit. Creates a paid `payment_transactions` row so the rental appears in sales. Moves `draft`/`pending`/`awaiting_payment` to `paid` after waiver and identity are on file. Audited |
+| POST | `/api/admin/rentals/[id]/complete` | Admin marks a rental done after the return time. Status becomes `completed`. If the payment included the deposit, that deposit is subtracted from the paid amount so sales keep the rent. Audited |
 | POST | `/api/admin/rentals/[id]/approve` | `paid` → `approved`, or `awaiting_payment` when a voucher covers the full total. Audited |
 | GET | `/api/admin/customers` | Customer profiles, account email, phone, and rental counts. Email comes from the sign-in account and is admin-only |
 | GET | `/api/admin/system-users` | Profiles with `role = admin`, including the sign-in email |
@@ -399,7 +402,7 @@ Admin session required. Dates are inclusive in `Asia/Manila`. Default range is t
 **Query:** `startsOn`, `endsOn`, `format` (`json` default, `csv`)  
 **Rate limit:** 20 CSV exports / minute / admin
 
-Sales sum paid payments. Expense totals skip `void`. Profit is sales minus those expenses. Rentals are rows whose dates overlap the range. Inventory is a live stock snapshot. Utilization is booked unit-days ÷ rentable capacity unit-days for occupying rentals. CSV exports are audited.
+Sales sum paid payments. A finished rental's deposit is no longer inside that paid amount. Expense totals skip `void`. Profit is sales minus those expenses. Rentals are rows whose dates overlap the range. Inventory is a live stock snapshot. Utilization is booked unit-days ÷ rentable capacity unit-days for occupying rentals. CSV exports are audited.
 
 ### Discovery
 

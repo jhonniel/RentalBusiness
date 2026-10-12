@@ -6,9 +6,9 @@ import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
-import type { ContinueAdminRentalInput } from '../../utils/rental-validation'
+import type { ContinueAdminRentalInput, CreateAdminRentalInput } from '../../utils/rental-validation'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
-import { canMarkAdminRentalPaid, isRentalCode, toPublicRental } from '../../utils/rental'
+import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toPublicRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canContinueAdminRental } from '../../utils/waiver-invite'
 import { isUuid } from '../../utils/slug'
@@ -18,10 +18,13 @@ import { recordAudit } from '../utils/audit'
 import { STORAGE_BUCKETS } from '../../utils/storage'
 import { findProfileById, updateOwnProfile } from '../repositories/profile.repository'
 import {
+  deleteRentalById,
   deleteRentalByUuid,
   findRentalByCode,
   findRentalByUuid,
   findRentalIdentity,
+  insertRentalItem,
+  insertRentalRequest,
   insertRentalStatusHistory,
   listRentals,
   listRentalsOverlapping,
@@ -29,6 +32,7 @@ import {
   updateRentalItemByRentalId,
   updateRentalStatus,
 } from '../repositories/rental.repository'
+import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
@@ -156,6 +160,85 @@ export async function getAdminRental(client: Client, identifier: string) {
   return loadAdminRental(client, identifier)
 }
 
+export async function createAdminRental(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  input: CreateAdminRentalInput,
+) {
+  await expireUnconfirmedRentals(event).catch(() => undefined)
+  const customerId = await ensureBookingCustomer(client, input)
+  const quote = await buildQuote(client, {
+    productUuid: input.productUuid,
+    startsOn: input.startsOn,
+    endsOn: input.endsOn,
+    pickupTime: input.pickupTime,
+    quantity: input.quantity,
+  })
+
+  if (!quote.canFulfill) {
+    throw new AppError(
+      quote.hasBlockedDates
+        ? 'Those dates are blocked by the shop.'
+        : 'Those dates are not available. Another request already holds that kit.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const created = await insertRentalRequest(client, {
+    customer_id: customerId,
+    starts_on: quote.startsOn,
+    ends_on: quote.endsOn,
+    pickup_at: quote.pickupAt,
+    return_at: quote.returnAt,
+    status: 'draft',
+    subtotal: quote.subtotal,
+    deposit_amount: quote.depositAmount,
+    discount_amount: 0,
+    tax_amount: 0,
+    total_amount: quote.totalAmount,
+    notes: input.notes || null,
+  })
+
+  try {
+    await insertRentalItem(client, {
+      rental_id: created.id,
+      product_id: quote.productId,
+      quantity: quote.quantity,
+      daily_price: quote.dailyPrice,
+      line_total: quote.lineTotal,
+    })
+
+    await insertRentalStatusHistory(client, {
+      rentalId: created.id,
+      fromStatus: null,
+      toStatus: 'draft',
+      changedBy: profileId,
+      note: 'Admin created a booking for the customer.',
+    })
+  }
+  catch (error) {
+    await deleteRentalById(client, created.id)
+    throw error
+  }
+
+  const row = await findRentalByUuid(client, created.uuid)
+  if (!row) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const rental = toPublicRental(row)
+  await recordAudit(event, client, {
+    action: 'rental.create',
+    entity: 'rental_requests',
+    entityId: rental.uuid,
+    next: { code: rental.code, status: rental.status, source: 'admin' },
+  })
+
+  return rental
+}
+
 export async function continueAdminRental(
   event: H3Event,
   client: Client,
@@ -248,7 +331,7 @@ export async function confirmAdminRental(event: H3Event, client: Client, profile
     throw new AppError('Confirm a submitted request first.', 409, ERROR_CODES.CONFLICT)
   }
 
-  const fullyCovered = rental.totalAmount === 0 && Boolean(rental.voucher)
+  const fullyCovered = amountDue(rental) === 0 && Boolean(rental.voucher)
   const nextStatus: RentalStatus = fullyCovered ? 'approved' : 'awaiting_payment'
   if (!canTransitionRentalStatus(rental.status, nextStatus)) {
     throw new AppError('That rental cannot be confirmed yet.', 409, ERROR_CODES.CONFLICT)
@@ -294,7 +377,7 @@ export async function confirmAdminRental(event: H3Event, client: Client, profile
 
 export async function approveAdminRental(event: H3Event, client: Client, profileId: number, identifier: string) {
   const rental = await loadAdminRental(client, identifier)
-  const fullyCovered = rental.totalAmount === 0 && Boolean(rental.voucher)
+  const fullyCovered = amountDue(rental) === 0 && Boolean(rental.voucher)
   if (!canTransitionRentalStatus(rental.status, 'approved') && !fullyCovered) {
     throw new AppError('That rental cannot be approved yet.', 409, ERROR_CODES.CONFLICT)
   }
@@ -406,7 +489,7 @@ export async function markAdminRentalPaid(
   const rental = await loadAdminRental(client, identifier)
   if (!canMarkAdminRentalPaid(rental)) {
     throw new AppError(
-      rental.totalAmount <= 0
+      amountDue(rental) <= 0
         ? 'That rental has no amount due.'
         : !rental.waiver
           ? 'The customer must sign the waiver before payment can be recorded.'
@@ -451,26 +534,33 @@ export async function markAdminRentalPaid(
   }
 
   const paidAt = new Date().toISOString()
+  const due = amountDue(rental)
   const open = await findOpenPaymentByRentalId(client, identity.id)
   const payment = open
     ? await updatePaymentByUuid(client, open.uuid, {
+        amount: due,
         status: 'paid',
         provider: 'shop',
         provider_transaction_id: open.provider_transaction_id || `shop-${rental.uuid}`,
         payment_method: input.paymentMethod,
         paid_at: paidAt,
+        metadata: {
+          ...(open.metadata && typeof open.metadata === 'object' && !Array.isArray(open.metadata) ? open.metadata : {}),
+          recordedBy: 'admin',
+          ...collectedPaymentFields(rental),
+        },
       })
     : await insertPayment(client, {
         rental_id: identity.id,
         customer_id: identity.customer_id,
-        amount: rental.totalAmount,
+        amount: due,
         currency: BUSINESS_CURRENCY,
         provider: 'shop',
         provider_transaction_id: `shop-${rental.uuid}`,
         status: 'paid',
         payment_method: input.paymentMethod,
         paid_at: paidAt,
-        metadata: { recordedBy: 'admin' },
+        metadata: { recordedBy: 'admin', ...collectedPaymentFields(rental) },
       })
 
   await advanceAdminRentalStatus(
@@ -507,6 +597,76 @@ export async function markAdminRentalPaid(
       paymentMethod: input.paymentMethod,
       amount: payment.amount,
     },
+  })
+
+  return loadAdminRental(client, rental.uuid)
+}
+
+export async function completeAdminRental(event: H3Event, client: Client, profileId: number, identifier: string) {
+  const rental = await loadAdminRental(client, identifier)
+  if (!canCompleteAdminRental(rental)) {
+    throw new AppError(
+      rental.status === 'completed'
+        ? 'This rental is already finished.'
+        : 'Mark the rental done after the return time.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  if (!canTransitionRentalStatus(rental.status, 'completed')) {
+    throw new AppError('That rental cannot be finished yet.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const payment = await findPaidPaymentByRentalId(client, identity.id)
+  if (payment && rental.depositAmount > 0 && paymentCollectedDeposit(payment.metadata)) {
+    const returnedAt = new Date().toISOString()
+    const metadata = payment.metadata && typeof payment.metadata === 'object' && !Array.isArray(payment.metadata)
+      ? payment.metadata
+      : {}
+    await updatePaymentByUuid(client, payment.uuid, {
+      amount: paymentAmountAfterDepositReturn(Number(payment.amount), rental.depositAmount),
+      metadata: {
+        ...metadata,
+        depositReturnedAt: returnedAt,
+        depositReturnedAmount: rental.depositAmount,
+      },
+    })
+  }
+
+  const row = await updateRentalStatus(client, rental.uuid, 'completed')
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: 'completed',
+    changedBy: profileId,
+    note: rental.depositAmount > 0
+      ? 'Admin finished the rental and released the deposit from sales.'
+      : 'Admin finished the rental.',
+  })
+
+  await insertNotification(client, {
+    recipient_id: identity.customer_id,
+    type: 'rental.completed',
+    title: 'Rental finished',
+    body: rental.depositAmount > 0
+      ? `Rental ${rental.code} is finished. The deposit is no longer part of the sale.`
+      : `Rental ${rental.code} is finished.`,
+    metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
+  })
+
+  const next = toPublicRental(row)
+  await recordAudit(event, client, {
+    action: 'rental.complete',
+    entity: 'rental_requests',
+    entityId: next.uuid,
+    previous: { status: rental.status, depositAmount: rental.depositAmount },
+    next: { status: 'completed' },
   })
 
   return loadAdminRental(client, rental.uuid)

@@ -49,6 +49,28 @@ export async function findProfileById(
   return data
 }
 
+export async function findProfileIdentityByUuid(
+  client: TypedClient,
+  uuid: string,
+) {
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, uuid, user_id, role')
+    .eq('uuid', uuid)
+    .maybeSingle()
+
+  if (error) {
+    throw new AppError(
+      'We could not load that profile.',
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      { cause: error },
+    )
+  }
+
+  return data
+}
+
 export async function findProfileByUuid(
   client: TypedClient,
   uuid: string,

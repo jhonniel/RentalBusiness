@@ -43,7 +43,12 @@ const canPay = computed(() =>
   && rental.value?.status === 'awaiting_payment',
 )
 const waitingForConfirm = computed(() => rental.value?.status === 'pending')
-const nothingDue = computed(() => Boolean(rental.value && rental.value.totalAmount === 0 && rental.value.voucher))
+const nothingDue = computed(() => Boolean(
+  rental.value
+  && rental.value.totalAmount === 0
+  && rental.value.depositAmount === 0
+  && rental.value.voucher,
+))
 
 async function submitRequest() {
   if (!rental.value) {
@@ -169,7 +174,7 @@ async function copyValue(value: string, label: string) {
       v-else-if="rental && canPay && nothingDue"
       class="mt-8"
       title="Nothing to pay"
-      description="The voucher covers this booking. The shop will review and approve it. The deposit hold is unchanged."
+      description="The voucher covers the rent and there is no deposit to collect. The shop will review and approve it."
     >
       <AccountRentalVoucherForm
         class="mb-4 text-left"
@@ -194,8 +199,22 @@ async function copyValue(value: string, label: string) {
         <h2 class="mt-2 text-lg font-medium text-stone-900">
           Amount due
         </h2>
+        <dl class="mt-4 space-y-2 text-sm">
+          <div class="flex justify-between gap-4">
+            <dt class="text-stone-500">
+              Rent
+            </dt>
+            <dd>{{ formatMoney(rental.totalAmount) }}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="text-stone-500">
+              Deposit
+            </dt>
+            <dd>{{ formatMoney(rental.depositAmount) }}</dd>
+          </div>
+        </dl>
         <p class="mt-4 text-3xl text-stone-900">
-          {{ formatMoney(rental.totalAmount) }}
+          {{ formatMoney(rental.totalAmount + rental.depositAmount) }}
         </p>
         <p
           v-if="rental.voucher"
@@ -204,8 +223,7 @@ async function copyValue(value: string, label: string) {
           Voucher {{ rental.voucher.code }} saved {{ formatMoney(rental.discountAmount) }}.
         </p>
         <p class="mt-2 text-sm text-stone-500">
-          The amount due is the down payment for this booking and is not refundable once booked.
-          Deposit {{ formatMoney(rental.depositAmount) }} is a hold and is not charged in this step.
+          Pay the rent and the deposit together. The rent is not refundable once booked. The shop returns the deposit from the sale after the rental is finished.
         </p>
         <p
           v-if="latestPayment"

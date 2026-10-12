@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
+import { amountDue, canCompleteAdminRental, canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
-import { createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
+import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
 import { isPastBusinessDateTime } from '../../utils/rental-window'
 
 describe('rental validation', () => {
@@ -67,6 +67,47 @@ describe('rental validation', () => {
 
     expect(adminRentalQuoteSchema.parse(body).pickupTime).toBe('08:00')
     expect(rentalQuoteQuerySchema.safeParse(body).success).toBe(!isPastBusinessDateTime(today, '08:00'))
+  })
+
+  it('lets an admin book a new client by email, including a pickup time that already passed today', () => {
+    const today = calendarDateInZone()
+    const parsed = createAdminRentalSchema.parse({
+      productUuid: '11111111-1111-4111-8111-111111111111',
+      startsOn: today,
+      endsOn: addCalendarDays(today, 1),
+      pickupTime: '08:00',
+      firstName: 'Ana',
+      lastName: 'Reyes',
+      email: 'ana@example.com',
+    })
+
+    expect(parsed.email).toBe('ana@example.com')
+    expect(parsed.customerUuid).toBeUndefined()
+  })
+
+  it('accepts an existing customer without requiring an email', () => {
+    const today = calendarDateInZone()
+    const parsed = createAdminRentalSchema.parse({
+      productUuid: '11111111-1111-4111-8111-111111111111',
+      customerUuid: '22222222-2222-4222-8222-222222222222',
+      startsOn: today,
+      endsOn: addCalendarDays(today, 1),
+      firstName: 'Ana',
+      lastName: 'Reyes',
+    })
+
+    expect(parsed.customerUuid).toBe('22222222-2222-4222-8222-222222222222')
+  })
+
+  it('requires a client email when no customer is chosen', () => {
+    const today = calendarDateInZone()
+    expect(createAdminRentalSchema.safeParse({
+      productUuid: '11111111-1111-4111-8111-111111111111',
+      startsOn: today,
+      endsOn: addCalendarDays(today, 1),
+      firstName: 'Ana',
+      lastName: 'Reyes',
+    }).success).toBe(false)
   })
 })
 
@@ -209,5 +250,34 @@ describe('customer rental transitions', () => {
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
       totalAmount: 1500,
     })).toBe(false)
+    expect(amountDue({ totalAmount: 1000, depositAmount: 500 })).toBe(1500)
+    expect(canMarkAdminRentalPaid({
+      status: 'awaiting_payment',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+      totalAmount: 0,
+      depositAmount: 500,
+    })).toBe(true)
+  })
+
+  it('releases a collected deposit from sales after the return time', () => {
+    expect(paymentCollectedDeposit({ includesDeposit: true, depositAmount: 500 })).toBe(true)
+    expect(paymentCollectedDeposit({ includesDeposit: true, depositReturnedAt: '2026-10-06T06:00:00.000Z' })).toBe(false)
+    expect(paymentAmountAfterDepositReturn(1500, 500)).toBe(1000)
+    expect(canCompleteAdminRental({
+      status: 'active',
+      endsOn: '2026-10-06',
+      returnAt: '2026-10-06T06:00:00.000Z',
+    }, new Date('2026-10-06T06:00:00.000Z'))).toBe(true)
+    expect(canCompleteAdminRental({
+      status: 'active',
+      endsOn: '2026-10-06',
+      returnAt: '2026-10-06T06:00:00.000Z',
+    }, new Date('2026-10-06T05:59:00.000Z'))).toBe(false)
+    expect(canCompleteAdminRental({
+      status: 'completed',
+      endsOn: '2026-10-06',
+      returnAt: '2026-10-06T06:00:00.000Z',
+    }, new Date('2026-10-06T08:00:00.000Z'))).toBe(false)
   })
 })

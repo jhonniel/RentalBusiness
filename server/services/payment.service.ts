@@ -4,6 +4,7 @@ import type { Database } from '../../types/database.types'
 import type { CreatePaymentInput, PaymentWebhookInput, SandboxCompleteInput } from '../../utils/payment-validation'
 import { BUSINESS_CURRENCY } from '../../utils/constants'
 import { canTransitionPaymentStatus, checkoutUrlFromMetadata, toPublicPayment } from '../../utils/payment'
+import { amountDue, collectedPaymentFields, paymentCollectedDeposit } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
@@ -175,7 +176,7 @@ export async function createPayment(
     throw new AppError('The shop must confirm this booking before payment.', 409, ERROR_CODES.CONFLICT)
   }
 
-  if (rental.totalAmount <= 0) {
+  if (amountDue(rental) <= 0) {
     throw new AppError('That rental has no amount due.', 409, ERROR_CODES.CONFLICT)
   }
 
@@ -194,7 +195,20 @@ export async function createPayment(
   const provider = getPaymentProvider()
   const returnUrl = `${siteOrigin()}/rentals/${rental.code}`
 
+  const due = amountDue(rental)
   if (open) {
+    const collected = {
+      ...(open.metadata && typeof open.metadata === 'object' && !Array.isArray(open.metadata) ? open.metadata : {}),
+      ...collectedPaymentFields(rental),
+    }
+    if (Number(open.amount) !== due || !paymentCollectedDeposit(open.metadata)) {
+      await updatePaymentByUuid(admin, open.uuid, {
+        amount: due,
+        metadata: collected,
+      })
+      open.amount = due
+      open.metadata = collected
+    }
     const existingUrl = checkoutUrlFromMetadata(open.metadata)
     if (open.provider_transaction_id && existingUrl) {
       return {
@@ -229,11 +243,11 @@ export async function createPayment(
   const created = await insertPayment(admin, {
     rental_id: identity.id,
     customer_id: profileId,
-    amount: rental.totalAmount,
+    amount: due,
     currency: BUSINESS_CURRENCY,
     provider: provider.name,
     status: 'pending',
-    metadata: {},
+    metadata: collectedPaymentFields(rental),
   })
 
   const intent = await provider.createIntent({

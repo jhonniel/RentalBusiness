@@ -523,6 +523,7 @@ export function formatChatQuoteAnswer(quote: RentalQuote) {
   const window = `${start} ${clock} to ${end} ${clock}`
   const dayLabel = quote.days === 1 ? '1 day' : `${quote.days} days`
   const rental = formatMoney(quote.lineTotal)
+  const due = formatMoney(quote.lineTotal + quote.depositAmount)
   const less = quote.lessAmount > 0
     ? ` That total already takes off ${formatMoney(quote.lessAmount)} for a booking of ${quote.days} days.`
     : ''
@@ -530,10 +531,10 @@ export function formatChatQuoteAnswer(quote: RentalQuote) {
   const path = `/products/${quote.product.slug}`
 
   if (quote.canFulfill) {
-    return `${quote.product.name} is available from ${window} (${dayLabel}) — those dates are not booked. You can book it. The rental is ${rental}, plus a ${deposit} deposit.${less} Book it at ${path}`
+    return `${quote.product.name} is available from ${window} (${dayLabel}) — those dates are not booked. You can book it. The rental is ${rental}. The amount to pay is ${due}, including a ${deposit} deposit.${less} Book it at ${path}`
   }
 
-  return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}, plus a ${deposit} deposit.${less} Choose other dates at ${path}`
+  return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}. The amount to pay would be ${due}, including a ${deposit} deposit.${less} Choose other dates at ${path}`
 }
 
 export function formatLiveAvailabilityFacts(kits: Array<{
