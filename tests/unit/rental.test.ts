@@ -69,7 +69,8 @@ describe('rental validation', () => {
     expect(adminRentalQuoteSchema.parse({
       ...body,
       exceptRentalUuid: '11111111-1111-4111-8111-111111111111',
-    }).exceptRentalUuid).toBe('11111111-1111-4111-8111-111111111111')
+      commissionerUuid: '22222222-2222-4222-8222-222222222222',
+    }).commissionerUuid).toBe('22222222-2222-4222-8222-222222222222')
     expect(rentalQuoteQuerySchema.safeParse({
       ...body,
       exceptRentalUuid: '11111111-1111-4111-8111-111111111111',

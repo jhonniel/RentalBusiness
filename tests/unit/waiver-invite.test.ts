@@ -5,6 +5,7 @@ import { continueAdminRentalSchema, updateWaiverInviteScheduleSchema } from '../
 import { acceptWaiverInviteSchema, sendWaiverInviteSchema } from '../../utils/waiver-validation'
 import {
   canContinueAdminRental,
+  canModifyAdminRental,
   canOpenAdminContinue,
   canResetAdminWaiver,
   canSendGuestRentalLink,
@@ -30,6 +31,14 @@ describe('admin continue and waiver invite rules', () => {
   it('lets admins continue only a draft and send a link before the waiver is signed', () => {
     expect(canContinueAdminRental({ status: 'draft' })).toBe(true)
     expect(canContinueAdminRental({ status: 'pending' })).toBe(false)
+    expect(canModifyAdminRental({ status: 'draft' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'pending' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'awaiting_payment' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'approved' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'paid' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'ready_for_pickup' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'active' })).toBe(false)
+    expect(canModifyAdminRental({ status: 'cancelled' })).toBe(false)
     expect(canSendWaiverInvite({ status: 'draft', waiver: null })).toBe(true)
     expect(canSendWaiverInvite({ status: 'pending', waiver: null })).toBe(true)
     expect(canSendWaiverInvite({ status: 'awaiting_payment', waiver: null })).toBe(true)
@@ -128,6 +137,27 @@ describe('waiver invite validation', () => {
       firstName: 'Ana',
       lastName: 'Reyes',
     }).pickupTime).toBe('08:00')
+    expect(continueAdminRentalSchema.parse({
+      startsOn,
+      endsOn,
+      firstName: 'Ana',
+      lastName: 'Reyes',
+      commissionerUuid: '22222222-2222-4222-8222-222222222222',
+    }).commissionerUuid).toBe('22222222-2222-4222-8222-222222222222')
+    expect(continueAdminRentalSchema.parse({
+      startsOn,
+      endsOn,
+      firstName: 'Ana',
+      lastName: 'Reyes',
+      commissionerUuid: '',
+    }).commissionerUuid).toBe('')
+    expect(continueAdminRentalSchema.safeParse({
+      startsOn,
+      endsOn,
+      firstName: 'Ana',
+      lastName: 'Reyes',
+      commissionerUuid: 'not-a-commissioner',
+    }).success).toBe(false)
     expect(continueAdminRentalSchema.safeParse({
       startsOn: addCalendarDays(calendarDateInZone(), -1),
       endsOn: addCalendarDays(calendarDateInZone(), -1),

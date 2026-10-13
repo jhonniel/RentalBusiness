@@ -2,7 +2,7 @@
 import type { RentalListResponse } from '~/types/rental'
 import { RENTAL_STATUSES } from '~/utils/constants'
 import { formatBusinessDateTime } from '~/utils/datetime'
-import { canContinueAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
+import { canModifyAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
 
 definePageMeta({
   layout: 'admin',
@@ -193,7 +193,7 @@ async function removeRental(uuid: string) {
             size="sm"
             class="min-w-[8rem] flex-1 justify-center lg:flex-none"
           >
-            {{ canContinueAdminRental(rental) ? 'Continue' : 'Waiver' }}
+            {{ canModifyAdminRental(rental) && rental.status !== 'draft' ? 'Edit' : 'Continue' }}
           </UButton>
           <template v-if="deleteCode === rental.code">
             <UButton

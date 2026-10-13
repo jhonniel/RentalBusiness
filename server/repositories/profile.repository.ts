@@ -93,6 +93,25 @@ export async function findProfileByUuid(
   return data
 }
 
+export async function findProfileKeyByUuid(client: TypedClient, uuid: string) {
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, uuid, role, first_name, last_name')
+    .eq('uuid', uuid)
+    .maybeSingle()
+
+  if (error) {
+    throw new AppError(
+      'We could not load that profile.',
+      500,
+      ERROR_CODES.INTERNAL_ERROR,
+      { cause: error },
+    )
+  }
+
+  return data
+}
+
 export async function listAdminProfiles(client: TypedClient) {
   const { data, error } = await client
     .from('profiles')

@@ -15,6 +15,7 @@ import { recordAudit } from '../utils/audit'
 import { insertExpense, voidCommissionExpenses } from '../repositories/expense.repository'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { findProductByUuid, listBookableProducts } from '../repositories/product.repository'
+import { findProfileKeyByUuid } from '../repositories/profile.repository'
 import {
   deleteRentalById,
   deleteRentalByUuid,
@@ -25,6 +26,7 @@ import {
   insertRentalRequest,
   insertRentalStatusHistory,
   listCommissionerRentals,
+  updateRentalCommission,
   updateRentalStatus,
 } from '../repositories/rental.repository'
 import { ensureBookingCustomer } from './booking-customer'
@@ -33,8 +35,74 @@ import { buildQuote } from './rental.service'
 type Client = SupabaseClient<Database>
 type QuoteInput = z.infer<typeof rentalQuoteQuerySchema>
 
-function personName(person: { firstName: string, lastName: string }) {
-  return `${person.firstName} ${person.lastName}`.trim() || 'Commissioner'
+function personName(person: { firstName?: string, lastName?: string, first_name?: string, last_name?: string }) {
+  const name = `${person.firstName || person.first_name || ''} ${person.lastName || person.last_name || ''}`.trim()
+  return name || 'Commissioner'
+}
+
+export async function assignedCommission(
+  client: Client,
+  commissionerUuid: string,
+  window: { productUuid: string, startsOn: string, endsOn: string, quantity: number },
+) {
+  const commissioner = await findProfileKeyByUuid(client, commissionerUuid)
+  if (!commissioner || commissioner.role !== 'commissioner') {
+    throw new AppError('Choose a commissioner.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+
+  const product = await findProductByUuid(client, window.productUuid)
+  const commissionPerDay = Number(product?.commission_per_day ?? 0)
+  return {
+    commissioner,
+    commissionPerDay,
+    commissionAmount: commissionAmount(commissionPerDay, window.startsOn, window.endsOn, window.quantity),
+  }
+}
+
+export async function syncAssignedCommission(
+  client: Client,
+  rental: { id: number, uuid: string, code: string },
+  input: {
+    commissionerUuid?: string
+    productUuid: string
+    productName: string
+    startsOn: string
+    endsOn: string
+    days: number
+    quantity: number
+  },
+) {
+  const assigned = input.commissionerUuid
+    ? await assignedCommission(client, input.commissionerUuid, input)
+    : null
+  const amount = assigned?.commissionAmount ?? 0
+
+  await updateRentalCommission(client, rental.uuid, {
+    commissionerId: assigned?.commissioner.id ?? null,
+    commissionPerDay: assigned?.commissionPerDay ?? 0,
+    commissionAmount: amount,
+  })
+  await voidCommissionExpenses(client, rental.id)
+
+  if (assigned && amount > 0) {
+    await insertExpense(client, {
+      name: `Commission · ${rental.code}`,
+      category: 'commission',
+      description: `${input.productName} · ${input.days} day${input.days === 1 ? '' : 's'} × ${input.quantity}`,
+      amount,
+      vendor: personName(assigned.commissioner),
+      reference: rental.code,
+      status: 'pending',
+      notes: 'Commission earned on a booking assigned by the shop.',
+      incurred_on: input.startsOn,
+      rental_id: rental.id,
+    })
+  }
+
+  return {
+    commissionerUuid: assigned?.commissioner.uuid ?? null,
+    commissionAmount: amount,
+  }
 }
 
 async function loadOwnedRental(client: Client, profileId: number, identifier: string) {

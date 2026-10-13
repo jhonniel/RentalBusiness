@@ -36,6 +36,10 @@ export function canContinueAdminRental(rental: Pick<PublicRental, 'status'>) {
   return rental.status === 'draft'
 }
 
+export function canModifyAdminRental(rental: Pick<PublicRental, 'status'>) {
+  return (WAIVER_INVITE_STATUSES as readonly string[]).includes(rental.status)
+}
+
 export function canSendWaiverInvite(rental: Pick<PublicRental, 'status' | 'waiver'>) {
   return (WAIVER_INVITE_STATUSES as readonly string[]).includes(rental.status) && !rental.waiver
 }
@@ -49,7 +53,7 @@ export function canResetAdminWaiver(rental: Pick<PublicRental, 'status' | 'waive
 }
 
 export function canOpenAdminContinue(rental: Pick<PublicRental, 'status' | 'waiver'>) {
-  return canContinueAdminRental(rental) || canSendGuestRentalLink(rental) || canResetAdminWaiver(rental)
+  return canModifyAdminRental(rental) || canSendGuestRentalLink(rental) || canResetAdminWaiver(rental)
 }
 
 export function waiverInviteUnavailableReason(rental: Pick<PublicRental, 'status' | 'waiver'>) {

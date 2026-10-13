@@ -66,6 +66,7 @@ export const adminRentalQuoteSchema = addDateWindowChecks(z.object({
   productUuid: z.string().uuid().optional(),
   productSlug: z.string().trim().max(80).regex(/^[a-z0-9-]+$/, 'Choose a valid product.').optional(),
   exceptRentalUuid: z.string().uuid().optional(),
+  commissionerUuid: z.string().uuid().optional(),
   ...rentalWindow,
 }).strict().refine(data => Boolean(data.productUuid || data.productSlug), {
   message: 'Choose a product.',
@@ -99,6 +100,7 @@ export const continueAdminRentalSchema = addDateWindowChecks(z.object({
   firstName: z.string().trim().min(1, 'First name is required.').max(80),
   lastName: z.string().trim().min(1, 'Last name is required.').max(80),
   phone: z.string().trim().max(30).optional().or(z.literal('')),
+  commissionerUuid: z.string().uuid('Choose a commissioner.').optional().or(z.literal('')),
 }).strict())
 
 export const updateWaiverInviteScheduleSchema = addWindowChecks(z.object({

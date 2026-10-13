@@ -229,6 +229,66 @@ export async function updateRentalDraft(
   return data
 }
 
+export async function updateRentalSchedule(
+  client: Client,
+  uuid: string,
+  values: {
+    startsOn: string
+    endsOn: string
+    pickupAt: string
+    returnAt: string
+    notes: string | null
+    subtotal: number
+    depositAmount: number
+    totalAmount: number
+  },
+) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .update({
+      starts_on: values.startsOn,
+      ends_on: values.endsOn,
+      pickup_at: values.pickupAt,
+      return_at: values.returnAt,
+      notes: values.notes,
+      subtotal: values.subtotal,
+      deposit_amount: values.depositAmount,
+      total_amount: values.totalAmount,
+    })
+    .eq('uuid', uuid)
+    .select(RENTAL_SELECT)
+    .single()
+
+  if (error || !data) {
+    throw new AppError('We could not update that rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+
+  return data
+}
+
+export async function updateRentalCommission(
+  client: Client,
+  uuid: string,
+  values: {
+    commissionerId: number | null
+    commissionPerDay: number
+    commissionAmount: number
+  },
+) {
+  const { error } = await client
+    .from('rental_requests')
+    .update({
+      commissioner_id: values.commissionerId,
+      commission_per_day: values.commissionPerDay,
+      commission_amount: values.commissionAmount,
+    })
+    .eq('uuid', uuid)
+
+  if (error) {
+    throw new AppError('We could not assign that commissioner.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+}
+
 export async function updateRentalItemByRentalId(
   client: Client,
   rentalId: number,

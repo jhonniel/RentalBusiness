@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { PublicRental, RentalQuote } from '~/types/rental'
+import type { AdminSystemUser } from '~/types/notification'
 import { fieldErrors } from '~/utils/auth-validation'
 import { calendarDateInZone } from '~/utils/datetime'
 import { continueAdminRentalSchema } from '~/utils/rental-validation'
 import { defaultRentalReturnOn, formatRentalReturnLabel, normalizePickupTime, resolveRentalWindow } from '~/utils/rental-window'
-import { canContinueAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
+import { canModifyAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
 
 definePageMeta({
   layout: 'admin',
@@ -20,6 +21,7 @@ const today = calendarDateInZone()
 const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/admin/rentals/${identifier.value}`,
 )
+const { data: commissioners } = await useFetch<AdminSystemUser[]>('/api/admin/commissioners')
 
 if (error.value?.statusCode === 404) {
   throw createError({
@@ -42,13 +44,14 @@ const form = reactive({
   lastName: rental.value?.customer?.lastName || '',
   phone: rental.value?.customer?.phone || '',
   notes: rental.value?.notes || '',
+  commissionerUuid: rental.value?.commissioner?.uuid || '',
 })
 const errors = ref<Record<string, string>>({})
 const formError = ref('')
 const quoteError = ref('')
 const pending = ref(false)
 const quoting = ref(false)
-const quote = ref<RentalQuote | null>(null)
+const quote = ref<(RentalQuote & { commissionAmount?: number }) | null>(null)
 
 const rentalWindow = computed(() => resolveRentalWindow({
   startsOn: form.startsOn,
@@ -56,7 +59,7 @@ const rentalWindow = computed(() => resolveRentalWindow({
   pickupTime: form.pickupTime,
 }))
 const productSlug = computed(() => rental.value?.items[0]?.product.slug || '')
-const canContinue = computed(() => rental.value ? canContinueAdminRental(rental.value) : false)
+const canModify = computed(() => rental.value ? canModifyAdminRental(rental.value) : false)
 const canOpen = computed(() => rental.value ? canOpenAdminContinue(rental.value) : false)
 
 watch(rental, (value) => {
@@ -71,6 +74,7 @@ watch(rental, (value) => {
   form.lastName = value.customer?.lastName || ''
   form.phone = value.customer?.phone || ''
   form.notes = value.notes || ''
+  form.commissionerUuid = value.commissioner?.uuid || ''
 }, { immediate: true })
 
 watch(() => form.startsOn, (value, previous) => {
@@ -90,7 +94,7 @@ async function refreshQuote() {
   quoting.value = true
   quoteError.value = ''
   try {
-    quote.value = await $fetch<RentalQuote>('/api/admin/rentals/quote', {
+    quote.value = await $fetch<RentalQuote & { commissionAmount?: number }>('/api/admin/rentals/quote', {
       method: 'POST',
       body: {
         productSlug: productSlug.value,
@@ -99,6 +103,7 @@ async function refreshQuote() {
         pickupTime: form.pickupTime,
         quantity: form.quantity,
         exceptRentalUuid: rental.value?.uuid,
+        ...(form.commissionerUuid ? { commissionerUuid: form.commissionerUuid } : {}),
       },
     })
   }
@@ -115,7 +120,7 @@ async function refreshQuote() {
 }
 
 watchDebounced(
-  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, productSlug.value, rental.value?.uuid],
+  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.commissionerUuid, productSlug.value, rental.value?.uuid],
   () => {
     void refreshQuote()
   },
@@ -143,7 +148,11 @@ async function onSubmit() {
       body: parsed.data,
     })
     toast.add({
-      title: rental.value.waiver ? 'Rental booked' : 'Rental details saved',
+      title: rental.value.waiver && rental.value.status === 'draft'
+        ? 'Rental booked'
+        : rental.value.status === 'draft'
+          ? 'Rental details saved'
+          : 'Booking updated',
       color: 'success',
     })
     await refresh()
@@ -181,7 +190,7 @@ async function onSubmit() {
         Continue rental form
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Finish the customer details and send the waiver link. After the waiver is signed, Save rental details books this rental and holds these dates.
+        Finish the customer details and send the waiver link. After the waiver is signed, saving books the rental. A confirmed booking can still be changed here, and the new dates stay held.
       </p>
     </div>
 
@@ -232,7 +241,7 @@ async function onSubmit() {
               :product-slug="productSlug || undefined"
               :quantity="form.quantity"
               :until="form.endsOn || undefined"
-              :disabled="pending || !canContinue"
+              :disabled="pending || !canModify"
               flexible
             />
             <BookingPickupTime
@@ -242,7 +251,7 @@ async function onSubmit() {
               :ends-on="form.endsOn"
               :own-pickup-at="rental.pickupAt"
               :own-return-at="rental.returnAt"
-              :disabled="pending || !canContinue"
+              :disabled="pending || !canModify"
               flexible
             />
             <BookingDateField
@@ -251,7 +260,7 @@ async function onSubmit() {
               :product-slug="productSlug || undefined"
               :quantity="form.quantity"
               :min="form.startsOn || undefined"
-              :disabled="pending || !canContinue"
+              :disabled="pending || !canModify"
               flexible
             />
           </div>
@@ -299,6 +308,15 @@ async function onSubmit() {
               <dt>Amount due</dt>
               <dd>{{ formatMoney(quote.totalAmount + quote.depositAmount) }}</dd>
             </div>
+            <div
+              v-if="form.commissionerUuid"
+              class="flex justify-between gap-4"
+            >
+              <dt class="text-stone-500">
+                Commissioner commission
+              </dt>
+              <dd>{{ formatMoney(quote.commissionAmount || 0) }}</dd>
+            </div>
           </dl>
           <p
             class="mt-4 text-sm"
@@ -324,7 +342,7 @@ async function onSubmit() {
               <span class="mb-1.5 block text-stone-700">First name</span>
               <UInput
                 v-model="form.firstName"
-                :disabled="pending || !canContinue"
+                :disabled="pending || !canModify"
               />
               <span
                 v-if="errors.firstName"
@@ -335,7 +353,7 @@ async function onSubmit() {
               <span class="mb-1.5 block text-stone-700">Last name</span>
               <UInput
                 v-model="form.lastName"
-                :disabled="pending || !canContinue"
+                :disabled="pending || !canModify"
               />
               <span
                 v-if="errors.lastName"
@@ -347,15 +365,47 @@ async function onSubmit() {
               <UInput
                 v-model="form.phone"
                 type="tel"
-                :disabled="pending || !canContinue"
+                :disabled="pending || !canModify"
               />
+            </label>
+            <label class="block text-sm sm:col-span-2">
+              <span class="mb-1.5 block text-stone-700">Commissioner</span>
+              <select
+                v-model="form.commissionerUuid"
+                class="h-10 w-full rounded-md border border-stone-200 bg-white px-2 text-sm text-stone-800"
+                :disabled="pending || !canModify"
+              >
+                <option value="">
+                  No commissioner
+                </option>
+                <option
+                  v-if="rental.commissioner && !commissioners?.some(person => person.uuid === rental.commissioner?.uuid)"
+                  :value="rental.commissioner.uuid"
+                >
+                  {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+                </option>
+                <option
+                  v-for="person in commissioners"
+                  :key="person.uuid"
+                  :value="person.uuid"
+                >
+                  {{ person.firstName }} {{ person.lastName }}
+                </option>
+              </select>
+              <span
+                v-if="errors.commissionerUuid"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.commissionerUuid }}</span>
+              <span class="mt-1 block text-xs text-stone-500">
+                Assigning a commissioner records their commission for this booking.
+              </span>
             </label>
             <label class="block text-sm sm:col-span-2">
               <span class="mb-1.5 block text-stone-700">Notes</span>
               <UTextarea
                 v-model="form.notes"
                 :rows="3"
-                :disabled="pending || !canContinue"
+                :disabled="pending || !canModify"
               />
             </label>
           </div>
@@ -373,20 +423,16 @@ async function onSubmit() {
           @reset="refresh"
         />
 
-        <AdminNotice
-          v-if="rental.waiver && !canContinue"
-          title="This rental is booked"
-          description="These dates are held for this equipment."
-        />
-
         <div
-          v-else-if="canContinue"
+          v-if="canModify"
           class="space-y-3"
         >
           <p class="text-sm text-stone-600">
-            {{ rental.waiver
-              ? 'Saving books this rental and holds these dates for this equipment.'
-              : 'After the waiver is signed, saving books this rental and holds these dates.' }}
+            {{ rental.status !== 'draft'
+              ? 'Saving updates this booking. The new dates stay held for this equipment.'
+              : rental.waiver
+                ? 'Saving books this rental and holds these dates for this equipment.'
+                : 'After the waiver is signed, saving books this rental and holds these dates.' }}
           </p>
           <UButton
             type="submit"

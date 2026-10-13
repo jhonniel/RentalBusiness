@@ -10,7 +10,7 @@ import type { ContinueAdminRentalInput, CreateAdminRentalInput } from '../../uti
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
 import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { canContinueAdminRental } from '../../utils/waiver-invite'
+import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { accountEmail } from '../utils/account-email'
@@ -28,12 +28,13 @@ import {
   insertRentalStatusHistory,
   listRentals,
   listRentalsOverlapping,
-  updateRentalDraft,
+  updateRentalSchedule,
   updateRentalItemByRentalId,
   updateRentalStatus,
 } from '../repositories/rental.repository'
 import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
+import { syncAssignedCommission } from './commissioner.service'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
 import {
@@ -248,8 +249,8 @@ export async function continueAdminRental(
   input: ContinueAdminRentalInput,
 ) {
   const rental = await loadAdminRental(client, identifier)
-  if (!canContinueAdminRental(rental)) {
-    throw new AppError('Only a draft rental can be continued.', 409, ERROR_CODES.CONFLICT)
+  if (!canModifyAdminRental(rental)) {
+    throw new AppError('That booking can no longer be changed.', 409, ERROR_CODES.CONFLICT)
   }
 
   const item = rental.items[0]
@@ -291,7 +292,7 @@ export async function continueAdminRental(
   })
 
   const discount = Math.min(rental.discountAmount, quote.totalAmount)
-  const updated = await updateRentalDraft(client, rental.uuid, {
+  const updated = await updateRentalSchedule(client, rental.uuid, {
     startsOn: quote.startsOn,
     endsOn: quote.endsOn,
     pickupAt: quote.pickupAt,
@@ -308,12 +309,36 @@ export async function continueAdminRental(
     lineTotal: quote.lineTotal,
   })
 
-  const book = Boolean(rental.waiver)
+  const commission = await syncAssignedCommission(client, {
+    id: identity.id,
+    uuid: rental.uuid,
+    code: rental.code,
+  }, {
+    commissionerUuid: input.commissionerUuid || undefined,
+    productUuid: item.product.uuid,
+    productName: item.product.name,
+    startsOn: quote.startsOn,
+    endsOn: quote.endsOn,
+    days: quote.days,
+    quantity: quote.quantity,
+  })
+
+  const book = Boolean(rental.waiver) && rental.status === 'draft'
   if (book) {
     if (!canTransitionRentalStatus(rental.status, 'pending')) {
       throw new AppError('That rental cannot be booked yet.', 409, ERROR_CODES.CONFLICT)
     }
     await updateRentalStatus(client, rental.uuid, 'pending')
+  }
+
+  const openPayment = await findOpenPaymentByRentalId(client, identity.id)
+  if (openPayment) {
+    await updatePaymentByUuid(client, openPayment.uuid, {
+      amount: amountDue({
+        totalAmount: Number(updated.total_amount),
+        depositAmount: Number(updated.deposit_amount),
+      }),
+    })
   }
 
   await insertRentalStatusHistory(client, {
@@ -323,7 +348,9 @@ export async function continueAdminRental(
     changedBy: profileId,
     note: book
       ? 'Admin booked the rental after the waiver was signed.'
-      : 'Admin continued the customer rental form.',
+      : rental.status === 'draft'
+        ? 'Admin continued the customer rental form.'
+        : 'Admin updated the booking.',
   })
 
   await recordAudit(event, client, {
@@ -336,6 +363,8 @@ export async function continueAdminRental(
       endsOn: updated.ends_on,
       quantity: quote.quantity,
       status: book ? 'pending' : rental.status,
+      commissionerUuid: commission.commissionerUuid,
+      commissionAmount: commission.commissionAmount,
     },
   })
 

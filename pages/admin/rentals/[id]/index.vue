@@ -3,7 +3,7 @@ import type { PublicRental } from '~/types/rental'
 import { formatBusinessDateTime } from '~/utils/datetime'
 import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { renderWaiverBody } from '~/utils/waiver'
-import { canContinueAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
+import { canModifyAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
 
 definePageMeta({
   layout: 'admin',
@@ -46,7 +46,7 @@ useSiteMeta({
 })
 
 const canConfirm = computed(() => rental.value?.status === 'pending')
-const canContinue = computed(() => rental.value ? canContinueAdminRental(rental.value) : false)
+const canModify = computed(() => rental.value ? canModifyAdminRental(rental.value) : false)
 const canInvite = computed(() => rental.value ? canSendWaiverInvite(rental.value) : false)
 const canOpenContinue = computed(() => rental.value ? canOpenAdminContinue(rental.value) : false)
 const canResetWaiver = computed(() => rental.value ? canResetAdminWaiver(rental.value) : false)
@@ -263,7 +263,7 @@ async function removeRental() {
             color="neutral"
             variant="outline"
           >
-            {{ canContinue ? 'Continue form' : 'Waiver' }}
+            {{ canModify && rental.status !== 'draft' ? 'Edit booking' : 'Continue form' }}
           </UButton>
           <UButton
             v-if="canConfirm"
