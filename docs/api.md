@@ -140,7 +140,7 @@ Unauthenticated. Uses the anon Supabase client so RLS only returns active or com
 
 ### `GET /api/availability`
 
-Overlap-aware stock for one active product. Booked quantity comes from occupying rentals whose pickup/return window overlaps the requested window. Return is the same Asia/Manila clock time as pickup on `endsOn`. Capacity subtracts damaged, maintenance, and lost units. `canFulfill` is also false when an admin-blocked range overlaps the requested dates.
+Overlap-aware stock for one active product. Booked quantity comes from occupying rentals whose pickup/return window overlaps the requested window. Return is the same Asia/Manila clock time as pickup on `endsOn`. Capacity subtracts damaged, maintenance, and lost units. A second unit stays bookable on a day when only one of two units is already booked. `canFulfill` is false when the requested quantity is greater than the units still free, or when an admin-blocked range overlaps the requested dates.
 
 **Query:** `productUuid` or `productSlug`, `startsOn`, `endsOn`, `pickupTime` (`HH:mm`, default `09:00`), `quantity` (default 1). `startsOn` must be today or later in Asia/Manila. A pickup time today must still be in the future.  
 **Rate limit:** 80 requests / minute / IP
@@ -163,7 +163,7 @@ Overlap-aware stock for one active product. Booked quantity comes from occupying
 
 ### `GET /api/availability/calendar`
 
-Returns `unavailableDates`, `bookedDates`, and `occupyingWindows` for one active product. `draft` rentals hold the kit the same way as later open statuses. `bookedDates` are days that overlap any occupying rental window, including a return morning that still has later pickup slots. A day is listed in `unavailableDates` only when no shop pickup time is free that day, or an admin blocked that day. Pickup-time controls disable slots that overlap an occupying `[pickupAt, returnAt)` window. A kit due back at 2:00 PM can be booked again from 2:00 PM, not earlier that morning. Date pickers mark booked days with a dot and cross out fully closed days.
+Returns `unavailableDates`, `bookedDates`, `capacity`, and `occupyingWindows` for one active product. `draft` rentals hold the kit the same way as later open statuses. `bookedDates` are days that overlap any occupying rental window, including a return morning that still has later pickup slots. A day is listed in `unavailableDates` only when every remaining unit is already booked for every shop pickup time that day, or an admin blocked that day. Pickup-time controls disable a slot only when the overlapping bookings use every remaining unit. A kit due back at 2:00 PM can be booked again from 2:00 PM, not earlier that morning. Date pickers mark booked days with a dot and cross out fully closed days.
 
 **Query:** `productUuid` or `productSlug`, `quantity` (default 1), optional `from` / `to` (default today through 180 days, max 366)  
 **Rate limit:** 80 requests / minute / IP

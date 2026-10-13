@@ -96,18 +96,37 @@ describe('overlap-aware booking totals', () => {
     })
   })
 
-  it('keeps leftover stock but treats a booked day as taken', () => {
+  it('keeps a second unit bookable when one unit is already booked', () => {
     const result = evaluateAvailability({
-      quantity: 5,
+      quantity: 2,
       damagedQuantity: 0,
       maintenanceQuantity: 0,
       lostQuantity: 0,
-      bookedQuantity: 3,
-      requestedQuantity: 2,
+      bookedQuantity: 1,
+      requestedQuantity: 1,
     })
 
-    expect(result.available).toBe(2)
-    expect(result.canFulfill).toBe(false)
+    expect(result.available).toBe(1)
+    expect(result.canFulfill).toBe(true)
+    expect(unavailableDates({
+      stock: {
+        quantity: 2,
+        damagedQuantity: 0,
+        maintenanceQuantity: 0,
+        lostQuantity: 0,
+      },
+      bookings: [booking({
+        quantity: 1,
+        startsOn: '2026-10-13',
+        endsOn: '2026-10-14',
+        pickupAt: '2026-10-13T01:00:00.000Z',
+        returnAt: '2026-10-14T01:00:00.000Z',
+      })],
+      productUuid: camera,
+      requestedQuantity: 1,
+      from: '2026-10-13',
+      to: '2026-10-14',
+    })).toEqual([])
   })
 
   it('counts overlapping bookings even when dates arrive as timestamps', () => {
@@ -308,12 +327,12 @@ describe('overlap-aware booking totals', () => {
         quantity: 1,
         startsOn: '2026-10-05',
         endsOn: '2026-10-06',
-        pickupAt: '2026-10-05T05:00:00.000Z',
-        returnAt: '2026-10-06T05:00:00.000Z',
+        pickupAt: '2027-10-05T05:00:00.000Z',
+        returnAt: '2027-10-06T05:00:00.000Z',
       })],
       productUuid: camera,
-      startsOn: '2026-10-06',
-      endsOn: '2026-10-07',
+      startsOn: '2027-10-06',
+      endsOn: '2027-10-07',
     })
 
     expect(taken).toContain('09:00')
@@ -330,12 +349,12 @@ describe('overlap-aware booking totals', () => {
         quantity: 1,
         startsOn: '2026-10-05',
         endsOn: '2026-10-06',
-        pickupAt: '2026-10-05T13:00:00+08:00',
-        returnAt: '2026-10-06T13:00:00+08:00',
+        pickupAt: '2027-10-05T13:00:00+08:00',
+        returnAt: '2027-10-06T13:00:00+08:00',
       })],
       productUuid: camera,
-      startsOn: '2026-10-06',
-      endsOn: '2026-10-07',
+      startsOn: '2027-10-06',
+      endsOn: '2027-10-07',
     })
 
     expect(taken).toContain('08:00')
@@ -347,12 +366,12 @@ describe('overlap-aware booking totals', () => {
     const taken = unavailablePickupTimes({
       bookings: [booking({
         quantity: 1,
-        startsOn: '2026-10-05',
-        endsOn: '2026-10-06',
+        startsOn: '2027-10-05',
+        endsOn: '2027-10-06',
       })],
       productUuid: camera,
-      startsOn: '2026-10-06',
-      endsOn: '2026-10-07',
+      startsOn: '2027-10-06',
+      endsOn: '2027-10-07',
     })
 
     expect(taken).toContain('08:00')

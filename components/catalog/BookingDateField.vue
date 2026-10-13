@@ -34,8 +34,7 @@ const calendar = computed(() => props.availability ?? fetchedCalendar.value)
 const canLoad = computed(() => Boolean(props.availability?.product.uuid) || fetchEnabled.value)
 
 const closed = computed(() => new Set((calendar.value?.unavailableDates ?? []).map(date => date.slice(0, 10))))
-const booked = computed(() => new Set((calendar.value?.bookedDates ?? []).map(date => date.slice(0, 10))))
-const calendarKey = computed(() => `${[...closed.value].join(',')}|${[...booked.value].join(',')}`)
+const calendarKey = computed(() => [...closed.value].join(','))
 
 function dateKey(date: DateValue) {
   return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
@@ -43,10 +42,6 @@ function dateKey(date: DateValue) {
 
 function isClosed(key: string) {
   return closed.value.has(key)
-}
-
-function hasBooking(key: string) {
-  return booked.value.has(key)
 }
 
 function isBlockedRange(key: string) {
@@ -160,23 +155,14 @@ const displayValue = computed(() => model.value ? formatBookingDate(model.value)
                 <span :class="isClosed(dateKey(day)) ? 'text-stone-400 line-through' : ''">
                   {{ day.day }}
                 </span>
-                <span
-                  v-if="hasBooking(dateKey(day))"
-                  class="absolute bottom-0.5 size-1 rounded-full"
-                  :class="isClosed(dateKey(day)) ? 'bg-stone-400' : 'bg-lumen-700'"
-                />
               </span>
             </template>
           </UCalendar>
           <p
-            v-if="canLoad"
+            v-if="canLoad && !flexible"
             class="mt-2 px-1 pb-1 text-xs leading-5 text-balance text-stone-500"
           >
-            {{ booked.size
-              ? (flexible
-                ? 'A dot means that day already has a booking. You can still choose it; the server will check if that time is free.'
-                : 'A dot means that day already has a booking. Crossed-out days have no free pickup time.')
-              : 'Days stay open when a pickup time is still free after the previous return.' }}
+            Crossed-out days cannot be selected.
           </p>
         </div>
       </template>

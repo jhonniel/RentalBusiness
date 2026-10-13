@@ -6,6 +6,7 @@ import {
   datesWithBookings,
   evaluateAvailability,
   mergeUnavailableDates,
+  rentableCapacity,
   toCalendarDate,
   unavailableDates,
 } from '../../utils/availability'
@@ -167,6 +168,12 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
     from,
     to,
     quantity: query.quantity,
+    capacity: rentableCapacity({
+      quantity: row.quantity,
+      damagedQuantity: row.damaged_quantity,
+      maintenanceQuantity: row.maintenance_quantity,
+      lostQuantity: row.lost_quantity,
+    }),
     unavailableDates: dates,
     bookedDates: bookingsOnDates,
     occupyingWindows,

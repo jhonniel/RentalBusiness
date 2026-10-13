@@ -27,6 +27,7 @@ export interface AvailabilityCalendar {
   from: string
   to: string
   quantity: number
+  capacity: number
   unavailableDates: string[]
   bookedDates: string[]
   occupyingWindows: {

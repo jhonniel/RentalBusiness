@@ -139,10 +139,6 @@ const priceRows = computed(() => product.value ? visibleCatalogPrices(product.va
         />
 
         <template v-else>
-          <p class="mt-6 text-sm leading-6 text-[#5b6b64]">
-            {{ product.availableQuantity }} {{ product.availableQuantity === 1 ? 'unit is' : 'units are' }} listed right now. Check dates below before you request it.
-          </p>
-
           <AvailabilityChecker
             class="mt-6"
             :product-uuid="product.uuid"

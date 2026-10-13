@@ -78,6 +78,13 @@ const booked = computed(() => {
     productUuid,
     startsOn: props.startsOn,
     endsOn: props.endsOn,
+    stock: {
+      quantity: calendar.value?.capacity ?? 1,
+      damagedQuantity: 0,
+      maintenanceQuantity: 0,
+      lostQuantity: 0,
+    },
+    requestedQuantity: props.quantity ?? calendar.value?.quantity ?? 1,
   }).filter(time => !isPastBusinessDateTime(props.startsOn!, time)))
 })
 

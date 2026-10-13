@@ -73,6 +73,15 @@ export function dateHasBooking(bookedQuantity: number) {
   return bookedQuantity > 0
 }
 
+export function remainingUnits(capacity: number, bookedQuantity: number) {
+  return Math.max(0, capacity - Math.max(0, bookedQuantity))
+}
+
+export function quantityCannotBeFulfilled(bookedQuantity: number, capacity: number, requestedQuantity: number) {
+  const requested = Math.max(1, Math.trunc(requestedQuantity))
+  return requested > remainingUnits(capacity, bookedQuantity)
+}
+
 export function windowsOverlap(startA: string, endA: string, startB: string, endB: string) {
   const aStart = Date.parse(startA)
   const aEnd = Date.parse(endA)
@@ -207,6 +216,8 @@ export function unavailableDates(input: {
 }): string[] {
   const timed = input.bookings.some(item => item.productUuid === input.productUuid && item.pickupAt && item.returnAt)
 
+  const capacity = rentableCapacity(input.stock)
+
   return eachCalendarDate(input.from, input.to).filter((date) => {
     if (!timed) {
       const bookedQuantity = bookedQuantityFromRentals(
@@ -215,7 +226,7 @@ export function unavailableDates(input: {
         date,
         date,
       )
-      return dateHasBooking(bookedQuantity)
+      return quantityCannotBeFulfilled(bookedQuantity, capacity, input.requestedQuantity)
     }
 
     return pickupTimeSlots().every((time) => {
@@ -224,14 +235,14 @@ export function unavailableDates(input: {
         endsOn: addCalendarDays(date, 1),
         pickupTime: time,
       })
-      return dateHasBooking(bookedQuantityFromRentals(
+      return quantityCannotBeFulfilled(bookedQuantityFromRentals(
         input.bookings,
         input.productUuid,
         window.startsOn,
         window.endsOn,
         undefined,
         { pickupAt: window.pickupAt, returnAt: window.returnAt },
-      ))
+      ), capacity, input.requestedQuantity)
     })
   })
 }
@@ -241,10 +252,15 @@ export function unavailablePickupTimes(input: {
   productUuid: string
   startsOn: string
   endsOn?: string
+  stock?: AvailabilityStock
+  requestedQuantity?: number
 }): string[] {
   if (!input.startsOn) {
     return []
   }
+
+  const capacity = input.stock ? rentableCapacity(input.stock) : 1
+  const requestedQuantity = input.requestedQuantity ?? 1
 
   return pickupTimeSlots().filter((time) => {
     if (isPastBusinessDateTime(input.startsOn, time)) {
@@ -256,14 +272,14 @@ export function unavailablePickupTimes(input: {
       endsOn: input.endsOn || addCalendarDays(input.startsOn, 1),
       pickupTime: time,
     })
-    return dateHasBooking(bookedQuantityFromRentals(
+    return quantityCannotBeFulfilled(bookedQuantityFromRentals(
       input.bookings,
       input.productUuid,
       window.startsOn,
       window.endsOn,
       undefined,
       { pickupAt: window.pickupAt, returnAt: window.returnAt },
-    ))
+    ), capacity, requestedQuantity)
   })
 }
 
@@ -305,6 +321,6 @@ export function evaluateAvailability(input: AvailabilityInput): AvailabilityResu
     booked,
     available,
     requested,
-    canFulfill: requested <= available && booked === 0 && !input.hasBlockedDates,
+    canFulfill: requested <= available && !input.hasBlockedDates,
   }
 }
