@@ -65,6 +65,7 @@ export const rentalIdentifierSchema = z.string().trim().min(1).max(40)
 export const adminRentalQuoteSchema = addDateWindowChecks(z.object({
   productUuid: z.string().uuid().optional(),
   productSlug: z.string().trim().max(80).regex(/^[a-z0-9-]+$/, 'Choose a valid product.').optional(),
+  exceptRentalUuid: z.string().uuid().optional(),
   ...rentalWindow,
 }).strict().refine(data => Boolean(data.productUuid || data.productSlug), {
   message: 'Choose a product.',

@@ -270,6 +270,8 @@ export async function continueAdminRental(
     endsOn: input.endsOn,
     pickupTime: input.pickupTime,
     quantity: input.quantity,
+  }, {
+    exceptRentalUuid: rental.uuid,
   })
 
   if (!quote.canFulfill) {
@@ -306,20 +308,35 @@ export async function continueAdminRental(
     lineTotal: quote.lineTotal,
   })
 
+  const book = Boolean(rental.waiver)
+  if (book) {
+    if (!canTransitionRentalStatus(rental.status, 'pending')) {
+      throw new AppError('That rental cannot be booked yet.', 409, ERROR_CODES.CONFLICT)
+    }
+    await updateRentalStatus(client, rental.uuid, 'pending')
+  }
+
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
     fromStatus: rental.status,
-    toStatus: rental.status,
+    toStatus: book ? 'pending' : rental.status,
     changedBy: profileId,
-    note: 'Admin continued the customer rental form.',
+    note: book
+      ? 'Admin booked the rental after the waiver was signed.'
+      : 'Admin continued the customer rental form.',
   })
 
   await recordAudit(event, client, {
     action: 'rental.continue',
     entity: 'rental_requests',
     entityId: rental.uuid,
-    previous: { startsOn: rental.startsOn, endsOn: rental.endsOn },
-    next: { startsOn: updated.starts_on, endsOn: updated.ends_on, quantity: quote.quantity },
+    previous: { startsOn: rental.startsOn, endsOn: rental.endsOn, status: rental.status },
+    next: {
+      startsOn: updated.starts_on,
+      endsOn: updated.ends_on,
+      quantity: quote.quantity,
+      status: book ? 'pending' : rental.status,
+    },
   })
 
   return loadAdminRental(client, rental.uuid)

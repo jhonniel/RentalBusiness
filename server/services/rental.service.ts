@@ -176,7 +176,10 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
 }
 
 export async function quoteRental(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery) {
-  const { productId: _productId, hasBlockedDates: _hasBlockedDates, ...quote } = await buildQuote(client, query)
+  const exceptRentalUuid = 'exceptRentalUuid' in query ? query.exceptRentalUuid : undefined
+  const { productId: _productId, hasBlockedDates: _hasBlockedDates, ...quote } = await buildQuote(client, query, {
+    exceptRentalUuid,
+  })
   return quote
 }
 

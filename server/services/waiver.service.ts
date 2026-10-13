@@ -43,7 +43,7 @@ import {
 import { amountDue } from '../../utils/rental'
 import { getOwnRental } from './rental.service'
 import { getAdminRental } from './admin-rental.service'
-import { buildWaiverPdf, waiverPdfFilename } from '../utils/waiver-pdf'
+import { buildWaiverPdf, signatureHasInk, waiverPdfFilename } from '../utils/waiver-pdf'
 
 type Client = SupabaseClient<Database>
 
@@ -139,6 +139,10 @@ export async function acceptWaiver(
     throw new AppError('This rental already has a signed waiver.', 409, ERROR_CODES.CONFLICT)
   }
 
+  if (!(await signatureHasInk(input.signatureData))) {
+    throw new AppError('Draw your signature on the pad.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+
   const row = await insertWaiverAcceptance(client, {
     waiver_version_id: version.id,
     rental_id: identity.id,
@@ -211,6 +215,10 @@ export async function acceptAdminRentalWaiver(
   const existing = await findWaiverAcceptanceByRentalId(client, identity.id)
   if (existing) {
     throw new AppError('This rental already has a signed waiver.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  if (!(await signatureHasInk(input.signatureData))) {
+    throw new AppError('Draw your signature on the pad.', 422, ERROR_CODES.VALIDATION_ERROR)
   }
 
   const accountEmail = await customerAccountEmail(customer.user_id)

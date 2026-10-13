@@ -98,6 +98,7 @@ async function refreshQuote() {
         endsOn: form.endsOn,
         pickupTime: form.pickupTime,
         quantity: form.quantity,
+        exceptRentalUuid: rental.value?.uuid,
       },
     })
   }
@@ -114,7 +115,7 @@ async function refreshQuote() {
 }
 
 watchDebounced(
-  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, productSlug.value],
+  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, productSlug.value, rental.value?.uuid],
   () => {
     void refreshQuote()
   },
@@ -141,7 +142,10 @@ async function onSubmit() {
       method: 'PATCH',
       body: parsed.data,
     })
-    toast.add({ title: 'Rental details saved', color: 'success' })
+    toast.add({
+      title: rental.value.waiver ? 'Rental booked' : 'Rental details saved',
+      color: 'success',
+    })
     await refresh()
     return true
   }
@@ -177,7 +181,7 @@ async function onSubmit() {
         Continue rental form
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Finish the customer details. Copy the waiver link and send it to the customer — they can open it without an account, agree to the terms, and sign.
+        Finish the customer details and send the waiver link. After the waiver is signed, Save rental details books this rental and holds these dates.
       </p>
     </div>
 
@@ -369,10 +373,24 @@ async function onSubmit() {
           @reset="refresh"
         />
 
-        <div class="flex flex-wrap gap-2">
+        <AdminNotice
+          v-if="rental.waiver && !canContinue"
+          title="This rental is booked"
+          description="These dates are held for this equipment."
+        />
+
+        <div
+          v-else-if="canContinue"
+          class="space-y-3"
+        >
+          <p class="text-sm text-stone-600">
+            {{ rental.waiver
+              ? 'Saving books this rental and holds these dates for this equipment.'
+              : 'After the waiver is signed, saving books this rental and holds these dates.' }}
+          </p>
           <UButton
-            v-if="canContinue"
             type="submit"
+            class="w-full justify-center sm:w-auto"
             :loading="pending || quoting"
             :disabled="!quote?.canFulfill"
           >

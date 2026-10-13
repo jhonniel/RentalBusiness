@@ -29,7 +29,7 @@ const resetting = ref(false)
 const linkInput = ref<HTMLInputElement | null>(null)
 const formError = ref('')
 const errors = ref<Record<string, string>>({})
-const pad = ref<{ toDataUrl: () => string, hasInk: { value: boolean } } | null>(null)
+const pad = ref<{ toDataUrl: () => string, hasSignature: () => boolean } | null>(null)
 const signerName = ref('')
 const acknowledgments = [
   {
@@ -174,6 +174,12 @@ async function onSign() {
 
   if (!allAcknowledged.value) {
     formError.value = 'Confirm every acknowledgment before you sign.'
+    return
+  }
+
+  if (!pad.value?.hasSignature()) {
+    errors.value = { signatureData: 'Draw your signature on the pad.' }
+    formError.value = 'Draw your signature on the pad.'
     return
   }
 

@@ -66,6 +66,14 @@ describe('rental validation', () => {
     }
 
     expect(adminRentalQuoteSchema.parse(body).pickupTime).toBe('08:00')
+    expect(adminRentalQuoteSchema.parse({
+      ...body,
+      exceptRentalUuid: '11111111-1111-4111-8111-111111111111',
+    }).exceptRentalUuid).toBe('11111111-1111-4111-8111-111111111111')
+    expect(rentalQuoteQuerySchema.safeParse({
+      ...body,
+      exceptRentalUuid: '11111111-1111-4111-8111-111111111111',
+    }).success).toBe(false)
     expect(rentalQuoteQuerySchema.safeParse(body).success).toBe(!isPastBusinessDateTime(today, '08:00'))
   })
 

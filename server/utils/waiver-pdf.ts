@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import sharp from 'sharp'
 import { APP_NAME } from '../../utils/constants'
 import { formatBusinessDate, formatBusinessDateTime } from '../../utils/datetime'
 
@@ -112,11 +113,42 @@ function pngBytesFromDataUrl(value?: string | null) {
   }
 
   try {
-    return Uint8Array.from(Buffer.from(value.slice('data:image/png;base64,'.length), 'base64'))
+    return Buffer.from(value.slice('data:image/png;base64,'.length), 'base64')
   }
   catch {
     return null
   }
+}
+
+export async function signatureHasInk(value?: string | null) {
+  const bytes = pngBytesFromDataUrl(value)
+  if (!bytes?.length) {
+    return false
+  }
+
+  try {
+    const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    const channels = info.channels
+    let ink = 0
+    for (let index = 0; index < data.length; index += channels) {
+      const alpha = data[index + 3] ?? 0
+      const dark = data[index] < 210 && data[index + 1] < 210 && data[index + 2] < 210
+      if (alpha > 16 && dark) {
+        ink += 1
+        if (ink >= 12) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+  catch {
+    return false
+  }
+}
+
+async function opaqueSignaturePng(bytes: Buffer) {
+  return sharp(bytes).flatten({ background: '#ffffff' }).png().toBuffer()
 }
 
 export async function buildWaiverPdf(input: WaiverPdfInput): Promise<Uint8Array> {
@@ -200,14 +232,23 @@ export async function buildWaiverPdf(input: WaiverPdfInput): Promise<Uint8Array>
   }
 
   const signatureBytes = pngBytesFromDataUrl(input.signatureDataUrl)
-  if (signatureBytes) {
+  if (signatureBytes && await signatureHasInk(input.signatureDataUrl)) {
     try {
-      const image = await document.embedPng(signatureBytes)
+      const image = await document.embedPng(await opaqueSignaturePng(signatureBytes))
       const width = Math.min(220, image.width)
       const height = width * (image.height / image.width)
       y -= 18
       drawLine('Signature', 9, true)
       ensureSpace(height + 8)
+      page.drawRectangle({
+        x: MARGIN,
+        y: y - height,
+        width,
+        height,
+        color: rgb(1, 1, 1),
+        borderColor: rgb(0.75, 0.75, 0.72),
+        borderWidth: 0.5,
+      })
       page.drawImage(image, {
         x: MARGIN,
         y: y - height,
@@ -219,6 +260,10 @@ export async function buildWaiverPdf(input: WaiverPdfInput): Promise<Uint8Array>
     catch {
       drawLine('Signature is on file.')
     }
+  }
+  else if (signatureBytes) {
+    y -= 18
+    drawLine('The signature image was blank. Sign the waiver again.', 9)
   }
 
   document.setTitle(`${input.title} ${input.version}`)

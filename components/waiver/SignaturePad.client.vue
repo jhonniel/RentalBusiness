@@ -23,23 +23,56 @@ function point(event: PointerEvent) {
   }
 }
 
+function applyStroke(ctx: CanvasRenderingContext2D, ratio: number) {
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = '#1c1917'
+  ctx.lineWidth = 2.25 * ratio
+}
+
 function resize() {
   const canvas = canvasRef.value
-  const ctx = context()
-  if (!canvas || !ctx) {
+  if (!canvas) {
     return
   }
 
   const ratio = window.devicePixelRatio || 1
   const width = canvas.clientWidth
   const height = canvas.clientHeight
-  canvas.width = Math.floor(width * ratio)
-  canvas.height = Math.floor(height * ratio)
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.strokeStyle = '#1c1917'
-  ctx.lineWidth = 2.25 * ratio
-  hasInk.value = false
+  if (!width || !height) {
+    return
+  }
+
+  const nextWidth = Math.floor(width * ratio)
+  const nextHeight = Math.floor(height * ratio)
+  const ctx = context()
+  if (!ctx) {
+    return
+  }
+
+  if (canvas.width === nextWidth && canvas.height === nextHeight) {
+    applyStroke(ctx, ratio)
+    return
+  }
+
+  const previous = document.createElement('canvas')
+  previous.width = canvas.width
+  previous.height = canvas.height
+  const previousCtx = previous.getContext('2d')
+  if (previousCtx && hasInk.value) {
+    previousCtx.drawImage(canvas, 0, 0)
+  }
+
+  canvas.width = nextWidth
+  canvas.height = nextHeight
+  const nextCtx = context()
+  if (!nextCtx) {
+    return
+  }
+  applyStroke(nextCtx, ratio)
+  if (previous.width && previous.height && hasInk.value) {
+    nextCtx.drawImage(previous, 0, 0, canvas.width, canvas.height)
+  }
 }
 
 function onPointerDown(event: PointerEvent) {
@@ -83,8 +116,28 @@ function clear() {
   hasInk.value = false
 }
 
+function hasSignature() {
+  return hasInk.value
+}
+
 function toDataUrl() {
-  return canvasRef.value?.toDataURL('image/png') ?? ''
+  const canvas = canvasRef.value
+  if (!canvas) {
+    return ''
+  }
+
+  const exportCanvas = document.createElement('canvas')
+  exportCanvas.width = canvas.width
+  exportCanvas.height = canvas.height
+  const exportCtx = exportCanvas.getContext('2d')
+  if (!exportCtx) {
+    return canvas.toDataURL('image/png')
+  }
+
+  exportCtx.fillStyle = '#ffffff'
+  exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
+  exportCtx.drawImage(canvas, 0, 0)
+  return exportCanvas.toDataURL('image/png')
 }
 
 onMounted(() => {
@@ -98,7 +151,7 @@ onBeforeUnmount(() => {
 
 defineExpose({
   clear,
-  hasInk,
+  hasSignature,
   toDataUrl,
 })
 </script>

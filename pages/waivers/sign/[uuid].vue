@@ -21,7 +21,7 @@ const route = useRoute()
 const toast = useToast()
 const uuid = computed(() => String(route.params.uuid || ''))
 const token = computed(() => typeof route.query.token === 'string' ? route.query.token : '')
-const pad = ref<{ toDataUrl: () => string, hasInk: { value: boolean } } | null>(null)
+const pad = ref<{ toDataUrl: () => string, hasSignature: () => boolean } | null>(null)
 const signerName = ref('')
 const firstName = ref('')
 const lastName = ref('')
@@ -246,6 +246,12 @@ async function onSubmit() {
 
   if (needsIdentityBeforeSign.value && (!governmentFile.value || !selfieFile.value)) {
     formError.value = 'Photograph your government ID and a selfie holding that same ID.'
+    return
+  }
+
+  if (!pad.value?.hasSignature()) {
+    errors.value = { signatureData: 'Draw your signature on the pad.' }
+    formError.value = 'Draw your signature on the pad.'
     return
   }
 
