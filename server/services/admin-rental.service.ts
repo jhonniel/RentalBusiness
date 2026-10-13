@@ -6,11 +6,12 @@ import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
-import type { ContinueAdminRentalInput, CreateAdminRentalInput } from '../../utils/rental-validation'
+import type { ContinueAdminRentalInput, CreateAdminRentalInput, AssignAdminCommissionerInput } from '../../utils/rental-validation'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
 import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
+import { rentalPeriodDays } from '../../utils/rental-window'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { accountEmail } from '../utils/account-email'
@@ -363,6 +364,56 @@ export async function continueAdminRental(
       endsOn: updated.ends_on,
       quantity: quote.quantity,
       status: book ? 'pending' : rental.status,
+      commissionerUuid: commission.commissionerUuid,
+      commissionAmount: commission.commissionAmount,
+    },
+  })
+
+  return loadAdminRental(client, rental.uuid)
+}
+
+export async function assignAdminRentalCommissioner(
+  event: H3Event,
+  client: Client,
+  identifier: string,
+  input: AssignAdminCommissionerInput,
+) {
+  const rental = await loadAdminRental(client, identifier)
+  if (!canModifyAdminRental(rental)) {
+    throw new AppError('That booking can no longer be assigned to a commissioner.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const item = rental.items[0]
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!item || !identity) {
+    throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const commission = await syncAssignedCommission(client, {
+    id: identity.id,
+    uuid: rental.uuid,
+    code: rental.code,
+  }, {
+    commissionerUuid: input.commissionerUuid || undefined,
+    productUuid: item.product.uuid,
+    productName: item.product.name,
+    startsOn: rental.startsOn,
+    endsOn: rental.endsOn,
+    days: rentalPeriodDays(rental.startsOn, rental.endsOn),
+    quantity: item.quantity,
+  })
+
+  await recordAudit(event, client, {
+    action: 'rental.commissioner',
+    entity: 'rental_requests',
+    entityId: rental.uuid,
+    previous: {
+      status: rental.status,
+      commissionerUuid: rental.commissioner?.uuid ?? null,
+      commissionAmount: rental.commissionAmount ?? 0,
+    },
+    next: {
+      status: rental.status,
       commissionerUuid: commission.commissionerUuid,
       commissionAmount: commission.commissionAmount,
     },

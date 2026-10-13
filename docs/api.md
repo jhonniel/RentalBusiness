@@ -210,6 +210,7 @@ Current terms are public. Acceptance requires a signed-in owner of a `draft` or 
 | GET | `/api/admin/waivers/[uuid]/pdf` | Admin PDF of a published version. `download=1` attaches the file |
 | GET | `/api/admin/rentals/[id]/waiver-pdf` | Admin PDF of the signed rental waiver, including signature. `download=1` attaches the file |
 | PATCH | `/api/admin/rentals/[id]/continue` | Admin updates a booking (dates, pickup time, quantity, name, phone, notes) while it is `draft`, `pending`, `awaiting_payment`, `paid`, `approved`, or `ready_for_pickup`. Requotes on the server and ignores this rental when checking availability. A signed `draft` becomes `pending` and holds those dates. A confirmed booking keeps its status, and the new dates stay held. An unpaid checkout amount is updated. Audited |
+| PATCH | `/api/admin/rentals/[id]/commissioner` | Assign or clear a commissioner on those same open statuses, including a confirmed booking. Body: `commissionerUuid` or `""`. The status stays unchanged. A pending commission expense is recorded or voided. Audited |
 | POST | `/api/admin/rentals/[id]/waiver-invite` | Admin sends a one-time `/waivers/sign/{uuid}?token=` link. Optional `email` override. Returns `{ uuid, expiresAt, sent, waiverUrl }`. Audited |
 | POST | `/api/admin/rentals/[id]/waiver` | Admin records an in-person waiver signature on the continue form. Body: `waiverVersionUuid`, `signerName`, PNG `signatureData`. Same acknowledgments as the public sign page. Audited |
 | DELETE | `/api/admin/rentals/[id]/waiver` | Admin sets a signed open rental back to unsigned so the customer or shop can agree and sign again. Previous signer name, time, and version are written to the audit log. The latest guest invite is reopened. Identity photos stay. Audited |
@@ -314,7 +315,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products, recent expenses, active recurring expenses. Active Rentals includes `active` and `overdue` rows, plus paid, approved, and ready-for-pickup rows whose pickup time has started and whose return time has not. |
+| GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products, commissioner ranks from highest commission to lowest, recent expenses, active recurring expenses. Active Rentals includes `active` and `overdue` rows, plus paid, approved, and ready-for-pickup rows whose pickup time has started and whose return time has not. Commissioner ranks sum `commission_amount` by commissioner and leave out cancelled and rejected bookings. |
 | GET | `/api/admin/calendar` | Rentals (including drafts) and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila. Days use pickup/return windows so a return morning still shows as booked. |
 | GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
 | GET | `/api/admin/settings` | Business profile for receipts |
@@ -336,6 +337,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | POST | `/api/admin/rentals/[id]/waiver-invite` | Email or copy a one-time guest waiver link. Audited |
 | POST | `/api/admin/rentals/[id]/waiver` | Record an in-person agree-and-sign on the continue form. Audited |
 | POST | `/api/admin/rentals/[id]/identity` | Admin ID and selfie upload for `draft`/`pending`. No waiver required. Compressed JPEG on S3 |
+| PATCH | `/api/admin/rentals/[id]/commissioner` | Assign or clear a commissioner on a `draft`, `pending`, `awaiting_payment`, `paid`, `approved`, or `ready_for_pickup` booking. A confirmed booking keeps its status. Body: `commissionerUuid` or `""`. Records or voids the commission expense. Audited |
 | POST | `/api/admin/rentals/[id]/confirm` | `pending` → `awaiting_payment`, or `approved` when a voucher covers the full total. Dates stay reserved. Audited |
 | POST | `/api/admin/rentals/[id]/paid` | Admin records a shop payment (`cash`, `gcash`, `maya`, or `bank`) for the rent plus the deposit. Creates a paid `payment_transactions` row so the rental appears in sales. Moves `draft`/`pending`/`awaiting_payment` to `paid` after waiver and identity are on file. Audited |
 | POST | `/api/admin/rentals/[id]/complete` | Admin marks a rental done after the return time. Status becomes `completed`. If the payment included the deposit, that deposit is subtracted from the paid amount so sales keep the rent. Audited |

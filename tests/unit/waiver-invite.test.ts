@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
-import { continueAdminRentalSchema, updateWaiverInviteScheduleSchema } from '../../utils/rental-validation'
+import { continueAdminRentalSchema, assignAdminCommissionerSchema, updateWaiverInviteScheduleSchema } from '../../utils/rental-validation'
 import { acceptWaiverInviteSchema, sendWaiverInviteSchema } from '../../utils/waiver-validation'
 import {
   canContinueAdminRental,
@@ -158,6 +158,10 @@ describe('waiver invite validation', () => {
       lastName: 'Reyes',
       commissionerUuid: 'not-a-commissioner',
     }).success).toBe(false)
+    expect(assignAdminCommissionerSchema.parse({
+      commissionerUuid: '22222222-2222-4222-8222-222222222222',
+    }).commissionerUuid).toBe('22222222-2222-4222-8222-222222222222')
+    expect(assignAdminCommissionerSchema.parse({ commissionerUuid: '' }).commissionerUuid).toBe('')
     expect(continueAdminRentalSchema.safeParse({
       startsOn: addCalendarDays(calendarDateInZone(), -1),
       endsOn: addCalendarDays(calendarDateInZone(), -1),

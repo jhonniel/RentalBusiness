@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
+import type { AdminSystemUser } from '~/types/notification'
 import { formatBusinessDateTime } from '~/utils/datetime'
 import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { renderWaiverBody } from '~/utils/waiver'
@@ -25,6 +26,10 @@ const deletePending = ref(false)
 const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/admin/rentals/${identifier.value}`,
 )
+const { data: commissioners } = await useFetch<AdminSystemUser[]>('/api/admin/commissioners')
+const commissionerUuid = ref(rental.value?.commissioner?.uuid || '')
+const assigning = ref(false)
+const assignError = ref('')
 const waiverSnapshot = computed(() => {
   if (!rental.value?.waiver) {
     return ''
@@ -47,6 +52,42 @@ useSiteMeta({
 
 const canConfirm = computed(() => rental.value?.status === 'pending')
 const canModify = computed(() => rental.value ? canModifyAdminRental(rental.value) : false)
+
+watch(rental, (value) => {
+  if (assigning.value) {
+    return
+  }
+  commissionerUuid.value = value?.commissioner?.uuid || ''
+})
+
+async function assignCommissioner() {
+  if (!rental.value) {
+    return
+  }
+
+  assigning.value = true
+  assignError.value = ''
+  try {
+    await $fetch(`/api/admin/rentals/${rental.value.uuid}/commissioner`, {
+      method: 'PATCH',
+      body: { commissionerUuid: commissionerUuid.value },
+    })
+    toast.add({
+      title: commissionerUuid.value ? 'Commissioner assigned' : 'Commissioner removed',
+      color: 'success',
+    })
+    await refresh()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    assignError.value = payload?.message || 'We could not assign that commissioner.'
+  }
+  finally {
+    assigning.value = false
+  }
+}
 const canInvite = computed(() => rental.value ? canSendWaiverInvite(rental.value) : false)
 const canOpenContinue = computed(() => rental.value ? canOpenAdminContinue(rental.value) : false)
 const canResetWaiver = computed(() => rental.value ? canResetAdminWaiver(rental.value) : false)
@@ -340,12 +381,64 @@ async function removeRental() {
               {{ rental.customer.phone }}
             </p>
             <p
-              v-if="rental.commissioner"
+              v-if="rental.commissioner && !canModify"
               class="mt-3 text-stone-700"
             >
               Commissioner {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
               · commission {{ formatMoney(rental.commissionAmount || 0) }}
             </p>
+            <div
+              v-if="canModify"
+              class="mt-4 space-y-2"
+            >
+              <label class="block">
+                <span class="mb-1.5 block text-stone-700">Commissioner</span>
+                <select
+                  v-model="commissionerUuid"
+                  class="h-10 w-full rounded-md border border-stone-200 bg-white px-2 text-sm text-stone-800"
+                  :disabled="assigning"
+                >
+                  <option value="">
+                    No commissioner
+                  </option>
+                  <option
+                    v-if="rental.commissioner && !commissioners?.some(person => person.uuid === rental.commissioner?.uuid)"
+                    :value="rental.commissioner.uuid"
+                  >
+                    {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+                  </option>
+                  <option
+                    v-for="person in commissioners"
+                    :key="person.uuid"
+                    :value="person.uuid"
+                  >
+                    {{ person.firstName }} {{ person.lastName }}
+                  </option>
+                </select>
+              </label>
+              <p
+                v-if="rental.commissioner"
+                class="text-stone-600"
+              >
+                Commission {{ formatMoney(rental.commissionAmount || 0) }}
+              </p>
+              <p class="text-xs text-stone-500">
+                Choose a commissioner and save. Their commission is recorded on this booking, including after it is confirmed.
+              </p>
+              <p
+                v-if="assignError"
+                class="text-sm text-red-800"
+              >
+                {{ assignError }}
+              </p>
+              <UButton
+                class="w-full justify-center sm:w-auto"
+                :loading="assigning"
+                @click="assignCommissioner"
+              >
+                Save commissioner
+              </UButton>
+            </div>
           </section>
 
           <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">

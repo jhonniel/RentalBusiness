@@ -17,6 +17,7 @@ const hasData = computed(() => Boolean(data.value))
 const remote = useRemoteState(error, pending, hasData)
 const maxSales = computed(() => Math.max(1, ...(data.value?.salesByDay.map(point => point.value) ?? [0])))
 const maxStatus = computed(() => Math.max(1, ...(data.value?.rentalsByStatus.map(point => point.value) ?? [0])))
+const maxCommission = computed(() => Math.max(1, ...(data.value?.commissionerRanks.map(rank => rank.commissionAmount) ?? [0])))
 
 const cards = computed(() => {
   const kpis = data.value?.kpis
@@ -46,7 +47,7 @@ const cards = computed(() => {
         Dashboard
       </h2>
       <p class="mt-2 text-sm text-stone-600">
-        Sales, rental load, and most-rented equipment. Totals are computed on the server in Asia/Manila.
+        Sales, rental load, commissioner rankings, and most-rented equipment. Totals are computed on the server in Asia/Manila.
       </p>
     </div>
 
@@ -94,6 +95,44 @@ const cards = computed(() => {
           </p>
         </article>
       </div>
+
+      <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <h3 class="text-sm font-medium text-stone-900">
+          Commissioners by commission
+        </h3>
+        <p class="mt-1 text-xs text-stone-500">
+          Ranked from the highest commission to the lowest. Cancelled bookings are left out.
+        </p>
+        <ol
+          v-if="data?.commissionerRanks.length"
+          class="mt-4 space-y-3"
+        >
+          <li
+            v-for="(rank, index) in data.commissionerRanks"
+            :key="rank.uuid"
+            class="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[2rem_minmax(0,1fr)_8rem_auto]"
+          >
+            <span class="text-sm font-medium text-stone-500">{{ index + 1 }}</span>
+            <span class="min-w-0">
+              <span class="block truncate text-sm text-stone-900">{{ rank.firstName }} {{ rank.lastName }}</span>
+              <span class="text-xs text-stone-500">{{ rank.bookings }} booking{{ rank.bookings === 1 ? '' : 's' }}</span>
+            </span>
+            <span class="col-start-2 h-2 overflow-hidden rounded-full bg-stone-100 sm:col-start-auto">
+              <span
+                class="block h-full rounded-full bg-lumen-700"
+                :style="{ width: `${Math.round((rank.commissionAmount / maxCommission) * 100)}%` }"
+              />
+            </span>
+            <span class="col-start-2 text-sm text-stone-900 sm:col-start-auto sm:text-right">{{ formatMoney(rank.commissionAmount) }}</span>
+          </li>
+        </ol>
+        <p
+          v-else
+          class="mt-4 text-sm text-stone-500"
+        >
+          Commissioner rankings will appear after a booking is assigned.
+        </p>
+      </section>
 
       <div class="grid w-full gap-4 lg:grid-cols-3">
         <section class="rounded-xl border border-stone-200 bg-white p-5">

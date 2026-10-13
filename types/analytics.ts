@@ -24,6 +24,14 @@ export interface TopProduct {
   quantity: number
 }
 
+export interface CommissionerRank {
+  uuid: string
+  firstName: string
+  lastName: string
+  commissionAmount: number
+  bookings: number
+}
+
 export interface DashboardExpense {
   uuid: string
   name: string
@@ -45,6 +53,7 @@ export interface AdminAnalytics {
   salesByDay: AnalyticsPoint[]
   rentalsByStatus: AnalyticsPoint[]
   topProducts: TopProduct[]
+  commissionerRanks: CommissionerRank[]
   recentExpenses: DashboardExpense[]
   recurringExpenses: DashboardRecurringExpense[]
   timezone: string

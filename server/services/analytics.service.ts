@@ -3,7 +3,7 @@ import type { Database } from '../../types/database.types'
 import type { AdminAnalytics } from '../../types/analytics'
 import type { RentalStatus } from '../../utils/constants'
 import { BUSINESS_TIMEZONE } from '../../utils/constants'
-import { buildKpis, lastCalendarDays, rentalsByStatus, salesByDay, topRentedProducts } from '../../utils/analytics'
+import { buildKpis, commissionerRanks, lastCalendarDays, rentalsByStatus, salesByDay, topRentedProducts } from '../../utils/analytics'
 import { calendarDateInZone } from '../../utils/datetime'
 import {
   countCustomerProfiles,
@@ -11,6 +11,7 @@ import {
   listAnalyticsPayments,
   listAnalyticsRecurringExpenses,
   listAnalyticsProducts,
+  listAnalyticsCommissions,
   listAnalyticsRentalItems,
   listAnalyticsRentals,
 } from '../repositories/analytics.repository'
@@ -25,13 +26,14 @@ function first<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export async function getAdminAnalytics(client: Client): Promise<AdminAnalytics> {
-  const [payments, rentals, expenses, recurringExpenses, products, items, customerCount] = await Promise.all([
+  const [payments, rentals, expenses, recurringExpenses, products, items, commissions, customerCount] = await Promise.all([
     listAnalyticsPayments(client),
     listAnalyticsRentals(client),
     listAnalyticsExpenses(client),
     listAnalyticsRecurringExpenses(client),
     listAnalyticsProducts(client),
     listAnalyticsRentalItems(client),
+    listAnalyticsCommissions(client),
     countCustomerProfiles(client),
   ])
 
@@ -63,6 +65,22 @@ export async function getAdminAnalytics(client: Client): Promise<AdminAnalytics>
     salesByDay: salesByDay(payments, days),
     rentalsByStatus: rentalsByStatus(rentals),
     topProducts,
+    commissionerRanks: commissionerRanks(commissions.flatMap((row) => {
+      const commissioner = first(row.commissioner)
+      if (!commissioner) {
+        return []
+      }
+
+      return [{
+        commissionAmount: Number(row.commission_amount),
+        status: row.status as RentalStatus,
+        commissioner: {
+          uuid: commissioner.uuid,
+          firstName: commissioner.first_name,
+          lastName: commissioner.last_name,
+        },
+      }]
+    })),
     recentExpenses: expenses.slice(0, 8).map(expense => ({
       uuid: expense.uuid,
       name: expense.name,

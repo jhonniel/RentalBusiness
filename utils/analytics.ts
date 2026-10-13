@@ -1,4 +1,4 @@
-import type { AnalyticsKpis, AnalyticsPoint, TopProduct } from '~/types/analytics'
+import type { AnalyticsKpis, AnalyticsPoint, CommissionerRank, TopProduct } from '~/types/analytics'
 import type { PaymentStatus, RentalStatus } from './constants'
 import { calendarDateInZone } from './datetime'
 
@@ -150,6 +150,45 @@ export function rentalsByStatus(rentals: AnalyticsRentalRow[]): AnalyticsPoint[]
   return [...counts.entries()]
     .sort((left, right) => right[1] - left[1])
     .map(([label, value]) => ({ label, value }))
+}
+
+export interface AnalyticsCommissionRow {
+  commissionAmount: number
+  status: RentalStatus
+  commissioner: {
+    uuid: string
+    firstName: string
+    lastName: string
+  } | null
+}
+
+export function commissionerRanks(rows: AnalyticsCommissionRow[]): CommissionerRank[] {
+  const totals = new Map<string, CommissionerRank>()
+
+  for (const row of rows) {
+    if (!row.commissioner || row.commissionAmount <= 0 || row.status === 'cancelled' || row.status === 'rejected') {
+      continue
+    }
+
+    const current = totals.get(row.commissioner.uuid) ?? {
+      uuid: row.commissioner.uuid,
+      firstName: row.commissioner.firstName,
+      lastName: row.commissioner.lastName,
+      commissionAmount: 0,
+      bookings: 0,
+    }
+    current.commissionAmount = Math.round((current.commissionAmount + row.commissionAmount) * 100) / 100
+    current.bookings += 1
+    totals.set(row.commissioner.uuid, current)
+  }
+
+  return [...totals.values()].sort((left, right) => {
+    const amount = right.commissionAmount - left.commissionAmount
+    if (amount !== 0) {
+      return amount
+    }
+    return `${left.firstName} ${left.lastName}`.localeCompare(`${right.firstName} ${right.lastName}`)
+  })
 }
 
 export function topRentedProducts(items: AnalyticsRentalItemRow[], limit = 5): TopProduct[] {

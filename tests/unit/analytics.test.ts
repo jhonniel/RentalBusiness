@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { adminRentalListQuerySchema } from '../../utils/admin-validation'
-import { buildKpis, isOngoingRental, lastCalendarDays, paidSalesOn, topRentedProducts } from '../../utils/analytics'
+import { buildKpis, commissionerRanks, isOngoingRental, lastCalendarDays, paidSalesOn, topRentedProducts } from '../../utils/analytics'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 
 describe('analytics dates and sales', () => {
@@ -68,6 +68,38 @@ describe('ongoing rentals', () => {
       today: '2026-10-06',
       now: new Date('2026-10-06T00:00:00.000Z'),
     }).activeRentals).toBe(1)
+  })
+})
+
+describe('commissioner ranks', () => {
+  it('ranks commissioners from the highest commission to the lowest and skips cancelled bookings', () => {
+    const ranks = commissionerRanks([
+      {
+        commissionAmount: 300,
+        status: 'approved',
+        commissioner: { uuid: '11111111-1111-4111-8111-111111111111', firstName: 'Ana', lastName: 'Reyes' },
+      },
+      {
+        commissionAmount: 900,
+        status: 'pending',
+        commissioner: { uuid: '22222222-2222-4222-8222-222222222222', firstName: 'Ben', lastName: 'Cruz' },
+      },
+      {
+        commissionAmount: 150,
+        status: 'paid',
+        commissioner: { uuid: '11111111-1111-4111-8111-111111111111', firstName: 'Ana', lastName: 'Reyes' },
+      },
+      {
+        commissionAmount: 2000,
+        status: 'cancelled',
+        commissioner: { uuid: '22222222-2222-4222-8222-222222222222', firstName: 'Ben', lastName: 'Cruz' },
+      },
+    ])
+
+    expect(ranks.map(rank => rank.firstName)).toEqual(['Ben', 'Ana'])
+    expect(ranks[0]?.commissionAmount).toBe(900)
+    expect(ranks[1]).toMatchObject({ commissionAmount: 450, bookings: 2 })
+    expect(ranks[0]).not.toHaveProperty('id')
   })
 })
 

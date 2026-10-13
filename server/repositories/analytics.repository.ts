@@ -86,6 +86,24 @@ export async function listAnalyticsRentalItems(client: Client) {
   return data ?? []
 }
 
+export async function listAnalyticsCommissions(client: Client) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .select(`
+      commission_amount,
+      status,
+      commissioner:profiles!rental_requests_commissioner_id_fkey ( uuid, first_name, last_name )
+    `)
+    .not('commissioner_id', 'is', null)
+    .gt('commission_amount', 0)
+
+  if (error) {
+    throw new AppError('We could not load commissioner commissions.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
 export async function countCustomerProfiles(client: Client) {
   const { count, error } = await client
     .from('profiles')
