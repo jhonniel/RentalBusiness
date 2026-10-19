@@ -36,8 +36,14 @@ export function canContinueAdminRental(rental: Pick<PublicRental, 'status'>) {
   return rental.status === 'draft'
 }
 
+export const ADMIN_EDITABLE_RENTAL_STATUSES = [
+  ...WAIVER_INVITE_STATUSES,
+  'active',
+  'overdue',
+] as const
+
 export function canModifyAdminRental(rental: Pick<PublicRental, 'status'>) {
-  return (WAIVER_INVITE_STATUSES as readonly string[]).includes(rental.status)
+  return (ADMIN_EDITABLE_RENTAL_STATUSES as readonly string[]).includes(rental.status)
 }
 
 export function canSendWaiverInvite(rental: Pick<PublicRental, 'status' | 'waiver'>) {

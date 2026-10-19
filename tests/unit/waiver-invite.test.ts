@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
-import { continueAdminRentalSchema, assignAdminCommissionerSchema, updateWaiverInviteScheduleSchema } from '../../utils/rental-validation'
+import { continueAdminRentalSchema, assignAdminCommissionerSchema, extendAdminRentalSchema, updateWaiverInviteScheduleSchema } from '../../utils/rental-validation'
 import { acceptWaiverInviteSchema, sendWaiverInviteSchema } from '../../utils/waiver-validation'
 import {
   canContinueAdminRental,
@@ -37,7 +37,9 @@ describe('admin continue and waiver invite rules', () => {
     expect(canModifyAdminRental({ status: 'approved' })).toBe(true)
     expect(canModifyAdminRental({ status: 'paid' })).toBe(true)
     expect(canModifyAdminRental({ status: 'ready_for_pickup' })).toBe(true)
-    expect(canModifyAdminRental({ status: 'active' })).toBe(false)
+    expect(canModifyAdminRental({ status: 'active' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'overdue' })).toBe(true)
+    expect(canModifyAdminRental({ status: 'completed' })).toBe(false)
     expect(canModifyAdminRental({ status: 'cancelled' })).toBe(false)
     expect(canSendWaiverInvite({ status: 'draft', waiver: null })).toBe(true)
     expect(canSendWaiverInvite({ status: 'pending', waiver: null })).toBe(true)
@@ -116,7 +118,7 @@ describe('waiver invite validation', () => {
     }).success).toBe(false)
   })
 
-  it('rejects a past start date on the admin continue form', () => {
+  it('lets the admin edit form keep a past pickup date so a booking can be extended', () => {
     const startsOn = addCalendarDays(calendarDateInZone(), 1)
     const endsOn = addCalendarDays(startsOn, 2)
 
@@ -162,9 +164,18 @@ describe('waiver invite validation', () => {
       commissionerUuid: '22222222-2222-4222-8222-222222222222',
     }).commissionerUuid).toBe('22222222-2222-4222-8222-222222222222')
     expect(assignAdminCommissionerSchema.parse({ commissionerUuid: '' }).commissionerUuid).toBe('')
+    expect(extendAdminRentalSchema.parse({ endsOn: endsOn, note: 'Paid in cash', preview: true })).toMatchObject({ preview: true })
+    expect(extendAdminRentalSchema.safeParse({ endsOn: 'soon' }).success).toBe(false)
+    expect(extendAdminRentalSchema.safeParse({ endsOn, totalAmount: 1 }).success).toBe(false)
+    expect(continueAdminRentalSchema.safeParse({
+      startsOn: addCalendarDays(calendarDateInZone(), -3),
+      endsOn: addCalendarDays(calendarDateInZone(), 2),
+      firstName: 'Ana',
+      lastName: 'Reyes',
+    }).success).toBe(true)
     expect(continueAdminRentalSchema.safeParse({
       startsOn: addCalendarDays(calendarDateInZone(), -1),
-      endsOn: addCalendarDays(calendarDateInZone(), -1),
+      endsOn: addCalendarDays(calendarDateInZone(), -2),
       firstName: 'Ana',
       lastName: 'Reyes',
     }).success).toBe(false)

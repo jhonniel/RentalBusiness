@@ -378,6 +378,9 @@ export interface Database {
           total_amount?: number
           notes?: string | null
           admin_notes?: string | null
+          commissioner_id?: number | null
+          commission_per_day?: number
+          commission_amount?: number
         }
         Relationships: [
           {
@@ -474,6 +477,46 @@ export interface Database {
         }
         Update: Record<string, never>
         Relationships: []
+      }
+      rental_extensions: {
+        Row: {
+          id: number
+          uuid: string
+          rental_id: number
+          previous_ends_on: string
+          ends_on: string
+          previous_return_at: string | null
+          return_at: string
+          previous_total_amount: number
+          total_amount: number
+          added_amount: number
+          note: string | null
+          extended_by: number | null
+          created_at: string
+        }
+        Insert: {
+          rental_id: number
+          previous_ends_on: string
+          ends_on: string
+          previous_return_at?: string | null
+          return_at: string
+          previous_total_amount: number
+          total_amount: number
+          added_amount: number
+          note?: string | null
+          extended_by?: number | null
+          uuid?: string
+        }
+        Update: Record<string, never>
+        Relationships: [
+          {
+            foreignKeyName: 'rental_extensions_extended_by_fkey'
+            columns: ['extended_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       waiver_versions: {
         Row: {
@@ -772,7 +815,15 @@ export interface Database {
           notes?: string | null
           incurred_on?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'expenses_rental_id_fkey'
+            columns: ['rental_id']
+            isOneToOne: false
+            referencedRelation: 'rental_requests'
+            referencedColumns: ['id']
+          },
+        ]
       }
       recurring_expenses: {
         Row: {

@@ -76,6 +76,13 @@ describe('rental validation', () => {
       exceptRentalUuid: '11111111-1111-4111-8111-111111111111',
     }).success).toBe(false)
     expect(rentalQuoteQuerySchema.safeParse(body).success).toBe(!isPastBusinessDateTime(today, '08:00'))
+
+    const pastStart = { ...body, startsOn: addCalendarDays(today, -2), endsOn: addCalendarDays(today, 3) }
+    expect(adminRentalQuoteSchema.safeParse(pastStart).success).toBe(false)
+    expect(adminRentalQuoteSchema.safeParse({
+      ...pastStart,
+      exceptRentalUuid: '11111111-1111-4111-8111-111111111111',
+    }).success).toBe(true)
   })
 
   it('lets an admin book a new client by email, including a pickup time that already passed today', () => {

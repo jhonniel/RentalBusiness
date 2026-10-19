@@ -109,13 +109,14 @@ async function loadActiveProduct(client: Client, query: { productUuid?: string, 
 
 export async function buildQuote(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery, options?: {
   exceptRentalUuid?: string
+  allowPastStart?: boolean
 }): Promise<RentalQuote & {
   productId: number
   hasBlockedDates: boolean
 }> {
   const product = await loadActiveProduct(client, query)
   const window = resolveRentalWindow(query)
-  if (isPastBusinessDate(window.startsOn)) {
+  if (!options?.allowPastStart && isPastBusinessDate(window.startsOn)) {
     throw new AppError('Those dates are in the past.', 422, ERROR_CODES.VALIDATION_ERROR)
   }
 
@@ -179,6 +180,7 @@ export async function quoteRental(client: Client, query: RentalQuoteQuery | Admi
   const exceptRentalUuid = 'exceptRentalUuid' in query ? query.exceptRentalUuid : undefined
   const { productId: _productId, hasBlockedDates: _hasBlockedDates, ...quote } = await buildQuote(client, query, {
     exceptRentalUuid,
+    allowPastStart: Boolean(exceptRentalUuid),
   })
   return quote
 }

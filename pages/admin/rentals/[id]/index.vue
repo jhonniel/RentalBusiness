@@ -52,6 +52,10 @@ useSiteMeta({
 
 const canConfirm = computed(() => rental.value?.status === 'pending')
 const canModify = computed(() => rental.value ? canModifyAdminRental(rental.value) : false)
+const listedCommissioner = computed(() => {
+  const uuid = rental.value?.commissioner?.uuid
+  return Boolean(uuid && commissioners.value?.some(person => person.uuid === uuid))
+})
 
 watch(rental, (value) => {
   if (assigning.value) {
@@ -402,7 +406,7 @@ async function removeRental() {
                     No commissioner
                   </option>
                   <option
-                    v-if="rental.commissioner && !commissioners?.some(person => person.uuid === rental.commissioner?.uuid)"
+                    v-if="rental.commissioner && !listedCommissioner"
                     :value="rental.commissioner.uuid"
                   >
                     {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
@@ -449,6 +453,11 @@ async function removeRental() {
               {{ formatBusinessDateTime(rental.pickupAt) }} – {{ formatBusinessDateTime(rental.returnAt) }}
             </p>
           </section>
+
+          <AdminRentalExtensions
+            :rental="rental"
+            @extended="refresh"
+          />
 
           <section class="rounded-xl border border-stone-200 bg-white p-5">
             <h3 class="text-sm font-medium text-stone-900">

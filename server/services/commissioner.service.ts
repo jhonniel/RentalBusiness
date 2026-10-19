@@ -12,7 +12,7 @@ import { isUuid } from '../../utils/slug'
 import { STORAGE_BUCKETS } from '../../utils/storage'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
-import { insertExpense, voidCommissionExpenses } from '../repositories/expense.repository'
+import { findOpenCommissionExpenseByRentalId, insertExpense, updateExpenseByUuid, voidCommissionExpenses } from '../repositories/expense.repository'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { findProductByUuid, listBookableProducts } from '../repositories/product.repository'
 import { findProfileKeyByUuid } from '../repositories/profile.repository'
@@ -38,6 +38,49 @@ type QuoteInput = z.infer<typeof rentalQuoteQuerySchema>
 function personName(person: { firstName?: string, lastName?: string, first_name?: string, last_name?: string }) {
   const name = `${person.firstName || person.first_name || ''} ${person.lastName || person.last_name || ''}`.trim()
   return name || 'Commissioner'
+}
+
+export async function recordCompletedCommission(
+  client: Client,
+  rental: {
+    id: number
+    code: string
+    commissioner: { firstName: string, lastName: string } | null | undefined
+    commissionAmount: number
+    productName: string
+    days: number
+    quantity: number
+    completedOn: string
+  },
+) {
+  if (!rental.commissioner || rental.commissionAmount <= 0) {
+    return null
+  }
+
+  const existing = await findOpenCommissionExpenseByRentalId(client, rental.id)
+  if (existing) {
+    if (existing.status === 'pending' && Number(existing.amount) !== rental.commissionAmount) {
+      await updateExpenseByUuid(client, existing.uuid, {
+        amount: rental.commissionAmount,
+        incurred_on: rental.completedOn,
+      })
+    }
+    return existing.uuid
+  }
+
+  const created = await insertExpense(client, {
+    name: `Commission · ${rental.code}`,
+    category: 'commission',
+    description: `${rental.productName} · ${rental.days} day${rental.days === 1 ? '' : 's'} × ${rental.quantity}`,
+    amount: rental.commissionAmount,
+    vendor: personName(rental.commissioner),
+    reference: rental.code,
+    status: 'pending',
+    notes: 'Commission earned on a completed booking. Mark it collected when the commissioner is paid.',
+    incurred_on: rental.completedOn,
+    rental_id: rental.id,
+  })
+  return created.uuid
 }
 
 export async function assignedCommission(
@@ -83,21 +126,6 @@ export async function syncAssignedCommission(
     commissionAmount: amount,
   })
   await voidCommissionExpenses(client, rental.id)
-
-  if (assigned && amount > 0) {
-    await insertExpense(client, {
-      name: `Commission · ${rental.code}`,
-      category: 'commission',
-      description: `${input.productName} · ${input.days} day${input.days === 1 ? '' : 's'} × ${input.quantity}`,
-      amount,
-      vendor: personName(assigned.commissioner),
-      reference: rental.code,
-      status: 'pending',
-      notes: 'Commission earned on a booking assigned by the shop.',
-      incurred_on: input.startsOn,
-      rental_id: rental.id,
-    })
-  }
 
   return {
     commissionerUuid: assigned?.commissioner.uuid ?? null,
@@ -146,7 +174,7 @@ export async function quoteCommissionerRental(client: Client, input: QuoteInput)
 export async function createCommissionerRental(
   event: H3Event,
   client: Client,
-  commissioner: PublicProfile,
+  _commissioner: PublicProfile,
   profileId: number,
   input: CreateCommissionerRentalInput,
 ) {
@@ -204,21 +232,6 @@ export async function createCommissionerRental(
       changedBy: profileId,
       note: 'Commissioner booked equipment for a client.',
     })
-
-    if (quote.commissionAmount > 0) {
-      await insertExpense(client, {
-        name: `Commission · ${created.code}`,
-        category: 'commission',
-        description: `${quote.product.name} · ${quote.days} day${quote.days === 1 ? '' : 's'} × ${quote.quantity}`,
-        amount: quote.commissionAmount,
-        vendor: personName(commissioner),
-        reference: created.code,
-        status: 'pending',
-        notes: 'Commission earned on a commissioner booking.',
-        incurred_on: quote.startsOn,
-        rental_id: created.id,
-      })
-    }
   }
   catch (error) {
     await deleteRentalById(client, created.id)

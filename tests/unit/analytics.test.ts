@@ -72,21 +72,26 @@ describe('ongoing rentals', () => {
 })
 
 describe('commissioner ranks', () => {
-  it('ranks commissioners from the highest commission to the lowest and skips cancelled bookings', () => {
+  it('ranks commissioners from the highest commission to the lowest and counts only completed bookings', () => {
     const ranks = commissionerRanks([
       {
         commissionAmount: 300,
-        status: 'approved',
+        status: 'completed',
         commissioner: { uuid: '11111111-1111-4111-8111-111111111111', firstName: 'Ana', lastName: 'Reyes' },
       },
       {
         commissionAmount: 900,
-        status: 'pending',
+        status: 'completed',
         commissioner: { uuid: '22222222-2222-4222-8222-222222222222', firstName: 'Ben', lastName: 'Cruz' },
       },
       {
         commissionAmount: 150,
-        status: 'paid',
+        status: 'completed',
+        commissioner: { uuid: '11111111-1111-4111-8111-111111111111', firstName: 'Ana', lastName: 'Reyes' },
+      },
+      {
+        commissionAmount: 5000,
+        status: 'pending',
         commissioner: { uuid: '11111111-1111-4111-8111-111111111111', firstName: 'Ana', lastName: 'Reyes' },
       },
       {

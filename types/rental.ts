@@ -63,6 +63,32 @@ export interface PublicRental {
   createdAt: string
 }
 
+export interface RentalExtensionPreview {
+  previousEndsOn: string
+  endsOn: string
+  previousReturnAt: string
+  returnAt: string
+  days: number
+  previousTotalAmount: number
+  totalAmount: number
+  addedAmount: number
+  canFulfill: boolean
+}
+
+export interface PublicRentalExtension {
+  uuid: string
+  previousEndsOn: string
+  endsOn: string
+  previousReturnAt: string | null
+  returnAt: string
+  previousTotalAmount: number
+  totalAmount: number
+  addedAmount: number
+  note: string | null
+  extendedBy: string | null
+  createdAt: string
+}
+
 export interface RentalListResponse {
   items: PublicRental[]
   page: number

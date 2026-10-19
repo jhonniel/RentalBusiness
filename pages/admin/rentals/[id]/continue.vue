@@ -60,6 +60,14 @@ const rentalWindow = computed(() => resolveRentalWindow({
 }))
 const productSlug = computed(() => rental.value?.items[0]?.product.slug || '')
 const canModify = computed(() => rental.value ? canModifyAdminRental(rental.value) : false)
+const listedCommissioner = computed(() => {
+  const uuid = rental.value?.commissioner?.uuid
+  return Boolean(uuid && commissioners.value?.some(person => person.uuid === uuid))
+})
+const pickupMin = computed(() => {
+  const startsOn = rental.value?.startsOn
+  return startsOn && startsOn < today ? startsOn : today
+})
 const canOpen = computed(() => rental.value ? canOpenAdminContinue(rental.value) : false)
 
 watch(rental, (value) => {
@@ -232,7 +240,7 @@ async function onSubmit() {
             Pickup and return
           </h3>
           <p class="mt-2 text-sm text-stone-600">
-            You can change the pickup date, return date, and pickup time. Return stays at the same clock on the return date.
+            You can change the pickup date, return date, and pickup time, even after the pickup date has passed, for example to extend the return date. Return stays at the same clock on the return date.
           </p>
           <div class="mt-4 grid gap-3 sm:grid-cols-2">
             <BookingDateField
@@ -240,6 +248,7 @@ async function onSubmit() {
               label="Pickup date"
               :product-slug="productSlug || undefined"
               :quantity="form.quantity"
+              :min="pickupMin"
               :until="form.endsOn || undefined"
               :disabled="pending || !canModify"
               flexible
@@ -379,7 +388,7 @@ async function onSubmit() {
                   No commissioner
                 </option>
                 <option
-                  v-if="rental.commissioner && !commissioners?.some(person => person.uuid === rental.commissioner?.uuid)"
+                  v-if="rental.commissioner && !listedCommissioner"
                   :value="rental.commissioner.uuid"
                 >
                   {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}

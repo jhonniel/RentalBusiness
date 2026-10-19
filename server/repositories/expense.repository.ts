@@ -129,6 +129,71 @@ export async function insertExpense(client: Client, values: Database['public']['
   return data
 }
 
+export async function listCommissionExpenses(client: Client) {
+  const { data, error } = await client
+    .from('expenses')
+    .select(`
+      uuid,
+      amount,
+      status,
+      incurred_on,
+      updated_at,
+      rental:rental_requests!expenses_rental_id_fkey (
+        uuid,
+        code,
+        status,
+        starts_on,
+        ends_on,
+        pickup_at,
+        return_at,
+        commissioner:profiles!rental_requests_commissioner_id_fkey ( uuid, first_name, last_name ),
+        rental_items ( quantity, products ( name ) )
+      )
+    `)
+    .eq('category', 'commission')
+    .in('status', ['pending', 'paid'])
+    .order('incurred_on', { ascending: false })
+
+  if (error) {
+    throw new AppError('We could not load commissions.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
+export async function findCommissionExpense(client: Client, uuid: string) {
+  const { data, error } = await client
+    .from('expenses')
+    .select('uuid, amount, status, category, rental:rental_requests!expenses_rental_id_fkey ( uuid, code, status )')
+    .eq('uuid', uuid)
+    .eq('category', 'commission')
+    .maybeSingle()
+
+  if (error) {
+    throw new AppError('We could not load that commission.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data
+}
+
+export async function findOpenCommissionExpenseByRentalId(client: Client, rentalId: number) {
+  const { data, error } = await client
+    .from('expenses')
+    .select('uuid, amount, status')
+    .eq('rental_id', rentalId)
+    .eq('category', 'commission')
+    .neq('status', 'void')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw new AppError('We could not load that commission.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data
+}
+
 export async function voidCommissionExpenses(client: Client, rentalId: number) {
   const { error } = await client
     .from('expenses')

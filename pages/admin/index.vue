@@ -101,7 +101,7 @@ const cards = computed(() => {
           Commissioners by commission
         </h3>
         <p class="mt-1 text-xs text-stone-500">
-          Ranked from the highest commission to the lowest. Cancelled bookings are left out.
+          Ranked from the highest commission to the lowest. Only completed bookings count.
         </p>
         <ol
           v-if="data?.commissionerRanks.length"
@@ -130,7 +130,7 @@ const cards = computed(() => {
           v-else
           class="mt-4 text-sm text-stone-500"
         >
-          Commissioner rankings will appear after a booking is assigned.
+          Commissioner rankings will appear after a commissioner booking is completed.
         </p>
       </section>
 

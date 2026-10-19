@@ -502,3 +502,21 @@ describe('commissioner role', () => {
     expect(commissionerRole).toContain('only a customer can become a commissioner')
   })
 })
+
+describe('rental extensions', () => {
+  const rentalExtensions = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261019000000_rental_extensions.sql'),
+    'utf8',
+  )
+
+  it('logs each extension with the old and new return date and amount, admin only', () => {
+    expect(rentalExtensions).toContain('create table if not exists public.rental_extensions')
+    expect(rentalExtensions).toContain('previous_ends_on date not null')
+    expect(rentalExtensions).toContain('added_amount numeric(12, 2) not null')
+    expect(rentalExtensions).toContain('check (ends_on > previous_ends_on)')
+    expect(rentalExtensions).toContain('alter table public.rental_extensions force row level security')
+    expect(rentalExtensions).toContain('using (public.is_admin())')
+    expect(rentalExtensions).not.toContain('to anon')
+    expect(rentalExtensions).not.toMatch(/grant[^;]*(update|delete)[^;]*rental_extensions/)
+  })
+})

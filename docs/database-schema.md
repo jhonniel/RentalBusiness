@@ -57,6 +57,11 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `id`, `uuid`, `product_id`, `storage_path`, `alt`, `sort_order`
 - `storage_path` is an object key in the public Supabase Storage `product-images` bucket (S3). Uploads are compressed to JPEG on the server before they are written. Public APIs return the Storage URL, never a local file path.
 
+**rental_extensions**
+
+- `uuid`, `rental_id` (cascade), `previous_ends_on`, `ends_on`, `previous_return_at`, `return_at`, `previous_total_amount`, `total_amount`, `added_amount`, `note`, `extended_by`, `created_at`.
+- Append-only log of booking extensions. `ends_on` must be after `previous_ends_on`. Admin select and insert only; no update or delete grants. Added in `20261019000000_rental_extensions.sql`.
+
 **product_blocked_dates**
 
 - `id`, `uuid`, `product_id` → products (`ON DELETE CASCADE`)

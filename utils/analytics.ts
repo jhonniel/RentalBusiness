@@ -166,7 +166,7 @@ export function commissionerRanks(rows: AnalyticsCommissionRow[]): CommissionerR
   const totals = new Map<string, CommissionerRank>()
 
   for (const row of rows) {
-    if (!row.commissioner || row.commissionAmount <= 0 || row.status === 'cancelled' || row.status === 'rejected') {
+    if (!row.commissioner || row.commissionAmount <= 0 || row.status !== 'completed') {
       continue
     }
 
