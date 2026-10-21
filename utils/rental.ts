@@ -216,6 +216,12 @@ export function paymentAmountAfterDepositReturn(amount: number, depositAmount: n
   return fromMinorUnits(toMinorUnits(Math.max(0, amount - Math.max(0, depositAmount))))
 }
 
+export const ADMIN_CANCELLABLE_RENTAL_STATUSES = ['draft', 'pending', 'awaiting_payment', 'paid', 'approved', 'ready_for_pickup'] as const
+
+export function canCancelAdminRental(rental: { status: RentalStatus }) {
+  return (ADMIN_CANCELLABLE_RENTAL_STATUSES as readonly string[]).includes(rental.status)
+}
+
 const COMPLETABLE_RENTAL_STATUSES = ['paid', 'approved', 'ready_for_pickup', 'active', 'overdue', 'returned'] as const
 
 export function canCompleteAdminRental(

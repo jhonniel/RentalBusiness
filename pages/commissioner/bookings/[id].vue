@@ -51,24 +51,6 @@ async function cancelBooking() {
   }
 }
 
-async function deleteBooking() {
-  if (!rental.value) {
-    return
-  }
-  pending.value = true
-  try {
-    await $fetch(`/api/commissioner/rentals/${rental.value.uuid}`, { method: 'DELETE' })
-    toast.add({ title: 'Booking deleted', color: 'success' })
-    await navigateTo('/commissioner')
-  }
-  catch (cause) {
-    const payload = typeof cause === 'object' && cause && 'data' in cause
-      ? (cause as { data?: { message?: string } }).data
-      : null
-    toast.add({ title: payload?.message || 'We could not delete that booking.', color: 'error' })
-    pending.value = false
-  }
-}
 </script>
 
 <template>
@@ -130,15 +112,10 @@ async function deleteBooking() {
         >
           Cancel booking
         </UButton>
-        <UButton
-          color="error"
-          variant="outline"
-          :loading="pending"
-          @click="deleteBooking"
-        >
-          Delete booking
-        </UButton>
       </div>
+      <p class="text-xs text-stone-500">
+        Only the shop can delete a booking. Cancel it to release the dates.
+      </p>
     </template>
   </div>
 </template>

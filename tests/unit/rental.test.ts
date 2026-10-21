@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { amountDue, canCompleteAdminRental, canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
@@ -183,6 +183,12 @@ describe('customer rental transitions', () => {
     expect(canTransitionRentalStatus('pending', 'cancelled')).toBe(true)
     expect(canTransitionRentalStatus('awaiting_payment', 'cancelled')).toBe(true)
     expect(canTransitionRentalStatus('active', 'cancelled')).toBe(false)
+    expect(canCancelAdminRental({ status: 'approved' })).toBe(true)
+    expect(canCancelAdminRental({ status: 'paid' })).toBe(true)
+    expect(canCancelAdminRental({ status: 'ready_for_pickup' })).toBe(true)
+    expect(canCancelAdminRental({ status: 'active' })).toBe(false)
+    expect(canCancelAdminRental({ status: 'completed' })).toBe(false)
+    expect(canCancelAdminRental({ status: 'cancelled' })).toBe(false)
   })
 
   it('lets customers submit a draft only after waiver and identity are on file', () => {

@@ -6,10 +6,10 @@ import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
-import type { ContinueAdminRentalInput, CreateAdminRentalInput, AssignAdminCommissionerInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
+import type { AssignAdminCommissionerInput, CancelAdminRentalInput, ContinueAdminRentalInput, CreateAdminRentalInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
 import type { PublicRentalExtension, RentalExtensionPreview } from '../../types/rental'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
-import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toShopRental } from '../../utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { rentalPeriodDays } from '../../utils/rental-window'
@@ -41,6 +41,7 @@ import { recordCompletedCommission, syncAssignedCommission } from './commissione
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
 import {
+  cancelOpenPaymentsByRentalId,
   findOpenPaymentByRentalId,
   findPaidPaymentByRentalId,
   insertPayment,
@@ -924,6 +925,91 @@ export async function markAdminRentalPaid(
   })
 
   return loadAdminRental(client, rental.uuid)
+}
+
+export async function cancelAdminRental(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  identifier: string,
+  input: CancelAdminRentalInput,
+) {
+  const rental = await loadAdminRental(client, identifier)
+  if (!canCancelAdminRental(rental) || !canTransitionRentalStatus(rental.status, 'cancelled')) {
+    throw new AppError(
+      rental.status === 'active' || rental.status === 'overdue'
+        ? 'The customer has the equipment. Mark it returned or done instead of cancelling.'
+        : 'That booking can no longer be cancelled.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  await cancelOpenPaymentsByRentalId(client, identity.id)
+
+  const cancelledAt = new Date().toISOString()
+  const paid = await findPaidPaymentByRentalId(client, identity.id)
+  let retainedAmount = 0
+  if (paid) {
+    const metadata = paid.metadata && typeof paid.metadata === 'object' && !Array.isArray(paid.metadata)
+      ? paid.metadata as Record<string, unknown>
+      : {}
+    retainedAmount = Number(paid.amount)
+    await updatePaymentByUuid(client, paid.uuid, {
+      metadata: {
+        ...metadata,
+        nonRefundable: true,
+        retainedOnCancelAt: cancelledAt,
+        retainedAmount,
+      },
+    })
+  }
+
+  await voidCommissionExpenses(client, identity.id)
+  const row = await updateRentalStatus(client, rental.uuid, 'cancelled')
+  const reason = input.reason?.trim() || ''
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: 'cancelled',
+    changedBy: profileId,
+    note: [
+      'Admin cancelled the booking.',
+      paid ? `The ${retainedAmount.toFixed(2)} ${BUSINESS_CURRENCY} already paid, including the deposit and down payment, is not refunded and stays in sales.` : '',
+      reason ? `Reason: ${reason}` : '',
+    ].filter(Boolean).join(' '),
+  })
+
+  await insertNotification(client, {
+    recipient_id: identity.customer_id,
+    type: 'rental.cancelled',
+    title: 'Booking cancelled',
+    body: paid
+      ? `Rental ${rental.code} was cancelled. The deposit and down payment are not refundable.`
+      : `Rental ${rental.code} was cancelled.`,
+    metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
+  })
+
+  await recordAudit(event, client, {
+    action: 'rental.cancel',
+    entity: 'rental_requests',
+    entityId: rental.uuid,
+    previous: { status: rental.status },
+    next: {
+      status: 'cancelled',
+      source: 'admin',
+      retainedAmount,
+      nonRefundable: Boolean(paid),
+      reason: reason || null,
+    },
+  })
+
+  return toShopRental(row)
 }
 
 export async function completeAdminRental(event: H3Event, client: Client, profileId: number, identifier: string) {

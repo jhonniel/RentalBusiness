@@ -251,7 +251,7 @@ export async function createRental(
     })
   }
   catch (error) {
-    await deleteRentalById(client, created.id)
+    await deleteRentalById(getSupabaseAdminClient(), created.id)
     throw error
   }
 

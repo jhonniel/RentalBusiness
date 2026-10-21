@@ -44,7 +44,6 @@ import { amountDue } from '../../utils/rental'
 import { getOwnRental } from './rental.service'
 import { getAdminRental } from './admin-rental.service'
 import { buildWaiverPdf, signatureHasInk, waiverPdfFilename } from '../utils/waiver-pdf'
-
 type Client = SupabaseClient<Database>
 
 function requestIp(event: H3Event) {

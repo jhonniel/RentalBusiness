@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -500,6 +500,19 @@ describe('commissioner role', () => {
     expect(commissionerRole).toContain('promote_profile_to_commissioner')
     expect(commissionerRole).toContain('grant execute on function public.promote_profile_to_commissioner(uuid) to service_role')
     expect(commissionerRole).toContain('only a customer can become a commissioner')
+  })
+})
+
+describe('admin-only rental delete', () => {
+  const adminOnlyDelete = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261020000000_admin_only_rental_delete.sql'),
+    'utf8',
+  )
+
+  it('removes the customer delete policy so only admins can delete bookings', () => {
+    expect(adminOnlyDelete).toContain('drop policy if exists rental_requests_delete_own_draft on public.rental_requests')
+    expect(adminOnlyDelete).not.toContain('create policy')
+    expect(existsSync(resolve(process.cwd(), 'server/api/commissioner/rentals/[id].delete.ts'))).toBe(false)
   })
 })
 

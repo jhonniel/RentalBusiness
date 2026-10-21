@@ -9,16 +9,13 @@ import type { z } from 'zod'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { isRentalCode, toShopRental } from '../../utils/rental'
 import { isUuid } from '../../utils/slug'
-import { STORAGE_BUCKETS } from '../../utils/storage'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
 import { findOpenCommissionExpenseByRentalId, insertExpense, updateExpenseByUuid, voidCommissionExpenses } from '../repositories/expense.repository'
-import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { findProductByUuid, listBookableProducts } from '../repositories/product.repository'
 import { findProfileKeyByUuid } from '../repositories/profile.repository'
 import {
   deleteRentalById,
-  deleteRentalByUuid,
   findRentalByCode,
   findRentalByUuid,
   findRentalIdentity,
@@ -305,43 +302,4 @@ export async function cancelCommissionerRental(
   })
 
   return rental
-}
-
-export async function deleteCommissionerRental(
-  event: H3Event,
-  client: Client,
-  profileId: number,
-  identifier: string,
-) {
-  const { row, identity } = await loadOwnedRental(client, profileId, identifier)
-  if (!canReleaseCommissionerBooking(identity.status)) {
-    throw new AppError('That booking can no longer be deleted.', 409, ERROR_CODES.CONFLICT)
-  }
-
-  const documents = await findIdentityByRentalId(client, identity.id)
-  const paths = [documents?.government_id_path, documents?.selfie_path].filter((path): path is string => Boolean(path))
-  if (paths.length) {
-    await client.storage.from(STORAGE_BUCKETS.privateDocuments).remove(paths)
-  }
-
-  await voidCommissionExpenses(client, identity.id)
-  await deleteRentalByUuid(client, identity.uuid)
-
-  await recordAudit(event, client, {
-    action: 'rental.delete',
-    entity: 'rental_requests',
-    entityId: identity.uuid,
-    previous: {
-      uuid: identity.uuid,
-      code: identity.code,
-      status: identity.status,
-      source: 'commissioner',
-    },
-  })
-
-  return {
-    deleted: true,
-    uuid: identity.uuid,
-    code: row.code,
-  }
 }

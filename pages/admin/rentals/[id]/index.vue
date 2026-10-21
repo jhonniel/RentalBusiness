@@ -2,7 +2,7 @@
 import type { PublicRental } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { formatBusinessDateTime } from '~/utils/datetime'
-import { amountDue, canCompleteAdminRental, canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { renderWaiverBody } from '~/utils/waiver'
 import { canModifyAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
 
@@ -22,6 +22,9 @@ const completing = ref(false)
 const paymentMethod = ref<(typeof SHOP_PAYMENT_METHODS)[number]>('cash')
 const deleteOpen = ref(false)
 const deletePending = ref(false)
+const cancelOpen = ref(false)
+const cancelling = ref(false)
+const cancelReason = ref('')
 
 const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/admin/rentals/${identifier.value}`,
@@ -99,6 +102,10 @@ const resetOpen = ref(false)
 const resetting = ref(false)
 const canMarkPaid = computed(() => rental.value ? canMarkAdminRentalPaid(rental.value) : false)
 const canFinish = computed(() => rental.value ? canCompleteAdminRental(rental.value) : false)
+const canCancel = computed(() => rental.value ? canCancelAdminRental(rental.value) : false)
+const paidPayment = computed(() => rental.value?.payments.find(payment => payment.status === 'paid') ?? null)
+const hasPaidPayment = computed(() => Boolean(paidPayment.value))
+const paidAmount = computed(() => paidPayment.value?.amount ?? 0)
 const sendWaiver = computed(() => route.hash === '#waiver')
 
 onMounted(() => {
@@ -242,6 +249,36 @@ async function approve() {
   }
   finally {
     approving.value = false
+  }
+}
+
+async function cancelBooking() {
+  if (!rental.value) {
+    return
+  }
+
+  cancelling.value = true
+  try {
+    await $fetch(`/api/admin/rentals/${rental.value.uuid}/cancel`, {
+      method: 'POST',
+      body: { reason: cancelReason.value },
+    })
+    toast.add({ title: 'Booking cancelled', color: 'success' })
+    cancelOpen.value = false
+    cancelReason.value = ''
+    await refresh()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not cancel that booking.',
+      color: 'error',
+    })
+  }
+  finally {
+    cancelling.value = false
   }
 }
 
@@ -687,12 +724,72 @@ async function removeRental() {
         </div>
       </div>
 
+      <section
+        v-if="canCancel"
+        class="rounded-xl border border-amber-200 bg-amber-50 p-5"
+      >
+        <h3 class="text-sm font-medium text-amber-900">
+          Cancel booking
+        </h3>
+        <p class="mt-1 text-sm text-amber-900">
+          Releases the dates and keeps this booking on record.
+          <template v-if="hasPaidPayment">
+            The {{ formatMoney(paidAmount) }} already paid, including the deposit and down payment, is not refunded and stays in sales.
+          </template>
+        </p>
+        <UButton
+          v-if="!cancelOpen"
+          class="mt-4"
+          color="warning"
+          variant="outline"
+          @click="cancelOpen = true"
+        >
+          Cancel booking
+        </UButton>
+        <div
+          v-else
+          class="mt-4 space-y-3"
+        >
+          <label class="block text-sm">
+            <span class="mb-1.5 block text-amber-900">Reason (optional)</span>
+            <UTextarea
+              v-model="cancelReason"
+              :rows="2"
+              class="w-full"
+              :disabled="cancelling"
+            />
+          </label>
+          <div class="flex flex-wrap items-center gap-2">
+            <UButton
+              color="warning"
+              class="w-full justify-center sm:w-auto"
+              :loading="cancelling"
+              @click="cancelBooking"
+            >
+              Confirm cancel
+            </UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              class="w-full justify-center sm:w-auto"
+              :disabled="cancelling"
+              @click="cancelOpen = false"
+            >
+              Keep booking
+            </UButton>
+          </div>
+        </div>
+      </section>
+
       <section class="rounded-xl border border-red-200 bg-red-50 p-5">
         <h3 class="text-sm font-medium text-red-900">
           Delete
         </h3>
         <p class="mt-1 text-sm text-red-800">
           Permanently removes this rental, its payments, receipts, waiver, and ID files.
+          <template v-if="hasPaidPayment">
+            Its {{ formatMoney(paidAmount) }} payment will also leave sales. Cancel the booking instead to keep the non-refundable deposit and down payment recorded.
+          </template>
         </p>
         <UButton
           v-if="!deleteOpen"
