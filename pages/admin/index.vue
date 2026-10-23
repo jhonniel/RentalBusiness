@@ -101,7 +101,7 @@ const cards = computed(() => {
           Commissioners by commission
         </h3>
         <p class="mt-1 text-xs text-stone-500">
-          Ranked from the highest commission to the lowest. Only completed bookings count.
+          Ranked from the highest commission to the lowest. A booking counts once it is approved.
         </p>
         <ol
           v-if="data?.commissionerRanks.length"
@@ -119,8 +119,8 @@ const cards = computed(() => {
             </span>
             <span class="col-start-2 h-2 overflow-hidden rounded-full bg-stone-100 sm:col-start-auto">
               <span
-                class="block h-full rounded-full bg-lumen-700"
-                :style="{ width: `${Math.round((rank.commissionAmount / maxCommission) * 100)}%` }"
+                class="chart-grow-x chart-width block h-full rounded-full bg-lumen-700"
+                :style="{ width: `${Math.round((rank.commissionAmount / maxCommission) * 100)}%`, animationDelay: `${index * 60}ms` }"
               />
             </span>
             <span class="col-start-2 text-sm text-stone-900 sm:col-start-auto sm:text-right">{{ formatMoney(rank.commissionAmount) }}</span>
@@ -130,7 +130,7 @@ const cards = computed(() => {
           v-else
           class="mt-4 text-sm text-stone-500"
         >
-          Commissioner rankings will appear after a commissioner booking is completed.
+          Commissioner rankings will appear after a commissioner booking is approved.
         </p>
       </section>
 
@@ -141,15 +141,15 @@ const cards = computed(() => {
           </h3>
           <ul class="mt-4 space-y-2">
             <li
-              v-for="point in data?.salesByDay"
+              v-for="(point, index) in data?.salesByDay"
               :key="point.label"
               class="grid grid-cols-[minmax(0,3.25rem)_minmax(0,1fr)_auto] items-center gap-2 text-xs"
             >
               <span class="text-stone-500">{{ point.label.slice(5) }}</span>
               <span class="h-2 overflow-hidden rounded-full bg-stone-100">
                 <span
-                  class="block h-full rounded-full bg-lumen-700"
-                  :style="{ width: `${Math.round((point.value / maxSales) * 100)}%` }"
+                  class="chart-grow-x chart-width block h-full rounded-full bg-lumen-700"
+                  :style="{ width: `${Math.round((point.value / maxSales) * 100)}%`, animationDelay: `${index * 40}ms` }"
                 />
               </span>
               <span>{{ formatMoney(point.value) }}</span>
@@ -166,15 +166,15 @@ const cards = computed(() => {
             class="mt-4 space-y-2"
           >
             <li
-              v-for="point in data.rentalsByStatus"
+              v-for="(point, index) in data.rentalsByStatus"
               :key="point.label"
               class="grid grid-cols-[minmax(0,4.5rem)_minmax(0,1fr)_auto] items-center gap-2 text-xs sm:grid-cols-[8rem_minmax(0,1fr)_auto] sm:gap-3"
             >
               <span class="capitalize text-stone-500">{{ point.label.replaceAll('_', ' ') }}</span>
               <span class="h-2 overflow-hidden rounded-full bg-stone-100">
                 <span
-                  class="block h-full rounded-full bg-lumen-700"
-                  :style="{ width: `${Math.round((point.value / maxStatus) * 100)}%` }"
+                  class="chart-grow-x chart-width block h-full rounded-full bg-lumen-700"
+                  :style="{ width: `${Math.round((point.value / maxStatus) * 100)}%`, animationDelay: `${index * 60}ms` }"
                 />
               </span>
               <span>{{ point.value }}</span>

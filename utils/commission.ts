@@ -14,8 +14,14 @@ export function canReleaseCommissionerBooking(status: string) {
   return (COMMISSIONER_RELEASE_STATUSES as readonly string[]).includes(status)
 }
 
+export const COMMISSION_EARNED_STATUSES = ['approved', 'ready_for_pickup', 'active', 'overdue', 'returned', 'completed'] as const
+
 export function isCommissionEarned(rentalStatus: string) {
-  return rentalStatus === 'completed'
+  return (COMMISSION_EARNED_STATUSES as readonly string[]).includes(rentalStatus)
+}
+
+export function commissionStillToRecord(commissionAmount: number, collectedAmount: number) {
+  return Math.max(0, Math.round((Math.max(0, commissionAmount) - Math.max(0, collectedAmount)) * 100) / 100)
 }
 
 export function canCollectCommission(expenseStatus: string, rentalStatus: string | null | undefined) {

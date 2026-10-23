@@ -323,7 +323,8 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products, commissioner ranks from highest commission to lowest, recent expenses, active recurring expenses. Active Rentals includes `active` and `overdue` rows, plus paid, approved, and ready-for-pickup rows whose pickup time has started and whose return time has not. Commissioner ranks sum `commission_amount` by commissioner and leave out cancelled and rejected bookings. |
-| GET | `/api/admin/calendar` | Rentals (including drafts) and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila. Days use pickup/return windows so a return morning still shows as booked. |
+| GET | `/api/admin/calendar` | Rentals (including drafts) and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila. Days use pickup/return windows so a return morning still shows as booked. Each rental has `originalEndsOn` (last day of the first booking) when it has an active extension, so days after it are drawn as faded, striped extension days. |
+| GET | `/api/admin/calendar/find?code=` | Find up to 8 calendar bookings whose booking ID contains `code` (letters, numbers, dashes; at least 3). Same statuses as the calendar. Returns rental `uuid`/`code`, dates, equipment, and customer name only. The admin calendar jumps to the picked booking's month and highlights it; each booking ID keeps one color and is drawn as one bar per week. |
 | GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
 | GET | `/api/admin/settings` | Business profile for receipts |
 | PATCH | `/api/admin/settings` | Update name, contact, and policy copy. Currency and timezone stay PHP / Asia/Manila |
@@ -353,7 +354,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | GET | `/api/admin/customers` | Customer profiles, account email, phone, and rental counts. Email comes from the sign-in account and is admin-only |
 | GET | `/api/admin/system-users` | Profiles with `role = admin`, including the sign-in email |
 | GET | `/api/admin/commissioners` | Profiles with `role = commissioner`, including the sign-in email |
-| GET | `/api/admin/commissions` | Commissions from completed bookings only: per-commissioner unclaimed and collected totals, the unclaimed list, and the collected list. Rental `uuid`/`code` and commissioner `uuid` only |
+| GET | `/api/admin/commissions` | Commissions from approved bookings (approved through completed): per-commissioner unclaimed and collected totals, the unclaimed list, and the collected list. Rental `uuid`/`code` and commissioner `uuid` only |
 | POST | `/api/admin/commissions/[uuid]/collect` | Mark an unclaimed commission collected once the commissioner is paid. The commission expense becomes `paid`. Only allowed after the booking is completed. Audited as `commission.collect` |
 | POST | `/api/admin/customers/[uuid]/promote` | Make a customer a system admin. Audited. Clients cannot send `role` |
 | POST | `/api/admin/customers/[uuid]/commissioner` | Make a customer a commissioner. Audited. Clients cannot send `role` |
@@ -361,7 +362,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 | GET | `/api/notifications` | Signed-in recipient |
 | POST | `/api/notifications/[id]/read` | Mark own notification read |
 
-Commissioner routes require `role = commissioner`. `GET /api/commissioner/products` lists active equipment and the admin-set commission per day. `GET /api/commissioner/availability/calendar` is the booking calendar for commissioners and counts only confirmed holds, like their quotes and bookings. `POST /api/commissioner/rentals/quote` and `POST /api/commissioner/rentals` book one piece of equipment for a client. The rental is `pending`, recorded on that commissioner, and holds the dates. The response can include a one-time `waiverUrl`. `GET /api/commissioner/rentals` and `GET /api/commissioner/rentals/[id]` return only that commissioner's bookings. `POST .../cancel` releases the dates while the booking is still `pending` or `awaiting_payment`. Commissioners and customers cannot delete bookings; only `DELETE /api/admin/rentals/[id]` deletes one. The commission amount is kept on the rental, but the commission expense is written only when an admin marks the booking done. Admins see it on `/admin/commissioners` as unclaimed until they mark it collected.
+Commissioner routes require `role = commissioner`. `GET /api/commissioner/products` lists active equipment and the admin-set commission per day. `GET /api/commissioner/availability/calendar` is the booking calendar for commissioners and counts only confirmed holds, like their quotes and bookings. `POST /api/commissioner/rentals/quote` and `POST /api/commissioner/rentals` book one piece of equipment for a client. The rental is `pending`, recorded on that commissioner, and holds the dates. The response can include a one-time `waiverUrl`. `GET /api/commissioner/rentals` and `GET /api/commissioner/rentals/[id]` return only that commissioner's bookings. `POST .../cancel` releases the dates while the booking is still `pending` or `awaiting_payment`. Commissioners and customers cannot delete bookings; only `DELETE /api/admin/rentals/[id]` deletes one. The commission amount is kept on the rental, and the commission expense is written as unclaimed once the booking is approved. Unpaid extensions are not counted; when an admin marks an extension paid, the unclaimed amount grows. If part was already collected, only the balance is recorded. Admins see it on `/admin/commissioners` as unclaimed until they mark it collected.
 
 Approve is allowed after payment is `paid`, or when a voucher brings the rental total to ₱0. The customer receives an in-app notification. Sales KPIs sum paid payment amounts in `Asia/Manila`. Inventory value is `quantity × replacement_value` for non-archived products.
 
@@ -419,7 +420,7 @@ Admin session required. Dates are inclusive in `Asia/Manila`. Default range is t
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/admin/reports/[type]` | `sales`, `expenses`, `profit`, `rentals`, `inventory`, `utilization` |
+| GET | `/api/admin/reports/[type]` | `overview`, `sales`, `expenses`, `commissions`, `profit`, `rentals`, `inventory`, `utilization`. Finance reports return `charts` (`bucket` day/week/month by range length, `trend`, and breakdowns by expense category, payment method, commissioner, equipment, and booking status). Profit is paid sales minus non-void expenses and commissions; `margin` is profit ÷ sales. `expenses` also returns `paid`, `pending`, and `voidCount` in its summary and top vendors in `charts.expensesByVendor`; the Expenses page uses it for its overview with This month / Last month / Last 3 months / This year. `overview` and `profit` also return `months`: every day in the range grouped by calendar month, with month totals (sales, expenses, commissions, profit, margin). `commissions` lists non-void commission expenses as `unclaimed` or `collected` with commissioner name and rental `code`. CSV export works for every type. |
 
 **Query:** `startsOn`, `endsOn`, `format` (`json` default, `csv`)  
 **Rate limit:** 20 CSV exports / minute / admin

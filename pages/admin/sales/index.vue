@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { AdminReport } from '~/types/report'
+import type { AdminReport, ReportBarItem } from '~/types/report'
 import { calendarDateInZone } from '~/utils/datetime'
 import { monthStart } from '~/utils/analytics'
+import { paymentMethodLabel } from '~/utils/report'
 
 definePageMeta({
   layout: 'admin',
@@ -29,6 +30,13 @@ const { data, error, pending } = await useFetch<Extract<AdminReport, { type: 'sa
 
 const unavailable = computed(() => error.value?.statusCode === 503)
 const rows = computed(() => data.value?.rows ?? [])
+const trend = computed(() => data.value?.charts?.trend ?? [])
+const bucketLabel = computed(() => ({ day: 'per day', week: 'per week', month: 'per month' })[data.value?.charts?.bucket ?? 'day'])
+const methodItems = computed<ReportBarItem[]>(() => (data.value?.charts?.salesByMethod ?? []).map(point => ({
+  label: point.label,
+  hint: `${point.count} payment${point.count === 1 ? '' : 's'}`,
+  segments: [{ value: point.value, class: 'bg-lumen-600' }],
+})))
 const csvHref = computed(() => {
   const params = new URLSearchParams({
     startsOn: startsOn.value,
@@ -101,7 +109,7 @@ const csvHref = computed(() => {
     </div>
 
     <template v-else>
-      <div class="grid gap-3 sm:grid-cols-2">
+      <div class="grid gap-3 sm:grid-cols-3">
         <article class="rounded-xl border border-stone-200 bg-white p-4">
           <p class="text-xs uppercase tracking-wider text-stone-500">
             Paid sales
@@ -118,6 +126,37 @@ const csvHref = computed(() => {
             {{ formatMoney(data?.summary.total ?? 0) }}
           </p>
         </article>
+        <article class="rounded-xl border border-stone-200 bg-white p-4">
+          <p class="text-xs uppercase tracking-wider text-stone-500">
+            Average payment
+          </p>
+          <p class="mt-3 text-2xl text-stone-900">
+            {{ formatMoney(data?.summary.average ?? 0) }}
+          </p>
+        </article>
+      </div>
+
+      <div
+        v-if="rows.length"
+        class="grid gap-4 lg:grid-cols-3"
+      >
+        <section class="min-w-0 rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2">
+          <h3 class="text-sm font-medium text-stone-900">
+            Sales {{ bucketLabel }}
+          </h3>
+          <p class="mt-1 mb-4 text-xs text-stone-500">
+            Hover a bar to see the amount.
+          </p>
+          <ReportTrendChart
+            :points="trend"
+            :series="['sales']"
+          />
+        </section>
+        <ReportBarList
+          title="Sales by payment method"
+          :items="methodItems"
+          empty-text="No paid payments in this range."
+        />
       </div>
 
       <AdminNotice
@@ -140,9 +179,7 @@ const csvHref = computed(() => {
           </p>
           <p class="mt-1 text-sm break-words text-stone-500">
             {{ row.paidOn }}
-            <template v-if="row.method">
-              · {{ row.method }}
-            </template>
+            · {{ paymentMethodLabel(row.method) }}
           </p>
           <p class="mt-2 text-sm text-stone-900">
             {{ formatMoney(row.amount) }}
@@ -199,8 +236,8 @@ const csvHref = computed(() => {
                 </NuxtLink>
                 <span v-else>—</span>
               </td>
-              <td class="px-4 py-3 capitalize">
-                {{ row.method || '—' }}
+              <td class="px-4 py-3">
+                {{ paymentMethodLabel(row.method) }}
               </td>
               <td class="px-4 py-3">
                 {{ formatMoney(row.amount) }}

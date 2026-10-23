@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PublicBlockedDate } from '~/types/availability'
 import type { AdminCalendarEvent } from '~/types/calendar'
+import { isExtensionDay } from '~/utils/calendar'
 import { formatBookingDate, formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
 
 const open = defineModel<boolean>('open', { required: true })
@@ -25,7 +26,7 @@ const title = computed(() => (
   props.date ? formatBusinessDate(props.date) : 'Day details'
 ))
 
-function rangeLabel(item: AdminCalendarEvent) {
+function rangeLabel(item: Pick<AdminCalendarEvent, 'startsOn' | 'endsOn' | 'pickupAt' | 'returnAt'>) {
   if (item.pickupAt && item.returnAt) {
     return `${formatBusinessDateTime(item.pickupAt)} – ${formatBusinessDateTime(item.returnAt)}`
   }
@@ -104,6 +105,12 @@ async function removeBlock(uuid: string) {
                 <p class="mt-1 text-sm text-stone-500">
                   {{ rangeLabel(item) }}
                 </p>
+                <p
+                  v-if="isExtensionDay(item, date)"
+                  class="mt-1 text-xs font-medium text-amber-700"
+                >
+                  Extension day · first booking ended {{ formatBookingDate(item.originalEndsOn!) }}
+                </p>
                 <p class="mt-2 text-xs font-medium text-lumen-800">
                   View rental
                 </p>
@@ -135,7 +142,7 @@ async function removeBlock(uuid: string) {
                 {{ block.productName }}
               </p>
               <p class="mt-1 text-sm text-stone-500">
-                {{ rangeLabel(block.startsOn, block.endsOn) }}
+                {{ rangeLabel(block) }}
                 <template v-if="block.reason">
                   · {{ block.reason }}
                 </template>

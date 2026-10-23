@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canCollectCommission, canReleaseCommissionerBooking, commissionAmount, isCommissionEarned, summarizeCommissions } from '../../utils/commission'
+import { canCollectCommission, canReleaseCommissionerBooking, commissionAmount, commissionStillToRecord, isCommissionEarned, summarizeCommissions } from '../../utils/commission'
 
 describe('commission', () => {
   it('uses the equipment daily rate for each rented day and unit', () => {
@@ -15,13 +15,23 @@ describe('commission', () => {
     expect(canReleaseCommissionerBooking('cancelled')).toBe(false)
   })
 
-  it('earns a commission only after the booking is completed', () => {
+  it('earns a commission once the booking is approved', () => {
+    expect(isCommissionEarned('approved')).toBe(true)
+    expect(isCommissionEarned('active')).toBe(true)
     expect(isCommissionEarned('completed')).toBe(true)
-    expect(isCommissionEarned('approved')).toBe(false)
-    expect(isCommissionEarned('active')).toBe(false)
-    expect(canCollectCommission('pending', 'completed')).toBe(true)
+    expect(isCommissionEarned('paid')).toBe(false)
+    expect(isCommissionEarned('pending')).toBe(false)
+    expect(isCommissionEarned('cancelled')).toBe(false)
+    expect(canCollectCommission('pending', 'approved')).toBe(true)
     expect(canCollectCommission('pending', 'pending')).toBe(false)
     expect(canCollectCommission('paid', 'completed')).toBe(false)
+  })
+
+  it('records only what is not yet collected', () => {
+    expect(commissionStillToRecord(300, 0)).toBe(300)
+    expect(commissionStillToRecord(500, 300)).toBe(200)
+    expect(commissionStillToRecord(300, 300)).toBe(0)
+    expect(commissionStillToRecord(200, 300)).toBe(0)
   })
 
   it('sums unclaimed and collected commissions per commissioner, unclaimed first', () => {

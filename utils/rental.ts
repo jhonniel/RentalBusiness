@@ -140,6 +140,7 @@ export function toPublicRental(row: RentalRow): PublicRental {
 
 export function toShopRental(row: RentalRow & {
   commission_amount?: number | null
+  commission_per_day?: number | null
   commissioner?: {
     uuid: string
     first_name: string
@@ -162,6 +163,7 @@ export function toShopRental(row: RentalRow & {
         }
       : null,
     commissionAmount: Number(row.commission_amount ?? 0),
+    commissionPerDay: Number(row.commission_per_day ?? 0),
   }
 }
 
@@ -195,7 +197,7 @@ export function amountDue(rental: { totalAmount: number, depositAmount?: number 
   return fromMinorUnits(toMinorUnits(Math.max(0, rental.totalAmount) + Math.max(0, rental.depositAmount ?? 0)))
 }
 
-export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'startsOn' | 'endsOn' | 'discountAmount' | 'totalAmount' | 'commissionAmount' | 'commissioner' | 'pendingExtensionAmount' | 'extensionLines'>) {
+export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'startsOn' | 'endsOn' | 'discountAmount' | 'totalAmount' | 'commissionAmount' | 'commissionPerDay' | 'commissioner' | 'pendingExtensionAmount' | 'extensionLines'>) {
   const extensions = rental.extensionLines ?? []
   const baseEndsOn = extensions[0]?.previousEndsOn ?? rental.endsOn
   const days = rentalPeriodDays(rental.startsOn, rental.endsOn)
@@ -208,6 +210,9 @@ export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'start
   const pendingExtension = Math.min(rent, toMinorUnits(Math.max(0, rental.pendingExtensionAmount ?? 0)))
   const confirmedRent = rent - pendingExtension
   const commission = rental.commissioner ? toMinorUnits(Math.max(0, rental.commissionAmount ?? 0)) : 0
+  const units = rental.items.reduce((sum, item) => sum + Math.max(0, item.quantity), 0)
+  const perDay = rental.commissioner ? Math.max(0, rental.commissionPerDay ?? 0) : 0
+  const commissionFor = (dayCount: number) => fromMinorUnits(toMinorUnits(perDay * dayCount * units))
 
   return {
     days,
@@ -216,7 +221,13 @@ export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'start
     baseListRent: fromMinorUnits(baseListRent),
     baseRateDiscount: fromMinorUnits(Math.max(0, baseListRent - baseRent)),
     baseRent: fromMinorUnits(baseRent),
-    extensions,
+    commissionPerDay: perDay,
+    commissionUnits: units,
+    baseCommission: commissionFor(baseDays),
+    extensions: extensions.map(extension => ({
+      ...extension,
+      commission: commissionFor(extension.days),
+    })),
     voucherDiscount: fromMinorUnits(toMinorUnits(Math.max(0, rental.discountAmount))),
     rent: fromMinorUnits(rent),
     pendingExtension: fromMinorUnits(pendingExtension),

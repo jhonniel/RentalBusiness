@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import type { AdminReport, ReportType } from '~/types/report'
+import type { AdminReport, ReportBarItem, ReportCharts, ReportType } from '~/types/report'
 import { REPORT_TYPES } from '~/types/report'
 import { calendarDateInZone } from '~/utils/datetime'
 import { monthStart } from '~/utils/analytics'
+import { monthBounds, monthKey } from '~/utils/calendar'
+import { paymentMethodLabel } from '~/utils/report'
 
 definePageMeta({
   layout: 'admin',
@@ -14,9 +16,9 @@ useSiteMeta({
   path: '/admin/reports',
 })
 
-const type = ref<ReportType>('sales')
+const type = ref<ReportType>('overview')
 const startsOn = ref(monthStart(calendarDateInZone()))
-const endsOn = ref(calendarDateInZone())
+const endsOn = ref(monthBounds(monthKey(calendarDateInZone())).endsOn)
 const { formatMoney } = useCurrency()
 
 const query = computed(() => ({
@@ -43,24 +45,74 @@ const csvHref = computed(() => {
   return `/api/admin/reports/${type.value}?${params.toString()}`
 })
 
-const summaryCards = computed(() => {
+interface SummaryCard {
+  label: string
+  value: string
+  hint?: string
+  tone?: 'good' | 'bad'
+}
+
+function percent(value: number) {
+  return `${Math.round(value * 1000) / 10}%`
+}
+
+function profitTone(value: number): SummaryCard['tone'] {
+  return value < 0 ? 'bad' : value > 0 ? 'good' : undefined
+}
+
+const summaryCards = computed<SummaryCard[]>(() => {
   const report = data.value
   if (!report) {
     return []
   }
 
-  if (report.type === 'sales' || report.type === 'expenses') {
+  if (report.type === 'overview') {
+    const summary = report.summary
     return [
-      { label: 'Rows', value: String(report.summary.count) },
+      { label: 'Sales', value: formatMoney(summary.sales), hint: `${summary.paidCount} paid payment${summary.paidCount === 1 ? '' : 's'}` },
+      { label: 'Expenses', value: formatMoney(summary.otherExpenses), hint: 'Not counting commissions' },
+      { label: 'Commissions', value: formatMoney(summary.commissions), hint: `${formatMoney(summary.unclaimedCommissions)} unclaimed · ${formatMoney(summary.collectedCommissions)} collected` },
+      { label: 'Net profit', value: formatMoney(summary.profit), hint: `${percent(summary.margin)} of sales`, tone: profitTone(summary.profit) },
+      { label: 'Bookings', value: String(summary.bookings), hint: 'Confirmed bookings starting in this range' },
+      { label: 'Booking value', value: formatMoney(summary.bookedValue), hint: 'Rental totals, including unpaid extensions' },
+      { label: 'Average booking', value: formatMoney(summary.averageBooking) },
+      { label: 'Total costs', value: formatMoney(summary.expenses), hint: 'Expenses plus commissions' },
+    ]
+  }
+
+  if (report.type === 'sales') {
+    return [
+      { label: 'Paid payments', value: String(report.summary.count) },
+      { label: 'Sales', value: formatMoney(report.summary.total) },
+      { label: 'Average payment', value: formatMoney(report.summary.average) },
+    ]
+  }
+
+  if (report.type === 'expenses') {
+    return [
+      { label: 'Entries', value: String(report.summary.count), hint: 'Void entries are listed but not counted' },
       { label: 'Total', value: formatMoney(report.summary.total) },
+      { label: 'Paid', value: formatMoney(report.summary.paid) },
+      { label: 'Unpaid', value: formatMoney(report.summary.pending) },
+      { label: 'Commissions', value: formatMoney(report.summary.commissions) },
+      { label: 'Other expenses', value: formatMoney(report.summary.otherExpenses) },
+    ]
+  }
+
+  if (report.type === 'commissions') {
+    return [
+      { label: 'Commissions', value: formatMoney(report.summary.total), hint: `${report.summary.count} booking${report.summary.count === 1 ? '' : 's'}` },
+      { label: 'Unclaimed', value: formatMoney(report.summary.unclaimed) },
+      { label: 'Collected', value: formatMoney(report.summary.collected) },
     ]
   }
 
   if (report.type === 'profit') {
     return [
       { label: 'Sales', value: formatMoney(report.summary.sales) },
-      { label: 'Expenses', value: formatMoney(report.summary.expenses) },
-      { label: 'Profit', value: formatMoney(report.summary.profit) },
+      { label: 'Expenses', value: formatMoney(report.summary.otherExpenses) },
+      { label: 'Commissions', value: formatMoney(report.summary.commissions) },
+      { label: 'Profit', value: formatMoney(report.summary.profit), hint: `${percent(report.summary.margin)} of sales`, tone: profitTone(report.summary.profit) },
     ]
   }
 
@@ -86,10 +138,72 @@ const summaryCards = computed(() => {
   ]
 })
 
+const charts = computed<ReportCharts | null>(() => (data.value && 'charts' in data.value ? data.value.charts : null))
+const trendSeries = computed(() => {
+  if (data.value?.type === 'sales') {
+    return ['sales'] as const
+  }
+  if (data.value?.type === 'expenses') {
+    return ['expenses', 'commissions'] as const
+  }
+  return ['sales', 'expenses', 'commissions', 'profit'] as const
+})
+const bucketLabel = computed(() => ({ day: 'per day', week: 'per week', month: 'per month' })[charts.value?.bucket ?? 'day'])
+
+function plural(count: number, word: string) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`
+}
+
+const categoryItems = computed<ReportBarItem[]>(() => (charts.value?.expensesByCategory ?? []).map(point => ({
+  label: point.label,
+  hint: point.count === 1 ? '1 entry' : `${point.count} entries`,
+  segments: [{ value: point.value, class: point.label === 'commission' ? 'bg-amber-400' : 'bg-rose-300' }],
+})))
+const vendorItems = computed<ReportBarItem[]>(() => (charts.value?.expensesByVendor ?? []).map(point => ({
+  label: point.label,
+  hint: point.count === 1 ? '1 entry' : `${point.count} entries`,
+  segments: [{ value: point.value, class: 'bg-stone-500' }],
+})))
+const methodItems = computed<ReportBarItem[]>(() => (charts.value?.salesByMethod ?? []).map(point => ({
+  label: point.label,
+  hint: plural(point.count, 'payment'),
+  segments: [{ value: point.value, class: 'bg-lumen-600' }],
+})))
+const commissionerItems = computed<ReportBarItem[]>(() => (charts.value?.commissionsByCommissioner ?? []).map(point => ({
+  label: point.name,
+  hint: `${plural(point.count, 'booking')} · ${formatMoney(point.unclaimed)} unclaimed · ${formatMoney(point.collected)} collected`,
+  segments: [
+    { value: point.collected, class: 'bg-emerald-500' },
+    { value: point.unclaimed, class: 'bg-amber-400' },
+  ],
+})))
+const equipmentItems = computed<ReportBarItem[]>(() => (charts.value?.topEquipment ?? []).map(point => ({
+  label: point.label,
+  hint: plural(point.count, 'booking'),
+  segments: [{ value: point.value, class: 'bg-lumen-600' }],
+})))
+const statusItems = computed<ReportBarItem[]>(() => (charts.value?.rentalsByStatus ?? []).map(point => ({
+  label: point.label,
+  segments: [{ value: point.value, class: 'bg-stone-400' }],
+})))
+
 const mobileRows = computed(() => {
   const report = data.value
   if (!report) {
     return []
+  }
+
+  if (report.type === 'overview' || report.type === 'profit') {
+    return []
+  }
+
+  if (report.type === 'commissions') {
+    return report.rows.map(row => ({
+      key: row.uuid,
+      title: row.commissioner,
+      meta: `${row.incurredOn} · ${row.rentalCode || '—'} · ${row.status}`,
+      value: formatMoney(row.amount),
+    }))
   }
 
   if (report.type === 'sales') {
@@ -107,15 +221,6 @@ const mobileRows = computed(() => {
       title: row.name,
       meta: `${row.incurredOn} · ${row.category}`,
       value: formatMoney(row.amount),
-    }))
-  }
-
-  if (report.type === 'profit') {
-    return report.rows.map(row => ({
-      key: row.date,
-      title: row.date,
-      meta: `Sales ${formatMoney(row.sales)} · Expenses ${formatMoney(row.expenses)}`,
-      value: formatMoney(row.profit),
     }))
   }
 
@@ -157,7 +262,7 @@ const mobileRows = computed(() => {
           Reports
         </h2>
         <p class="mt-1 text-sm text-stone-600">
-          Sales, expenses, profit, rentals, inventory, and utilization. Totals use Asia/Manila dates.
+          Sales, expenses, commissions, profit, rentals, inventory, and utilization. Totals use Asia/Manila dates. Profit is sales minus expenses and commissions.
         </p>
       </div>
       <UButton
@@ -224,34 +329,128 @@ const mobileRows = computed(() => {
     <template v-else>
       <div
         v-if="remote.loading"
-        class="grid gap-3 sm:grid-cols-3"
+        class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
         role="status"
         aria-busy="true"
       >
         <USkeleton
-          v-for="index in 3"
+          v-for="index in 4"
           :key="index"
           class="h-24 w-full"
         />
       </div>
 
-      <div
-        v-else
-        class="grid gap-3 sm:grid-cols-3"
-      >
-        <article
-          v-for="card in summaryCards"
-          :key="card.label"
-          class="rounded-xl border border-stone-200 bg-white p-4"
+      <template v-else>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <article
+            v-for="card in summaryCards"
+            :key="card.label"
+            class="min-w-0 rounded-xl border border-stone-200 bg-white p-4"
+          >
+            <p class="text-xs uppercase tracking-wider text-stone-500">
+              {{ card.label }}
+            </p>
+            <p
+              class="mt-3 text-2xl"
+              :class="card.tone === 'bad' ? 'text-red-600' : card.tone === 'good' ? 'text-emerald-700' : 'text-stone-900'"
+            >
+              {{ card.value }}
+            </p>
+            <p
+              v-if="card.hint"
+              class="mt-1 text-xs text-stone-500"
+            >
+              {{ card.hint }}
+            </p>
+          </article>
+        </div>
+
+        <section
+          v-if="charts?.trend?.length"
+          class="rounded-xl border border-stone-200 bg-white p-5"
         >
-          <p class="text-xs uppercase tracking-wider text-stone-500">
-            {{ card.label }}
+          <h3 class="text-sm font-medium text-stone-900">
+            <template v-if="data?.type === 'sales'">
+              Sales {{ bucketLabel }}
+            </template>
+            <template v-else-if="data?.type === 'expenses'">
+              Expenses and commissions {{ bucketLabel }}
+            </template>
+            <template v-else>
+              Sales, costs, and profit {{ bucketLabel }}
+            </template>
+          </h3>
+          <p class="mt-1 mb-4 text-xs text-stone-500">
+            Hover a bar to see the amounts.
           </p>
-          <p class="mt-3 text-2xl text-stone-900">
-            {{ card.value }}
-          </p>
-        </article>
-      </div>
+          <ReportTrendChart
+            :points="charts.trend"
+            :series="[...trendSeries]"
+          />
+        </section>
+
+        <div
+          v-if="charts && data?.type !== 'profit'"
+          class="grid gap-4 lg:grid-cols-2"
+        >
+          <ReportBarList
+            v-if="charts.expensesByCategory"
+            title="Expenses by category"
+            description="Void entries are not counted."
+            :items="categoryItems"
+            empty-text="No expenses in this range."
+            capitalize
+          />
+          <ReportBarList
+            v-if="charts.expensesByVendor"
+            title="Top vendors"
+            :items="vendorItems"
+            empty-text="No expenses in this range."
+          />
+          <ReportBarList
+            v-if="charts.salesByMethod"
+            title="Sales by payment method"
+            :items="methodItems"
+            empty-text="No paid payments in this range."
+          />
+          <ReportBarList
+            v-if="charts.commissionsByCommissioner"
+            title="Commissions by commissioner"
+            description="Recorded once a booking is approved. Unpaid extensions are not counted."
+            :items="commissionerItems"
+            empty-text="No commissions in this range."
+          >
+            <template #legend>
+              <ul class="mt-2 flex gap-4 text-xs text-stone-600">
+                <li class="flex items-center gap-1.5">
+                  <span class="size-2.5 rounded-sm bg-emerald-500" />
+                  Collected
+                </li>
+                <li class="flex items-center gap-1.5">
+                  <span class="size-2.5 rounded-sm bg-amber-400" />
+                  Unclaimed
+                </li>
+              </ul>
+            </template>
+          </ReportBarList>
+          <ReportBarList
+            v-if="charts.topEquipment"
+            title="Top equipment by booking value"
+            description="Confirmed bookings starting in this range."
+            :items="equipmentItems"
+            empty-text="No confirmed bookings in this range."
+          />
+          <ReportBarList
+            v-if="charts.rentalsByStatus"
+            title="Bookings by status"
+            description="Bookings starting in this range, drafts excluded."
+            :items="statusItems"
+            format="count"
+            empty-text="No bookings in this range."
+            capitalize
+          />
+        </div>
+      </template>
 
       <ul
         v-if="mobileRows.length"
@@ -274,9 +473,84 @@ const mobileRows = computed(() => {
         </li>
       </ul>
 
-      <div class="hidden overflow-x-auto rounded-xl border border-stone-200 bg-white md:block">
+      <ReportMonthTable
+        v-if="data && (data.type === 'overview' || data.type === 'profit')"
+        :months="data.months"
+      />
+
+      <div
+        v-else
+        class="hidden overflow-x-auto rounded-xl border border-stone-200 bg-white md:block"
+      >
         <table
-          v-if="data?.type === 'sales'"
+          v-if="data?.type === 'commissions'"
+          class="min-w-full text-left text-sm"
+        >
+          <thead class="bg-stone-50 text-stone-500">
+            <tr>
+              <th class="px-4 py-3 font-medium">
+                Recorded
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Commissioner
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Rental
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Details
+              </th>
+              <th class="px-4 py-3 text-right font-medium">
+                Amount
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-stone-100">
+            <tr
+              v-for="row in data.rows"
+              :key="row.uuid"
+            >
+              <td class="px-4 py-3">
+                {{ row.incurredOn }}
+              </td>
+              <td class="px-4 py-3">
+                {{ row.commissioner }}
+              </td>
+              <td class="px-4 py-3">
+                <NuxtLink
+                  v-if="row.rentalCode"
+                  :to="`/admin/rentals/${row.rentalCode}`"
+                  class="text-lumen-700 hover:underline"
+                >
+                  {{ row.rentalCode }}
+                </NuxtLink>
+                <template v-else>
+                  —
+                </template>
+              </td>
+              <td class="px-4 py-3 text-stone-500">
+                {{ row.description || '—' }}
+              </td>
+              <td class="px-4 py-3 text-right tabular-nums">
+                {{ formatMoney(row.amount) }}
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs font-medium capitalize"
+                  :class="row.status === 'collected' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+                >
+                  {{ row.status }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table
+          v-else-if="data?.type === 'sales'"
           class="min-w-full text-left text-sm"
         >
           <thead class="bg-stone-50 text-stone-500">
@@ -286,6 +560,9 @@ const mobileRows = computed(() => {
               </th>
               <th class="px-4 py-3 font-medium">
                 Rental
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Method
               </th>
               <th class="px-4 py-3 font-medium">
                 Amount
@@ -302,6 +579,9 @@ const mobileRows = computed(() => {
               </td>
               <td class="px-4 py-3">
                 {{ row.rentalCode || '—' }}
+              </td>
+              <td class="px-4 py-3">
+                {{ paymentMethodLabel(row.method) }}
               </td>
               <td class="px-4 py-3">
                 {{ formatMoney(row.amount) }}
@@ -352,47 +632,6 @@ const mobileRows = computed(() => {
               </td>
               <td class="px-4 py-3">
                 <StatusBadge :status="row.status" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <table
-          v-else-if="data?.type === 'profit'"
-          class="min-w-full text-left text-sm"
-        >
-          <thead class="bg-stone-50 text-stone-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">
-                Date
-              </th>
-              <th class="px-4 py-3 font-medium">
-                Sales
-              </th>
-              <th class="px-4 py-3 font-medium">
-                Expenses
-              </th>
-              <th class="px-4 py-3 font-medium">
-                Profit
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-stone-100">
-            <tr
-              v-for="row in data.rows"
-              :key="row.date"
-            >
-              <td class="px-4 py-3">
-                {{ row.date }}
-              </td>
-              <td class="px-4 py-3">
-                {{ formatMoney(row.sales) }}
-              </td>
-              <td class="px-4 py-3">
-                {{ formatMoney(row.expenses) }}
-              </td>
-              <td class="px-4 py-3">
-                {{ formatMoney(row.profit) }}
               </td>
             </tr>
           </tbody>
@@ -532,7 +771,6 @@ const mobileRows = computed(() => {
             </tr>
           </tbody>
         </table>
-
       </div>
 
       <p

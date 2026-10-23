@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { adminCalendarQuerySchema } from '../../utils/admin-validation'
+import { adminCalendarFindQuerySchema, adminCalendarQuerySchema } from '../../utils/admin-validation'
 import {
   applyCalendarPick,
   blocksOnDate,
+  bookingColor,
+  CALENDAR_BOOKING_COLORS,
   calendarAgenda,
+  calendarWeekBars,
+  calendarWeeks,
   eventCoversDate,
   eventsOnDate,
   isDateInRange,
+  isExtensionDay,
   monthBounds,
   monthCells,
   monthKey,
@@ -113,5 +118,60 @@ describe('admin calendar', () => {
   it('accepts a month query and rejects an invalid month', () => {
     expect(adminCalendarQuerySchema.parse({ month: '2026-09' })).toEqual({ month: '2026-09' })
     expect(adminCalendarQuerySchema.safeParse({ month: '2026-9' }).success).toBe(false)
+  })
+
+  it('accepts a booking ID search and rejects anything else', () => {
+    expect(adminCalendarFindQuerySchema.parse({ code: ' jry-20261013-00024 ' })).toEqual({ code: 'JRY-20261013-00024' })
+    expect(adminCalendarFindQuerySchema.safeParse({ code: 'JR' }).success).toBe(false)
+    expect(adminCalendarFindQuerySchema.safeParse({ code: 'JRY,code.eq.1' }).success).toBe(false)
+  })
+
+  it('draws one bar per week for each booking and stacks overlaps in lanes', () => {
+    const weeks = calendarWeeks('2026-10')
+    expect(weeks).toHaveLength(5)
+    expect(weeks[0]).toEqual([null, null, null, null, '2026-10-01', '2026-10-02', '2026-10-03'])
+
+    const rentals = [
+      { key: 'a', startsOn: '2026-10-02', endsOn: '2026-10-06' },
+      { key: 'b', startsOn: '2026-10-03', endsOn: '2026-10-03' },
+      { key: 'c', startsOn: '2026-10-05', endsOn: '2026-10-05' },
+    ]
+
+    const first = calendarWeekBars(rentals, weeks[0]!)
+    expect(first.lanes).toBe(2)
+    expect(first.bars.map(bar => [bar.entry.key, bar.column, bar.span, bar.lane, bar.continuesBefore, bar.continuesAfter])).toEqual([
+      ['a', 6, 2, 0, false, true],
+      ['b', 7, 1, 1, false, false],
+    ])
+
+    const second = calendarWeekBars(rentals, weeks[1]!)
+    expect(second.lanes).toBe(2)
+    expect(second.bars.map(bar => [bar.entry.key, bar.column, bar.span, bar.lane, bar.continuesBefore, bar.continuesAfter])).toEqual([
+      ['a', 1, 3, 0, true, false],
+      ['c', 2, 1, 1, false, false],
+    ])
+  })
+
+  it('marks the extension part of a bar after the first booking ends', () => {
+    const weeks = calendarWeeks('2026-10')
+    const extended = [{ key: 'a', startsOn: '2026-10-21', endsOn: '2026-10-26', originalEndsOn: '2026-10-24' }]
+
+    const fourth = calendarWeekBars(extended, weeks[3]!)
+    expect(fourth.bars[0]).toMatchObject({ column: 4, span: 4, extensionFrom: null })
+
+    const fifth = calendarWeekBars(extended, weeks[4]!)
+    expect(fifth.bars[0]).toMatchObject({ column: 1, span: 2, extensionFrom: 0 })
+
+    const midWeek = [{ key: 'b', startsOn: '2026-10-05', endsOn: '2026-10-09', originalEndsOn: '2026-10-07' }]
+    expect(calendarWeekBars(midWeek, weeks[1]!).bars[0]).toMatchObject({ column: 2, span: 5, extensionFrom: 3 })
+
+    expect(isExtensionDay(extended[0]!, '2026-10-24')).toBe(false)
+    expect(isExtensionDay(extended[0]!, '2026-10-25')).toBe(true)
+    expect(isExtensionDay({ originalEndsOn: null }, '2026-10-25')).toBe(false)
+  })
+
+  it('gives the same booking ID the same color every time', () => {
+    expect(bookingColor('JRY-20261013-00024')).toBe(bookingColor('JRY-20261013-00024'))
+    expect(CALENDAR_BOOKING_COLORS).toContain(bookingColor('JRY-20261015-00026'))
   })
 })

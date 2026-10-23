@@ -1,5 +1,6 @@
 import type { AnalyticsKpis, AnalyticsPoint, CommissionerRank, TopProduct } from '~/types/analytics'
 import type { PaymentStatus, RentalStatus } from './constants'
+import { isCommissionEarned } from './commission'
 import { calendarDateInZone } from './datetime'
 
 export interface AnalyticsPaymentRow {
@@ -166,7 +167,7 @@ export function commissionerRanks(rows: AnalyticsCommissionRow[]): CommissionerR
   const totals = new Map<string, CommissionerRank>()
 
   for (const row of rows) {
-    if (!row.commissioner || row.commissionAmount <= 0 || row.status !== 'completed') {
+    if (!row.commissioner || row.commissionAmount <= 0 || !isCommissionEarned(row.status)) {
       continue
     }
 

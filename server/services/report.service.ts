@@ -6,19 +6,30 @@ import type { ReportQuery } from '../../utils/report-validation'
 import { calendarDateInZone } from '../../utils/datetime'
 import { monthStart } from '../../utils/analytics'
 import {
-  expenseTotal,
+  bookingStats,
+  commissionsByCommissioner,
+  expensesByCategory,
+  expensesByVendor,
+  expenseStatusTotals,
+  financeSummary,
+  reportBucketFor,
   reportFilename,
   reportMeta,
+  salesByMethod,
+  toCommissionRows,
   toExpenseRows,
   toInventoryRows,
+  toMonthGroups,
   toProfitRows,
   toRentalRows,
   toReportCsv,
   toSalesRows,
+  toTrendPoints,
   toUtilizationRows,
 } from '../../utils/report'
 import { recordAudit } from '../utils/audit'
 import {
+  listReportBookings,
   listReportExpenses,
   listReportPayments,
   listReportProducts,
@@ -39,23 +50,96 @@ function range(query: ReportQuery) {
 export async function getAdminReport(client: Client, type: ReportType, query: ReportQuery): Promise<AdminReport> {
   const { startsOn, endsOn } = range(query)
   const meta = reportMeta(type, startsOn, endsOn)
+  const bucket = reportBucketFor(startsOn, endsOn)
 
-  if (type === 'sales') {
-    const rows = toSalesRows(await listReportPayments(client), startsOn, endsOn)
+  if (type === 'overview') {
+    const [payments, expenses, bookings] = await Promise.all([
+      listReportPayments(client),
+      listReportExpenses(client, startsOn, endsOn),
+      listReportBookings(client, startsOn, endsOn),
+    ])
+    const sales = toSalesRows(payments, startsOn, endsOn)
+    const expenseRows = toExpenseRows(expenses, startsOn, endsOn)
+    const commissionRows = toCommissionRows(expenseRows)
+    const stats = bookingStats(bookings, startsOn, endsOn)
+    const trend = toTrendPoints(sales, expenseRows, startsOn, endsOn, bucket)
     return {
       ...meta,
       type,
-      summary: { count: rows.length, total: rows.reduce((sum, row) => sum + row.amount, 0) },
+      summary: {
+        ...financeSummary(sales, expenseRows),
+        paidCount: sales.length,
+        bookings: stats.bookings,
+        bookedValue: stats.bookedValue,
+        averageBooking: stats.averageBooking,
+        unclaimedCommissions: commissionRows.filter(row => row.status === 'unclaimed').reduce((sum, row) => sum + row.amount, 0),
+        collectedCommissions: commissionRows.filter(row => row.status === 'collected').reduce((sum, row) => sum + row.amount, 0),
+      },
+      charts: {
+        bucket,
+        trend,
+        expensesByCategory: expensesByCategory(expenseRows),
+        salesByMethod: salesByMethod(sales),
+        commissionsByCommissioner: commissionsByCommissioner(commissionRows),
+        topEquipment: stats.topEquipment,
+        rentalsByStatus: stats.rentalsByStatus,
+      },
+      months: toMonthGroups(sales, expenseRows, startsOn, endsOn),
+      rows: trend,
+    }
+  }
+
+  if (type === 'sales') {
+    const rows = toSalesRows(await listReportPayments(client), startsOn, endsOn)
+    const total = rows.reduce((sum, row) => sum + row.amount, 0)
+    return {
+      ...meta,
+      type,
+      summary: { count: rows.length, total, average: rows.length ? Math.round((total / rows.length) * 100) / 100 : 0 },
+      charts: {
+        bucket,
+        trend: toTrendPoints(rows, [], startsOn, endsOn, bucket),
+        salesByMethod: salesByMethod(rows),
+      },
       rows,
     }
   }
 
   if (type === 'expenses') {
     const rows = toExpenseRows(await listReportExpenses(client, startsOn, endsOn), startsOn, endsOn)
+    const totals = financeSummary([], rows)
     return {
       ...meta,
       type,
-      summary: { count: rows.length, total: expenseTotal(rows) },
+      summary: {
+        count: rows.length,
+        total: totals.expenses,
+        commissions: totals.commissions,
+        otherExpenses: totals.otherExpenses,
+        ...expenseStatusTotals(rows),
+      },
+      charts: {
+        bucket,
+        trend: toTrendPoints([], rows, startsOn, endsOn, bucket),
+        expensesByCategory: expensesByCategory(rows),
+        expensesByVendor: expensesByVendor(rows),
+      },
+      rows,
+    }
+  }
+
+  if (type === 'commissions') {
+    const rows = toCommissionRows(toExpenseRows(await listReportExpenses(client, startsOn, endsOn), startsOn, endsOn))
+    const unclaimed = rows.filter(row => row.status === 'unclaimed').reduce((sum, row) => sum + row.amount, 0)
+    const collected = rows.filter(row => row.status === 'collected').reduce((sum, row) => sum + row.amount, 0)
+    return {
+      ...meta,
+      type,
+      summary: { count: rows.length, total: unclaimed + collected, unclaimed, collected },
+      charts: {
+        bucket,
+        commissionsByCommissioner: commissionsByCommissioner(rows),
+      },
       rows,
     }
   }
@@ -67,14 +151,16 @@ export async function getAdminReport(client: Client, type: ReportType, query: Re
     ])
     const sales = toSalesRows(payments, startsOn, endsOn)
     const expenseRows = toExpenseRows(expenses, startsOn, endsOn)
-    const rows = toProfitRows(sales, expenseRows, startsOn, endsOn)
-    const salesTotal = sales.reduce((sum, row) => sum + row.amount, 0)
-    const expensesTotal = expenseTotal(expenseRows)
     return {
       ...meta,
       type,
-      summary: { sales: salesTotal, expenses: expensesTotal, profit: salesTotal - expensesTotal },
-      rows,
+      summary: financeSummary(sales, expenseRows),
+      charts: {
+        bucket,
+        trend: toTrendPoints(sales, expenseRows, startsOn, endsOn, bucket),
+      },
+      months: toMonthGroups(sales, expenseRows, startsOn, endsOn),
+      rows: toProfitRows(sales, expenseRows, startsOn, endsOn),
     }
   }
 

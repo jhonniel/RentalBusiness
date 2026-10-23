@@ -60,6 +60,8 @@ export interface PublicRental {
     lastName: string
   } | null
   commissionAmount?: number
+  commissionPerDay?: number
+  commissionStatus?: 'not_recorded' | 'unclaimed' | 'collected'
   pendingExtensionAmount?: number
   extensionLines?: RentalExtensionLine[]
   createdAt: string

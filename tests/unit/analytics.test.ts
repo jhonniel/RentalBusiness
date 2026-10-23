@@ -86,7 +86,7 @@ describe('commissioner ranks', () => {
       },
       {
         commissionAmount: 150,
-        status: 'completed',
+        status: 'approved',
         commissioner: { uuid: '11111111-1111-4111-8111-111111111111', firstName: 'Ana', lastName: 'Reyes' },
       },
       {

@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { PublicProfile } from '../../types/auth'
-import { commissionAmount, canReleaseCommissionerBooking } from '../../utils/commission'
+import { commissionAmount, commissionStillToRecord, canReleaseCommissionerBooking, isCommissionEarned } from '../../utils/commission'
 import type { CreateCommissionerRentalInput } from '../../utils/rental-validation'
 import { rentalQuoteQuerySchema } from '../../utils/rental-validation'
 import type { z } from 'zod'
@@ -11,7 +11,8 @@ import { isRentalCode, toShopRental } from '../../utils/rental'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
-import { findOpenCommissionExpenseByRentalId, insertExpense, updateExpenseByUuid, voidCommissionExpenses } from '../repositories/expense.repository'
+import { insertExpense, listRecordedCommissionExpenses, updateExpenseByUuid, voidCommissionExpenses } from '../repositories/expense.repository'
+import { calendarDateInZone } from '../../utils/datetime'
 import { findProductByUuid, listBookableProducts } from '../repositories/product.repository'
 import { findProfileKeyByUuid } from '../repositories/profile.repository'
 import {
@@ -37,44 +38,62 @@ function personName(person: { firstName?: string, lastName?: string, first_name?
   return name || 'Commissioner'
 }
 
-export async function recordCompletedCommission(
+export async function reconcileCommissionExpense(
   client: Client,
   rental: {
     id: number
     code: string
-    commissioner: { firstName: string, lastName: string } | null | undefined
+    status: string
+    commissioner: { firstName?: string, lastName?: string, first_name?: string, last_name?: string } | null | undefined
     commissionAmount: number
     productName: string
     days: number
     quantity: number
-    completedOn: string
   },
 ) {
-  if (!rental.commissioner || rental.commissionAmount <= 0) {
+  if (!isCommissionEarned(rental.status) || !rental.commissioner || rental.commissionAmount <= 0) {
+    await voidCommissionExpenses(client, rental.id)
     return null
   }
 
-  const existing = await findOpenCommissionExpenseByRentalId(client, rental.id)
-  if (existing) {
-    if (existing.status === 'pending' && Number(existing.amount) !== rental.commissionAmount) {
-      await updateExpenseByUuid(client, existing.uuid, {
-        amount: rental.commissionAmount,
-        incurred_on: rental.completedOn,
+  const recorded = await listRecordedCommissionExpenses(client, rental.id)
+  const collected = recorded.filter(row => row.status === 'paid').reduce((sum, row) => sum + Number(row.amount), 0)
+  const [keep, ...extra] = recorded.filter(row => row.status === 'pending')
+  const target = commissionStillToRecord(rental.commissionAmount, collected)
+
+  for (const row of extra) {
+    await updateExpenseByUuid(client, row.uuid, { status: 'void' })
+  }
+
+  if (target <= 0) {
+    if (keep) {
+      await updateExpenseByUuid(client, keep.uuid, { status: 'void' })
+    }
+    return null
+  }
+
+  const description = `${rental.productName} · ${rental.days} day${rental.days === 1 ? '' : 's'} × ${rental.quantity}${collected > 0 ? ' · balance after collected' : ''}`
+  if (keep) {
+    if (Number(keep.amount) !== target) {
+      await updateExpenseByUuid(client, keep.uuid, {
+        amount: target,
+        description,
+        vendor: personName(rental.commissioner),
       })
     }
-    return existing.uuid
+    return keep.uuid
   }
 
   const created = await insertExpense(client, {
     name: `Commission · ${rental.code}`,
     category: 'commission',
-    description: `${rental.productName} · ${rental.days} day${rental.days === 1 ? '' : 's'} × ${rental.quantity}`,
-    amount: rental.commissionAmount,
+    description,
+    amount: target,
     vendor: personName(rental.commissioner),
     reference: rental.code,
     status: 'pending',
-    notes: 'Commission earned on a completed booking. Mark it collected when the commissioner is paid.',
-    incurred_on: rental.completedOn,
+    notes: 'Commission earned on an approved booking. Mark it collected when the commissioner is paid.',
+    incurred_on: calendarDateInZone(),
     rental_id: rental.id,
   })
   return created.uuid
@@ -101,7 +120,7 @@ export async function assignedCommission(
 
 export async function syncAssignedCommission(
   client: Client,
-  rental: { id: number, uuid: string, code: string },
+  rental: { id: number, uuid: string, code: string, status?: string },
   input: {
     commissionerUuid?: string
     productUuid: string
@@ -122,7 +141,16 @@ export async function syncAssignedCommission(
     commissionPerDay: assigned?.commissionPerDay ?? 0,
     commissionAmount: amount,
   })
-  await voidCommissionExpenses(client, rental.id)
+  await reconcileCommissionExpense(client, {
+    id: rental.id,
+    code: rental.code,
+    status: rental.status ?? 'draft',
+    commissioner: assigned?.commissioner ?? null,
+    commissionAmount: amount,
+    productName: input.productName,
+    days: input.days,
+    quantity: input.quantity,
+  })
 
   return {
     commissionerUuid: assigned?.commissioner.uuid ?? null,

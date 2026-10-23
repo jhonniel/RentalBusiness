@@ -1,8 +1,10 @@
 import type { ExpenseCategory, ExpenseStatus, RentalStatus } from '~/utils/constants'
 
 export const REPORT_TYPES = [
+  'overview',
   'sales',
   'expenses',
+  'commissions',
   'profit',
   'rentals',
   'inventory',
@@ -36,6 +38,7 @@ export interface ExpenseReportRow {
   category: ExpenseCategory
   vendor: string | null
   reference: string | null
+  description?: string | null
   amount: number
   status: ExpenseStatus
 }
@@ -77,20 +80,120 @@ export interface UtilizationReportRow {
   utilization: number
 }
 
+export type ReportBucket = 'day' | 'week' | 'month'
+
+export interface ReportTrendPoint {
+  label: string
+  startsOn: string
+  endsOn: string
+  sales: number
+  expenses: number
+  commissions: number
+  profit: number
+}
+
+export interface ReportMonthGroup {
+  month: string
+  label: string
+  startsOn: string
+  endsOn: string
+  days: ReportTrendPoint[]
+  totals: {
+    sales: number
+    expenses: number
+    commissions: number
+    profit: number
+    margin: number
+  }
+}
+
+export interface ReportBreakdownPoint {
+  label: string
+  value: number
+  count: number
+}
+
+export interface ReportCommissionerPoint {
+  name: string
+  unclaimed: number
+  collected: number
+  count: number
+}
+
+export interface ReportBarItem {
+  label: string
+  hint?: string
+  segments: Array<{ value: number, class: string }>
+}
+
+export interface ReportCharts {
+  bucket: ReportBucket
+  trend?: ReportTrendPoint[]
+  expensesByCategory?: ReportBreakdownPoint[]
+  expensesByVendor?: ReportBreakdownPoint[]
+  salesByMethod?: ReportBreakdownPoint[]
+  commissionsByCommissioner?: ReportCommissionerPoint[]
+  topEquipment?: ReportBreakdownPoint[]
+  rentalsByStatus?: ReportBreakdownPoint[]
+}
+
+export interface FinanceSummary {
+  sales: number
+  otherExpenses: number
+  commissions: number
+  expenses: number
+  profit: number
+  margin: number
+}
+
+export interface CommissionReportRow {
+  uuid: string
+  incurredOn: string
+  commissioner: string
+  rentalCode: string | null
+  description: string | null
+  amount: number
+  status: 'unclaimed' | 'collected'
+}
+
 export type AdminReport
   = | (ReportMeta & {
+    type: 'overview'
+    summary: FinanceSummary & {
+      paidCount: number
+      bookings: number
+      bookedValue: number
+      averageBooking: number
+      unclaimedCommissions: number
+      collectedCommissions: number
+    }
+    charts: ReportCharts
+    months: ReportMonthGroup[]
+    rows: ReportTrendPoint[]
+  })
+  | (ReportMeta & {
     type: 'sales'
-    summary: { count: number, total: number }
+    summary: { count: number, total: number, average: number }
+    charts: ReportCharts
     rows: SalesReportRow[]
   })
   | (ReportMeta & {
     type: 'expenses'
-    summary: { count: number, total: number }
+    summary: { count: number, total: number, commissions: number, otherExpenses: number, paid: number, pending: number, voidCount: number }
+    charts: ReportCharts
     rows: ExpenseReportRow[]
   })
   | (ReportMeta & {
+    type: 'commissions'
+    summary: { count: number, total: number, unclaimed: number, collected: number }
+    charts: ReportCharts
+    rows: CommissionReportRow[]
+  })
+  | (ReportMeta & {
     type: 'profit'
-    summary: { sales: number, expenses: number, profit: number }
+    summary: FinanceSummary
+    charts: ReportCharts
+    months: ReportMonthGroup[]
     rows: ProfitReportRow[]
   })
   | (ReportMeta & {

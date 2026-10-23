@@ -21,7 +21,7 @@ export async function listReportPayments(client: Client) {
 export async function listReportExpenses(client: Client, startsOn: string, endsOn: string) {
   const { data, error } = await client
     .from('expenses')
-    .select('uuid, name, category, vendor, reference, amount, status, incurred_on')
+    .select('uuid, name, category, vendor, reference, description, amount, status, incurred_on')
     .gte('incurred_on', startsOn)
     .lte('incurred_on', endsOn)
     .order('incurred_on', { ascending: false })
@@ -43,6 +43,22 @@ export async function listReportRentals(client: Client, startsOn: string, endsOn
 
   if (error) {
     throw new AppError('We could not load rentals.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
+export async function listReportBookings(client: Client, startsOn: string, endsOn: string) {
+  const { data, error } = await client
+    .from('rental_requests')
+    .select('status, starts_on, total_amount, rental_items ( quantity, line_total, products ( name ) )')
+    .gte('starts_on', startsOn)
+    .lte('starts_on', endsOn)
+    .neq('status', 'draft')
+    .limit(5000)
+
+  if (error) {
+    throw new AppError('We could not load bookings.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
   }
 
   return data ?? []

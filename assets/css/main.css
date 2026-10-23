@@ -314,3 +314,65 @@
   font-weight: 500;
   color: #475569;
 }
+
+@keyframes chart-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes chart-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes chart-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes chart-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.chart-grow-x {
+  transform-origin: left center;
+  animation: chart-grow-x 800ms var(--ease-out) both;
+}
+
+.chart-grow-y {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: chart-grow-y 800ms var(--ease-out) both;
+}
+
+.chart-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chart-draw 1100ms var(--ease-out) 250ms forwards;
+}
+
+.chart-fade {
+  animation: chart-fade 500ms ease-out both;
+}
+
+.chart-width {
+  transition: width 700ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-grow-x,
+  .chart-grow-y,
+  .chart-fade {
+    animation: none !important;
+  }
+
+  .chart-draw {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+}

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { ExpenseListResponse } from '~/types/expense'
+import type { AdminReport } from '~/types/report'
+import type { ReportPeriod } from '~/utils/report'
+import { reportPeriodRange } from '~/utils/report'
 import { EXPENSE_CATEGORIES, EXPENSE_STATUSES } from '~/utils/constants'
 import { formatBusinessDate } from '~/utils/datetime'
 
@@ -31,6 +34,13 @@ const query = computed(() => ({
 const { data, error, pending } = await useFetch<ExpenseListResponse>('/api/admin/expenses', {
   query,
   watch: [query],
+})
+
+const period = ref<ReportPeriod>('this_month')
+const periodQuery = computed(() => reportPeriodRange(period.value))
+const { data: overview, pending: overviewPending } = useLazyFetch<Extract<AdminReport, { type: 'expenses' }>>('/api/admin/reports/expenses', {
+  query: periodQuery,
+  watch: [periodQuery],
 })
 
 const unavailable = computed(() => error.value?.statusCode === 503)
@@ -68,6 +78,17 @@ watch([search, category, status], () => {
         </UButton>
       </div>
     </div>
+
+    <AdminExpenseDashboard
+      v-if="!unavailable"
+      v-model:period="period"
+      :report="overview ?? null"
+      :loading="overviewPending"
+    />
+
+    <h3 class="text-sm font-medium text-stone-900">
+      All expenses
+    </h3>
 
     <form
       class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-3"

@@ -28,6 +28,15 @@ export const adminCalendarQuerySchema = z.object({
   status: z.enum(CALENDAR_RENTAL_STATUSES).optional(),
 }).strict()
 
+export const adminCalendarFindQuerySchema = z.object({
+  code: z.string()
+    .trim()
+    .toUpperCase()
+    .min(3, 'Type at least 3 characters of the booking ID.')
+    .max(40)
+    .regex(/^[A-Z0-9-]+$/, 'Booking IDs use letters, numbers, and dashes.'),
+}).strict()
+
 export const notificationListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),

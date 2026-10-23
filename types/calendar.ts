@@ -11,6 +11,7 @@ export interface AdminCalendarEvent {
   returnAt?: string | null
   productName: string
   customerName: string | null
+  originalEndsOn?: string | null
 }
 
 export interface AdminCalendar {

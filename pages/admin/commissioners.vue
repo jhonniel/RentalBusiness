@@ -64,7 +64,7 @@ async function collect(item: AdminCommission) {
         Commissioners
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Commissions appear here once the booking is completed. Mark one collected after the commissioner is paid.
+        Commissions appear here once the booking is approved. Unpaid extensions are not counted. Mark one collected after the commissioner is paid.
       </p>
     </div>
 
@@ -144,7 +144,7 @@ async function collect(item: AdminCommission) {
           v-else
           class="mt-4 text-sm text-stone-500"
         >
-          No commissions yet. They appear after a commissioner booking is completed.
+          No commissions yet. They appear after a commissioner booking is approved.
         </p>
       </section>
 
@@ -178,7 +178,7 @@ async function collect(item: AdminCommission) {
                 · {{ item.rental.equipment }}
               </p>
               <p class="text-xs text-stone-500">
-                Completed {{ formatBusinessDate(item.earnedOn) }}
+                Recorded {{ formatBusinessDate(item.earnedOn) }}
                 <template v-if="item.rental.returnAt">
                   · returned by {{ formatBusinessDateTime(item.rental.returnAt) }}
                 </template>

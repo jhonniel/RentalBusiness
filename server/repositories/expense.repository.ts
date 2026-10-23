@@ -194,13 +194,29 @@ export async function findOpenCommissionExpenseByRentalId(client: Client, rental
   return data
 }
 
+export async function listRecordedCommissionExpenses(client: Client, rentalId: number) {
+  const { data, error } = await client
+    .from('expenses')
+    .select('uuid, amount, status, created_at')
+    .eq('rental_id', rentalId)
+    .eq('category', 'commission')
+    .neq('status', 'void')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw new AppError('We could not load that commission.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
 export async function voidCommissionExpenses(client: Client, rentalId: number) {
   const { error } = await client
     .from('expenses')
     .update({ status: 'void' })
     .eq('rental_id', rentalId)
     .eq('category', 'commission')
-    .neq('status', 'void')
+    .eq('status', 'pending')
 
   if (error) {
     throw new AppError('We could not void that commission.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })

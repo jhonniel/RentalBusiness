@@ -52,7 +52,18 @@ async function userFromBearer(event: H3Event): Promise<JwtPayload | null> {
   } as JwtPayload
 }
 
-export async function requireUser(event: H3Event): Promise<JwtPayload> {
+export function requireUser(event: H3Event): Promise<JwtPayload> {
+  const context = event.context as { authUser?: Promise<JwtPayload> }
+  if (!context.authUser) {
+    context.authUser = resolveUser(event)
+    context.authUser.catch(() => {
+      context.authUser = undefined
+    })
+  }
+  return context.authUser
+}
+
+async function resolveUser(event: H3Event): Promise<JwtPayload> {
   if (!isSupabaseConfigured()) {
     throw new AppError(
       'The application is not ready to process this request.',
@@ -79,9 +90,21 @@ export async function requireUser(event: H3Event): Promise<JwtPayload> {
   throw new AppError('Please sign in to continue.', 401, ERROR_CODES.UNAUTHORIZED)
 }
 
-export async function getCurrentProfile(event: H3Event): Promise<PublicProfile> {
+export function getCurrentProfile(event: H3Event): Promise<PublicProfile> {
+  const context = event.context as { authProfile?: Promise<PublicProfile> }
+  if (!context.authProfile) {
+    context.authProfile = resolveCurrentProfile(event)
+    context.authProfile.catch(() => {
+      context.authProfile = undefined
+    })
+  }
+  return context.authProfile
+}
+
+async function resolveCurrentProfile(event: H3Event): Promise<PublicProfile> {
   const user = await requireUser(event)
   const client = await getAuthenticatedSupabaseClient(event)
+  const deletedCheck = isProfileDeleted(getSupabaseAdminClient(), user.sub)
   let row = null
   try {
     row = await findProfileByUserId(client, user.sub)
@@ -97,7 +120,7 @@ export async function getCurrentProfile(event: H3Event): Promise<PublicProfile> 
     throw new AppError('Your profile is not available yet.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  if (await isProfileDeleted(getSupabaseAdminClient(), user.sub)) {
+  if (await deletedCheck) {
     throw new AppError('This account has been deleted. Contact the shop for help.', 403, ERROR_CODES.FORBIDDEN)
   }
 

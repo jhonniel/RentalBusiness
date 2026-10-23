@@ -10,6 +10,8 @@ import { AppError, ERROR_CODES } from '../utils/errors'
 type Client = SupabaseClient<Database>
 
 const RENTAL_SELECT = `
+  id,
+  customer_id,
   uuid,
   code,
   status,
@@ -25,6 +27,7 @@ const RENTAL_SELECT = `
   notes,
   created_at,
   commissioner_id,
+  commission_per_day,
   commission_amount,
   commissioner:profiles!rental_requests_commissioner_id_fkey (
     uuid,
@@ -96,6 +99,7 @@ const RENTAL_SELECT = `
 `
 
 const CALENDAR_SELECT = `
+  id,
   uuid,
   code,
   status,
@@ -514,6 +518,23 @@ export async function listRentalsOverlapping(client: Client, filters: {
 
   if (error) {
     throw new AppError('We could not load the rental calendar.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
+}
+
+export async function findCalendarRentalsByCode(client: Client, search: string) {
+  const codes = rentalCodeCandidates(search)
+  const { data, error } = await client
+    .from('rental_requests')
+    .select(CALENDAR_SELECT)
+    .or(codes.map(code => `code.ilike.%${code}%`).join(','))
+    .in('status', [...CALENDAR_RENTAL_STATUSES])
+    .order('starts_on', { ascending: false })
+    .limit(8)
+
+  if (error) {
+    throw new AppError('We could not search the rental calendar.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
   }
 
   return data ?? []

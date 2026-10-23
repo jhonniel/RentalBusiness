@@ -104,6 +104,15 @@ const canMarkPaid = computed(() => rental.value ? canMarkAdminRentalPaid(rental.
 const canFinish = computed(() => rental.value ? canCompleteAdminRental(rental.value) : false)
 const canCancel = computed(() => rental.value ? canCancelAdminRental(rental.value) : false)
 const sales = computed(() => rental.value ? rentalSalesBreakdown(rental.value) : null)
+const commissionStatusLabel = computed(() => {
+  if (rental.value?.commissionStatus === 'collected') {
+    return 'collected'
+  }
+  if (rental.value?.commissionStatus === 'unclaimed') {
+    return 'recorded, unclaimed'
+  }
+  return 'recorded when the booking is approved'
+})
 const paidPayment = computed(() => rental.value?.payments.find(payment => payment.status === 'paid') ?? null)
 const hasPaidPayment = computed(() => Boolean(paidPayment.value))
 const paidAmount = computed(() => paidPayment.value?.amount ?? 0)
@@ -540,6 +549,16 @@ async function removeRental() {
                 <dt>Rent</dt>
                 <dd>{{ formatMoney(sales.baseRent) }}</dd>
               </div>
+              <div
+                v-if="rental.commissioner && sales.commissionPerDay > 0"
+                class="flex flex-wrap justify-between gap-x-4 gap-y-0.5 pl-3 text-stone-600"
+              >
+                <dt class="min-w-0">
+                  Commission · {{ sales.baseDays }} day{{ sales.baseDays === 1 ? '' : 's' }} × {{ formatMoney(sales.commissionPerDay) }}{{ sales.commissionUnits > 1 ? ` × ${sales.commissionUnits}` : '' }}
+                  <span class="text-xs text-stone-500">· {{ commissionStatusLabel }}</span>
+                </dt>
+                <dd>−{{ formatMoney(sales.baseCommission) }}</dd>
+              </div>
 
               <div
                 v-for="(extension, index) in sales.extensions"
@@ -572,6 +591,18 @@ async function removeRental() {
                 <dd class="text-stone-700">
                   +{{ formatMoney(extension.addedAmount) }}
                 </dd>
+                <div
+                  v-if="rental.commissioner && sales.commissionPerDay > 0"
+                  class="flex w-full justify-between gap-4 pl-3 text-stone-600"
+                >
+                  <span class="min-w-0">
+                    Commission · {{ extension.days }} day{{ extension.days === 1 ? '' : 's' }} × {{ formatMoney(sales.commissionPerDay) }}{{ sales.commissionUnits > 1 ? ` × ${sales.commissionUnits}` : '' }}
+                    <span class="text-xs text-stone-500">
+                      · {{ extension.paymentStatus === 'unpaid' ? 'counts after the extension is paid' : commissionStatusLabel }}
+                    </span>
+                  </span>
+                  <span :class="extension.paymentStatus === 'unpaid' ? 'text-stone-400 line-through' : ''">−{{ formatMoney(extension.commission) }}</span>
+                </div>
               </div>
 
               <div
@@ -596,7 +627,7 @@ async function removeRental() {
                 v-if="rental.commissioner"
                 class="flex justify-between gap-4 text-stone-600"
               >
-                <dt>Commission · {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}{{ sales.pendingExtension > 0 ? ' (paid days only)' : '' }}</dt>
+                <dt>Total commission · {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}{{ sales.pendingExtension > 0 ? ' (paid days only)' : '' }}</dt>
                 <dd>−{{ formatMoney(sales.commission) }}</dd>
               </div>
               <div class="flex justify-between gap-4 font-medium text-stone-900">

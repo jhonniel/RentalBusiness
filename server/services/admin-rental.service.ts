@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { AdminCalendar } from '../../types/calendar'
+import type { AdminCalendar, AdminCalendarEvent } from '../../types/calendar'
 import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
@@ -32,15 +32,16 @@ import {
   insertRentalRequest,
   insertRentalStatusHistory,
   listRentals,
+  findCalendarRentalsByCode,
   listRentalsOverlapping,
   updateRentalSchedule,
   updateRentalItemByRentalId,
   updateRentalStatus,
 } from '../repositories/rental.repository'
-import { findRentalExtension, insertRentalExtension, listRentalExtensions, markRentalExtensionCancelled, updateRentalExtension } from '../repositories/rental-extension.repository'
+import { findRentalExtension, insertRentalExtension, listExtensionStartsByRentalIds, listRentalExtensions, markRentalExtensionCancelled, updateRentalExtension } from '../repositories/rental-extension.repository'
 import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
-import { recordCompletedCommission, syncAssignedCommission } from './commissioner.service'
+import { reconcileCommissionExpense, syncAssignedCommission } from './commissioner.service'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
 import {
@@ -52,7 +53,7 @@ import {
   updatePaymentByUuid,
 } from '../repositories/payment.repository'
 import { expireUnconfirmedRentals } from './cron.service'
-import { voidCommissionExpenses } from '../repositories/expense.repository'
+import { findOpenCommissionExpenseByRentalId, voidCommissionExpenses } from '../repositories/expense.repository'
 import { listAdminBlockedDatesOverlapping } from './blocked-date.service'
 import { attachAdminIdentityUrls } from './identity.service'
 import { issueReceiptForPayment } from './receipt.service'
@@ -63,7 +64,7 @@ function sanitizeSearch(value?: string) {
   return value?.replace(/[%_,]/g, '').trim() || undefined
 }
 
-async function loadAdminRental(client: Client, identifier: string) {
+async function loadAdminRentalRow(client: Client, identifier: string) {
   const row = isUuid(identifier)
     ? await findRentalByUuid(client, identifier)
     : isRentalCode(identifier)
@@ -74,17 +75,30 @@ async function loadAdminRental(client: Client, identifier: string) {
     throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  const rental = toShopRental(row)
-  rental.identity = await attachAdminIdentityUrls(client, rental.uuid, rental.identity)
-  const identity = await findRentalIdentity(client, rental.uuid)
-  const profile = identity ? await findProfileById(client, identity.customer_id) : null
+  return { row, rental: toShopRental(row) }
+}
+
+async function enrichAdminRental(
+  client: Client,
+  rental: ReturnType<typeof toShopRental>,
+  row: { id: number, customer_id: number },
+) {
+  const [identityUrls, email] = await Promise.all([
+    attachAdminIdentityUrls(client, rental.uuid, rental.identity, row.id),
+    rental.customer
+      ? findProfileById(client, row.customer_id).then(profile => accountEmail(profile?.user_id))
+      : Promise.resolve(null),
+  ])
+  rental.identity = identityUrls
   if (rental.customer) {
-    rental.customer = {
-      ...rental.customer,
-      email: await accountEmail(profile?.user_id),
-    }
+    rental.customer = { ...rental.customer, email }
   }
   return rental
+}
+
+async function loadAdminRental(client: Client, identifier: string) {
+  const { row, rental } = await loadAdminRentalRow(client, identifier)
+  return enrichAdminRental(client, rental, row)
 }
 
 export async function listAdminRentals(client: Client, query: {
@@ -134,48 +148,73 @@ export async function getAdminCalendar(client: Client, query: {
 }): Promise<AdminCalendar> {
   const month = query.month || monthKey(calendarDateInZone())
   const { startsOn, endsOn } = monthBounds(month)
-  const rows = await listRentalsOverlapping(client, {
-    startsOn,
-    endsOn,
-    status: query.status,
-  })
-  const blockedDates = await listAdminBlockedDatesOverlapping(client, startsOn, endsOn)
+  const [rows, blockedDates] = await Promise.all([
+    listRentalsOverlapping(client, {
+      startsOn,
+      endsOn,
+      status: query.status,
+    }),
+    listAdminBlockedDatesOverlapping(client, startsOn, endsOn),
+  ])
+  const originalEnds = await calendarOriginalEnds(client, rows.map(row => row.id))
 
   return {
     month,
     startsOn,
     endsOn,
     timezone: BUSINESS_TIMEZONE,
-    items: rows.map((row) => {
-      const items = Array.isArray(row.rental_items) ? row.rental_items : []
-      const product = firstName(items[0]?.products)
-
-      return {
-        uuid: row.uuid,
-        code: row.code,
-        status: row.status as CalendarRentalStatus,
-        startsOn: row.starts_on,
-        endsOn: row.ends_on,
-        pickupAt: row.pickup_at,
-        returnAt: row.return_at,
-        productName: product || row.code,
-        customerName: firstName(row.profiles),
-      }
-    }),
+    items: rows.map(row => toCalendarEvent(row, originalEnds.get(row.id) ?? null)),
     blockedDates,
   }
 }
 
-export async function getAdminRental(client: Client, identifier: string) {
-  const rental = await loadAdminRental(client, identifier)
-  const identity = await findRentalIdentity(client, rental.uuid)
-  if (!identity) {
-    return rental
-  }
+export async function findAdminCalendarRentals(client: Client, code: string): Promise<{ items: AdminCalendarEvent[] }> {
+  const rows = await findCalendarRentalsByCode(client, code)
+  const originalEnds = await calendarOriginalEnds(client, rows.map(row => row.id))
+  return { items: rows.map(row => toCalendarEvent(row, originalEnds.get(row.id) ?? null)) }
+}
 
-  const confirmed = await confirmedRentalEnd(client, rental, identity.id)
-  const rows = await loadExtensionsSafely(client, identity.id)
-  const payments = rows.length ? await extensionPaymentContext(client, identity.id) : null
+async function calendarOriginalEnds(client: Client, rentalIds: number[]) {
+  const rows = await listExtensionStartsByRentalIds(client, rentalIds).catch(() => [])
+  const ends = new Map<number, string>()
+  for (const row of rows) {
+    if (row.cancelled_at || ends.has(row.rental_id)) {
+      continue
+    }
+    ends.set(row.rental_id, row.previous_return_at ? calendarDateInZone(row.previous_return_at) : row.previous_ends_on)
+  }
+  return ends
+}
+
+function toCalendarEvent(row: Awaited<ReturnType<typeof listRentalsOverlapping>>[number], originalEndsOn: string | null): AdminCalendarEvent {
+  const items = Array.isArray(row.rental_items) ? row.rental_items : []
+  const product = firstName(items[0]?.products)
+
+  return {
+    originalEndsOn,
+    uuid: row.uuid,
+    code: row.code,
+    status: row.status as CalendarRentalStatus,
+    startsOn: row.starts_on,
+    endsOn: row.ends_on,
+    pickupAt: row.pickup_at,
+    returnAt: row.return_at,
+    productName: product || row.code,
+    customerName: firstName(row.profiles),
+  }
+}
+
+export async function getAdminRental(client: Client, identifier: string) {
+  const loaded = await loadAdminRentalRow(client, identifier)
+  const rentalId = loaded.row.id
+  const [rental, rows, commissionExpense, paymentContext] = await Promise.all([
+    enrichAdminRental(client, loaded.rental, loaded.row),
+    loadExtensionsSafely(client, rentalId),
+    loaded.rental.commissioner ? findOpenCommissionExpenseByRentalId(client, rentalId) : Promise.resolve(null),
+    extensionPaymentContext(client, rentalId).catch(() => null),
+  ])
+  const payments = rows.length ? paymentContext : null
+  const confirmed = confirmedEndFrom(rental, rows, payments)
   const extensionLines = rows
     .filter(row => !row.cancelled_at)
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at))
@@ -189,7 +228,10 @@ export async function getAdminRental(client: Client, identifier: string) {
       addedAmount: Number(row.added_amount),
       paymentStatus: payments ? payments.statusOf(row) : 'included' as const,
     }))
-  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines }
+  const commissionStatus = !commissionExpense
+    ? 'not_recorded' as const
+    : commissionExpense.status === 'paid' ? 'collected' as const : 'unclaimed' as const
+  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines, commissionStatus }
 }
 
 export async function createAdminRental(
@@ -342,7 +384,18 @@ async function confirmedRentalEnd(client: Client, rental: { endsOn: string }, re
     return { endsOn: rental.endsOn, pendingAmount: 0 }
   }
 
-  const payments = await extensionPaymentContext(client, rentalId)
+  return confirmedEndFrom(rental, rows, await extensionPaymentContext(client, rentalId))
+}
+
+function confirmedEndFrom(
+  rental: { endsOn: string },
+  rows: Awaited<ReturnType<typeof loadExtensionsSafely>>,
+  payments: Awaited<ReturnType<typeof extensionPaymentContext>> | null,
+) {
+  if (!rows.length || !payments) {
+    return { endsOn: rental.endsOn, pendingAmount: 0 }
+  }
+
   const unpaid = rows
     .filter(row => !row.cancelled_at && payments.statusOf(row) === 'unpaid')
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at))
@@ -352,9 +405,33 @@ async function confirmedRentalEnd(client: Client, rental: { endsOn: string }, re
   }
 }
 
+async function recordEarnedCommission(
+  client: Client,
+  rental: { code: string, startsOn: string, endsOn: string, commissioner?: { firstName: string, lastName: string } | null, commissionAmount?: number, items: { quantity: number, product: { name: string } }[] },
+  rentalId: number,
+  status: RentalStatus,
+) {
+  if (!rental.commissioner) {
+    return null
+  }
+
+  const item = rental.items[0]
+  const confirmed = await confirmedRentalEnd(client, rental, rentalId)
+  return reconcileCommissionExpense(client, {
+    id: rentalId,
+    code: rental.code,
+    status,
+    commissioner: rental.commissioner,
+    commissionAmount: rental.commissionAmount ?? 0,
+    productName: item?.product.name || 'Equipment',
+    days: rentalPeriodDays(rental.startsOn, confirmed.endsOn),
+    quantity: item?.quantity ?? 1,
+  })
+}
+
 async function syncConfirmedCommission(
   client: Client,
-  rental: { uuid: string, code: string, startsOn: string, endsOn: string, items: { quantity: number, product: { uuid: string, name: string } }[] },
+  rental: { uuid: string, code: string, status: string, startsOn: string, endsOn: string, items: { quantity: number, product: { uuid: string, name: string } }[] },
   rentalId: number,
   commissionerUuid: string | undefined,
 ) {
@@ -368,6 +445,7 @@ async function syncConfirmedCommission(
     id: rentalId,
     uuid: rental.uuid,
     code: rental.code,
+    status: rental.status,
   }, {
     commissionerUuid,
     productUuid: item.product.uuid,
@@ -590,15 +668,12 @@ export async function extendAdminRental(
 }
 
 export async function listAdminRentalExtensions(client: Client, identifier: string): Promise<PublicRentalExtension[]> {
-  const rental = await loadAdminRental(client, identifier)
-  const identity = await findRentalIdentity(client, rental.uuid)
-  if (!identity) {
-    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
-  }
-
-  const rows = await listRentalExtensions(client, identity.id)
+  const { row: rentalRow, rental } = await loadAdminRentalRow(client, identifier)
+  const [rows, payments] = await Promise.all([
+    listRentalExtensions(client, rentalRow.id),
+    extensionPaymentContext(client, rentalRow.id),
+  ])
   const latestActive = rows.find(row => !row.cancelled_at)
-  const payments = await extensionPaymentContext(client, identity.id)
   return rows.map((row) => {
     const person = Array.isArray(row.extended_by_profile) ? row.extended_by_profile[0] : row.extended_by_profile
     const name = person ? `${person.first_name} ${person.last_name}`.trim() : ''
@@ -1079,6 +1154,7 @@ export async function continueAdminRental(
   const commission = await syncConfirmedCommission(client, {
     uuid: rental.uuid,
     code: rental.code,
+    status: rental.status,
     startsOn: quote.startsOn,
     endsOn: quote.endsOn,
     items: [{ quantity: quote.quantity, product: item.product }],
@@ -1197,6 +1273,9 @@ export async function confirmAdminRental(event: H3Event, client: Client, profile
       ? 'Admin confirmed a fully covered booking.'
       : 'Admin confirmed the booking. Customer can pay.',
   })
+  if (nextStatus === 'approved') {
+    await recordEarnedCommission(client, rental, identity.id, 'approved')
+  }
 
   await insertNotification(client, {
     recipient_id: identity.customer_id,
@@ -1244,6 +1323,7 @@ export async function approveAdminRental(event: H3Event, client: Client, profile
     changedBy: profileId,
     note: 'Admin approved the rental.',
   })
+  await recordEarnedCommission(client, rental, identity.id, 'approved')
 
   await insertNotification(client, {
     recipient_id: identity.customer_id,
@@ -1584,17 +1664,7 @@ export async function completeAdminRental(event: H3Event, client: Client, profil
       : 'Admin finished the rental.',
   })
 
-  const item = rental.items[0]
-  const commissionExpenseUuid = await recordCompletedCommission(client, {
-    id: identity.id,
-    code: rental.code,
-    commissioner: rental.commissioner,
-    commissionAmount: rental.commissionAmount ?? 0,
-    productName: item?.product.name || 'Equipment',
-    days: rentalPeriodDays(rental.startsOn, rental.endsOn),
-    quantity: item?.quantity ?? 1,
-    completedOn: calendarDateInZone(),
-  })
+  const commissionExpenseUuid = await recordEarnedCommission(client, rental, identity.id, 'completed')
 
   await insertNotification(client, {
     recipient_id: identity.customer_id,

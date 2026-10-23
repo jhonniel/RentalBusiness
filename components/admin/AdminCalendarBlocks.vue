@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import type { PublicBlockedDate } from '~/types/availability'
 import { blockedDateInputSchema } from '~/utils/product-validation'
-import { calendarDateInZone, formatBookingDate } from '~/utils/datetime'
+import { calendarDateInZone } from '~/utils/datetime'
 
 const today = calendarDateInZone()
 
 const props = defineProps<{
   products: Array<{ uuid: string, name: string }>
-  blocks: PublicBlockedDate[]
   startsOn: string
   endsOn: string
 }>()
 
 const emit = defineEmits<{
-  saved: []
+  'saved': []
   'update:startsOn': [value: string]
   'update:endsOn': [value: string]
 }>()
@@ -33,8 +31,6 @@ const endsOn = computed({
 })
 const formError = ref('')
 const saving = ref(false)
-const removingUuid = ref<string | null>(null)
-const confirmUuid = ref<string | null>(null)
 
 function resetForm() {
   startsOn.value = ''
@@ -48,14 +44,6 @@ function apiErrorMessage(caught: unknown, fallback: string) {
     ? (caught as { data?: { message?: string } }).data
     : null
   return payload?.message || fallback
-}
-
-function rangeLabel(block: PublicBlockedDate) {
-  if (block.startsOn === block.endsOn) {
-    return formatBookingDate(block.startsOn)
-  }
-
-  return `${formatBookingDate(block.startsOn)} – ${formatBookingDate(block.endsOn)}`
 }
 
 async function onSubmit() {
@@ -92,24 +80,6 @@ async function onSubmit() {
     saving.value = false
   }
 }
-
-async function removeBlock(uuid: string) {
-  formError.value = ''
-  removingUuid.value = uuid
-  try {
-    await $fetch(`/api/admin/blocked-dates/${uuid}`, { method: 'DELETE' })
-    toast.add({ title: 'Block removed', color: 'success' })
-    confirmUuid.value = null
-    emit('saved')
-  }
-  catch (caught) {
-    formError.value = apiErrorMessage(caught, 'We could not remove that block.')
-  }
-  finally {
-    removingUuid.value = null
-  }
-}
-
 </script>
 
 <template>
@@ -118,7 +88,7 @@ async function removeBlock(uuid: string) {
       Block dates
     </h3>
     <p class="mt-1 text-sm text-stone-500">
-      Choose dates here, or open a day and use it to block. Only active kits can be blocked. Past dates and coming soon kits cannot be blocked or booked.
+      Choose dates here, or open a day and use it to block. Blocked kits show as gray bars on the calendar; open that day to remove one. Only active kits can be blocked. Past dates and coming soon kits cannot be blocked or booked.
     </p>
 
     <AuthAlert
@@ -153,21 +123,21 @@ async function removeBlock(uuid: string) {
       </label>
       <label class="block text-sm">
         <span class="mb-1.5 block text-stone-700">Starts on</span>
-          <UInput
-            v-model="startsOn"
-            type="date"
-            :min="today"
-            :disabled="saving"
-          />
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1.5 block text-stone-700">Ends on</span>
-          <UInput
-            v-model="endsOn"
-            type="date"
-            :min="startsOn || today"
-            :disabled="saving"
-          />
+        <UInput
+          v-model="startsOn"
+          type="date"
+          :min="today"
+          :disabled="saving"
+        />
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1.5 block text-stone-700">Ends on</span>
+        <UInput
+          v-model="endsOn"
+          type="date"
+          :min="startsOn || today"
+          :disabled="saving"
+        />
       </label>
       <label class="block text-sm">
         <span class="mb-1.5 block text-stone-700">Reason (optional)</span>
@@ -185,65 +155,5 @@ async function removeBlock(uuid: string) {
         Block dates
       </UButton>
     </form>
-
-    <ul
-      v-if="blocks.length"
-      class="mt-4 divide-y divide-stone-100 rounded-lg border border-stone-200"
-    >
-      <li
-        v-for="block in blocks"
-        :key="block.uuid"
-        class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
-      >
-        <div>
-          <p class="font-medium text-stone-900">
-            {{ block.productName }}
-          </p>
-          <p class="text-stone-500">
-            {{ rangeLabel(block) }}
-            <template v-if="block.reason">
-              · {{ block.reason }}
-            </template>
-          </p>
-        </div>
-        <div class="flex items-center gap-2">
-          <template v-if="confirmUuid === block.uuid">
-            <UButton
-              color="error"
-              size="xs"
-              :loading="removingUuid === block.uuid"
-              @click="removeBlock(block.uuid)"
-            >
-              Confirm remove
-            </UButton>
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              :disabled="removingUuid === block.uuid"
-              @click="confirmUuid = null"
-            >
-              Cancel
-            </UButton>
-          </template>
-          <UButton
-            v-else
-            color="error"
-            variant="ghost"
-            size="xs"
-            @click="confirmUuid = block.uuid"
-          >
-            Remove
-          </UButton>
-        </div>
-      </li>
-    </ul>
-
-    <p
-      v-else
-      class="mt-4 text-sm text-stone-500"
-    >
-      No blocked dates this month. Click a day to start.
-    </p>
   </section>
 </template>

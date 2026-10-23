@@ -219,23 +219,25 @@ export async function attachAdminIdentityUrls(
   client: Client,
   rentalUuid: string,
   identity: PublicRentalIdentity | null,
+  knownRentalId?: number,
 ): Promise<PublicRentalIdentity | null> {
   if (!identity) {
     return null
   }
 
-  const rental = await findRentalIdentity(client, rentalUuid)
-  if (!rental) {
+  const rentalId = knownRentalId ?? (await findRentalIdentity(client, rentalUuid))?.id
+  if (!rentalId) {
     return identity
   }
 
-  const row = await findIdentityByRentalId(client, rental.id)
+  const row = await findIdentityByRentalId(client, rentalId)
   if (!row) {
     return identity
   }
 
-  return toPublicRentalIdentity(row, {
-    governmentIdUrl: await signedDocumentUrl(row.government_id_path),
-    selfieUrl: await signedDocumentUrl(row.selfie_path),
-  })
+  const [governmentIdUrl, selfieUrl] = await Promise.all([
+    signedDocumentUrl(row.government_id_path),
+    signedDocumentUrl(row.selfie_path),
+  ])
+  return toPublicRentalIdentity(row, { governmentIdUrl, selfieUrl })
 }
