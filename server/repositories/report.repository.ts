@@ -36,7 +36,7 @@ export async function listReportExpenses(client: Client, startsOn: string, endsO
 export async function listReportRentals(client: Client, startsOn: string, endsOn: string) {
   const { data, error } = await client
     .from('rental_requests')
-    .select('uuid, code, status, starts_on, ends_on, total_amount, profiles ( first_name, last_name )')
+    .select('uuid, code, status, starts_on, ends_on, total_amount, profiles!rental_requests_customer_id_fkey ( first_name, last_name )')
     .lte('starts_on', endsOn)
     .gte('ends_on', startsOn)
     .order('starts_on', { ascending: false })

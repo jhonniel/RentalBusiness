@@ -20,6 +20,32 @@ export function formatBookingDate(value: string): string {
   return `${day} ${months[month - 1]} ${year}`
 }
 
+export function formatBookingDateRange(startsOn: string, endsOn: string): string {
+  const parse = (value: string) => {
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+    return year && month && day ? { year, month, day } : null
+  }
+  const start = parse(startsOn)
+  const end = parse(endsOn)
+  if (!start || !end) {
+    return [startsOn, endsOn].filter(Boolean).join(' – ')
+  }
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const startMonth = months[start.month - 1]
+  const endMonth = months[end.month - 1]
+  if (start.year !== end.year) {
+    return `${startMonth} ${start.day}, ${start.year} – ${endMonth} ${end.day}, ${end.year}`
+  }
+  if (start.month !== end.month) {
+    return `${startMonth} ${start.day} – ${endMonth} ${end.day}, ${end.year}`
+  }
+  if (start.day !== end.day) {
+    return `${startMonth} ${start.day}–${end.day}, ${end.year}`
+  }
+  return `${startMonth} ${start.day}, ${end.year}`
+}
+
 export function formatBusinessDate(
   value: string | Date,
   options: Intl.DateTimeFormatOptions = {

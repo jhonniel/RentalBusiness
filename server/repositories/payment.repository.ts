@@ -103,6 +103,9 @@ export async function findPaidPaymentByRentalId(client: Client, rentalId: number
     .select(PAYMENT_SELECT)
     .eq('rental_id', rentalId)
     .eq('status', 'paid')
+    .or('metadata->>kind.is.null,metadata->>kind.neq.extension')
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
 
   if (error) {
@@ -110,6 +113,21 @@ export async function findPaidPaymentByRentalId(client: Client, rentalId: number
   }
 
   return data
+}
+
+export async function listExtensionPaymentsByRentalId(client: Client, rentalId: number) {
+  const { data, error } = await client
+    .from('payment_transactions')
+    .select(PAYMENT_SELECT)
+    .eq('rental_id', rentalId)
+    .eq('status', 'paid')
+    .eq('metadata->>kind', 'extension')
+
+  if (error) {
+    throw new AppError('We could not load extension payments.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data ?? []
 }
 
 export async function cancelOpenPaymentsByRentalId(client: Client, rentalId: number) {

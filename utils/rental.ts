@@ -245,6 +245,14 @@ export function canMarkAdminRentalPaid(rental: Pick<PublicRental, 'status' | 'wa
     && amountDue(rental) > 0
 }
 
+export const CUSTOMER_PAYABLE_RENTAL_STATUSES = ['pending', 'awaiting_payment'] as const
+
+export function canCustomerPayRental(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>) {
+  return Boolean(rental.waiver)
+    && Boolean(rental.identity)
+    && (CUSTOMER_PAYABLE_RENTAL_STATUSES as readonly string[]).includes(rental.status)
+}
+
 export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>) {
   if (rental.status === 'draft' && !rental.waiver) {
     return 'Sign the waiver'
@@ -255,11 +263,11 @@ export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'w
   if (canSubmitRentalRequest(rental)) {
     return 'Submit request'
   }
+  if (canCustomerPayRental(rental)) {
+    return 'Pay now'
+  }
   if (rental.status === 'pending') {
     return 'Waiting for confirmation'
-  }
-  if (rental.status === 'awaiting_payment') {
-    return 'Pay now'
   }
   return null
 }
@@ -271,10 +279,7 @@ export function customerRentalNextPath(rental: Pick<PublicRental, 'code' | 'stat
   if (rental.status === 'draft' && !rental.identity) {
     return `/rentals/${rental.code}/verify`
   }
-  if (canSubmitRentalRequest(rental) || rental.status === 'pending') {
-    return `/rentals/${rental.code}`
-  }
-  if (rental.status === 'awaiting_payment') {
+  if (canCustomerPayRental(rental)) {
     return `/rentals/${rental.code}/pay`
   }
   return `/rentals/${rental.code}`

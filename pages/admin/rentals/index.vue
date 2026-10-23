@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { RentalListResponse } from '~/types/rental'
 import { RENTAL_STATUSES } from '~/utils/constants'
-import { formatBusinessDateTime } from '~/utils/datetime'
+import { formatBookingDateRange } from '~/utils/datetime'
+import { formatPickupClock } from '~/utils/rental-window'
 import { canModifyAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
 
 definePageMeta({
@@ -174,10 +175,10 @@ async function removeRental(uuid: string) {
               </template>
             </p>
           </div>
-          <div class="text-sm leading-5 text-stone-600">
-            <p>{{ formatBusinessDateTime(rental.pickupAt) }}</p>
-            <p>{{ formatBusinessDateTime(rental.returnAt) }}</p>
-          </div>
+          <p class="text-sm leading-5 text-stone-600">
+            <span class="whitespace-nowrap">{{ formatBookingDateRange(rental.startsOn, rental.endsOn) }}</span>
+            <span class="whitespace-nowrap"> · {{ formatPickupClock(rental.pickupTime) }}</span>
+          </p>
           <span class="text-sm font-medium text-stone-900">{{ formatMoney(rental.totalAmount) }}</span>
           <StatusBadge
             class="hidden shrink-0 lg:inline-flex"

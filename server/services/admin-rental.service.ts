@@ -6,14 +6,15 @@ import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
-import type { AssignAdminCommissionerInput, CancelAdminRentalInput, ContinueAdminRentalInput, CreateAdminRentalInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
+import type { AssignAdminCommissionerInput, CancelAdminRentalInput, ContinueAdminRentalInput, CreateAdminRentalInput, EditAdminRentalExtensionInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
 import type { PublicRentalExtension, RentalExtensionPreview } from '../../types/rental'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
 import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
-import { rentalPeriodDays } from '../../utils/rental-window'
+import { rentalPeriodDays, resolveRentalWindow } from '../../utils/rental-window'
 import { addMoney, quoteExtensionLine } from '../../utils/pricing'
+import { extensionPaymentStatus, separatelyBilledExtensionTotal } from '../../utils/rental-extension'
 import { findProductByUuid } from '../repositories/product.repository'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -36,7 +37,7 @@ import {
   updateRentalItemByRentalId,
   updateRentalStatus,
 } from '../repositories/rental.repository'
-import { insertRentalExtension, listRentalExtensions } from '../repositories/rental-extension.repository'
+import { findRentalExtension, insertRentalExtension, listRentalExtensions, markRentalExtensionCancelled, updateRentalExtension } from '../repositories/rental-extension.repository'
 import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
 import { recordCompletedCommission, syncAssignedCommission } from './commissioner.service'
@@ -46,6 +47,7 @@ import {
   cancelOpenPaymentsByRentalId,
   findOpenPaymentByRentalId,
   findPaidPaymentByRentalId,
+  listExtensionPaymentsByRentalId,
   insertPayment,
   updatePaymentByUuid,
 } from '../repositories/payment.repository'
@@ -264,12 +266,17 @@ async function syncRentalPayments(
     return null
   }
 
+  const billedSeparately = await separateExtensionTotal(client, rentalId, paidPayment.paid_at)
+  const mainTotals = {
+    totalAmount: Math.max(0, addMoney(totals.totalAmount, -billedSeparately)),
+    depositAmount: totals.depositAmount,
+  }
   const metadata = paidPayment.metadata && typeof paidPayment.metadata === 'object' && !Array.isArray(paidPayment.metadata)
     ? paidPayment.metadata as Record<string, unknown>
     : {}
   const includesDeposit = paymentCollectedDeposit(metadata)
   const previousAmount = Number(paidPayment.amount)
-  const nextAmount = includesDeposit ? amountDue(totals) : Math.max(0, totals.totalAmount)
+  const nextAmount = includesDeposit ? amountDue(mainTotals) : mainTotals.totalAmount
   if (nextAmount === previousAmount) {
     return null
   }
@@ -278,7 +285,7 @@ async function syncRentalPayments(
     amount: nextAmount,
     metadata: {
       ...metadata,
-      ...(includesDeposit ? collectedPaymentFields(totals) : { rentAmount: Math.max(0, totals.totalAmount) }),
+      ...(includesDeposit ? collectedPaymentFields(mainTotals) : { rentAmount: mainTotals.totalAmount }),
       adjustedAt: new Date().toISOString(),
       adjustedFromAmount: previousAmount,
     },
@@ -286,10 +293,62 @@ async function syncRentalPayments(
   return { paymentUuid: paidPayment.uuid, previousAmount, nextAmount }
 }
 
+async function loadExtensionsSafely(client: Client, rentalId: number) {
+  try {
+    return await listRentalExtensions(client, rentalId)
+  }
+  catch {
+    return []
+  }
+}
+
+async function separateExtensionTotal(client: Client, rentalId: number, mainPaidAt: string | null) {
+  const rows = await loadExtensionsSafely(client, rentalId)
+  return separatelyBilledExtensionTotal(rows.map(row => ({
+    uuid: row.uuid,
+    createdAt: row.created_at,
+    addedAmount: Number(row.added_amount),
+    cancelled: Boolean(row.cancelled_at),
+  })), mainPaidAt)
+}
+
+async function extensionPaymentContext(client: Client, rentalId: number) {
+  const [mainPayment, extensionPayments] = await Promise.all([
+    findPaidPaymentByRentalId(client, rentalId),
+    listExtensionPaymentsByRentalId(client, rentalId),
+  ])
+  const paidExtensionUuids = new Set(extensionPayments.flatMap((payment) => {
+    const metadata = payment.metadata && typeof payment.metadata === 'object' && !Array.isArray(payment.metadata)
+      ? payment.metadata as Record<string, unknown>
+      : {}
+    return typeof metadata.extensionUuid === 'string' ? [metadata.extensionUuid] : []
+  }))
+  const paidAtByExtension = new Map(extensionPayments.flatMap((payment) => {
+    const metadata = payment.metadata && typeof payment.metadata === 'object' && !Array.isArray(payment.metadata)
+      ? payment.metadata as Record<string, unknown>
+      : {}
+    return typeof metadata.extensionUuid === 'string' ? [[metadata.extensionUuid, payment.paid_at] as const] : []
+  }))
+  return {
+    mainPaidAt: mainPayment?.paid_at ?? null,
+    paidExtensionUuids,
+    paidAtByExtension,
+    statusOf(row: { uuid: string, created_at: string }) {
+      return extensionPaymentStatus({
+        extensionCreatedAt: row.created_at,
+        extensionUuid: row.uuid,
+        mainPaidAt: mainPayment?.paid_at ?? null,
+        paidExtensionUuids,
+      })
+    },
+  }
+}
+
 async function quoteAdminExtension(
   client: Client,
   rental: Awaited<ReturnType<typeof loadAdminRental>>,
   endsOn: string,
+  baseOverride?: { endsOn: string, totalAmount: number, subtotal: number, lineTotal: number },
 ) {
   if (!canModifyAdminRental(rental)) {
     throw new AppError('That booking can no longer be extended.', 409, ERROR_CODES.CONFLICT)
@@ -300,8 +359,15 @@ async function quoteAdminExtension(
     throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
   }
 
-  if (endsOn <= rental.endsOn) {
-    throw new AppError('Choose a return date after the current return date.', 422, ERROR_CODES.VALIDATION_ERROR)
+  const base = baseOverride ?? {
+    endsOn: rental.endsOn,
+    totalAmount: rental.totalAmount,
+    subtotal: rental.subtotal,
+    lineTotal: item.lineTotal,
+  }
+
+  if (endsOn <= base.endsOn) {
+    throw new AppError('Choose a return date after the return date before this extension.', 422, ERROR_CODES.VALIDATION_ERROR)
   }
 
   const quote = await buildQuote(client, {
@@ -327,16 +393,17 @@ async function quoteAdminExtension(
     longStayLess: Number(product.long_stay_less ?? 0),
     longStayMinDays: Number(product.long_stay_min_days ?? 3),
     quantity: item.quantity,
-    extensionDays: rentalPeriodDays(rental.endsOn, endsOn),
+    extensionDays: rentalPeriodDays(base.endsOn, endsOn),
   })
 
   return {
     item,
     quote,
     extension,
-    subtotal: addMoney(rental.subtotal, extension.lineTotal),
-    lineTotal: addMoney(item.lineTotal, extension.lineTotal),
-    totalAmount: addMoney(rental.totalAmount, extension.lineTotal),
+    base,
+    subtotal: addMoney(base.subtotal, extension.lineTotal),
+    lineTotal: addMoney(base.lineTotal, extension.lineTotal),
+    totalAmount: addMoney(base.totalAmount, extension.lineTotal),
     addedAmount: extension.lineTotal,
   }
 }
@@ -474,10 +541,17 @@ export async function listAdminRentalExtensions(client: Client, identifier: stri
   }
 
   const rows = await listRentalExtensions(client, identity.id)
+  const latestActive = rows.find(row => !row.cancelled_at)
+  const payments = await extensionPaymentContext(client, identity.id)
   return rows.map((row) => {
     const person = Array.isArray(row.extended_by_profile) ? row.extended_by_profile[0] : row.extended_by_profile
     const name = person ? `${person.first_name} ${person.last_name}`.trim() : ''
+    const paymentStatus = payments.statusOf(row)
+    const changeable = canCancelRentalExtension(rental, row, latestActive?.uuid) && paymentStatus !== 'paid'
     return {
+      paymentStatus,
+      paidAt: payments.paidAtByExtension.get(row.uuid) ?? null,
+      canMarkPaid: !row.cancelled_at && paymentStatus === 'unpaid' && Number(row.added_amount) > 0,
       uuid: row.uuid,
       previousEndsOn: row.previous_ends_on,
       endsOn: row.ends_on,
@@ -489,8 +563,411 @@ export async function listAdminRentalExtensions(client: Client, identifier: stri
       note: row.note,
       extendedBy: name || null,
       createdAt: row.created_at,
+      cancelledAt: row.cancelled_at ?? null,
+      cancelReason: row.cancel_reason ?? null,
+      editedAt: row.edited_at ?? null,
+      canCancel: changeable,
+      canEdit: !row.cancelled_at,
+      canEditDates: changeable,
     }
   })
+}
+
+export async function markAdminRentalExtensionPaid(
+  event: H3Event,
+  client: Client,
+  identifier: string,
+  extensionUuid: string,
+  input: MarkAdminPaidInput,
+) {
+  const rental = await loadAdminRental(client, identifier)
+  const identity = await findRentalIdentity(client, rental.uuid)
+  const extension = await findRentalExtension(client, extensionUuid)
+  if (!identity || !extension || extension.rental_id !== identity.id) {
+    throw new AppError('Extension not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (extension.cancelled_at) {
+    throw new AppError('A cancelled extension cannot be paid.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const payments = await extensionPaymentContext(client, identity.id)
+  const status = payments.statusOf(extension)
+  if (status === 'paid') {
+    throw new AppError('This extension is already paid.', 409, ERROR_CODES.CONFLICT)
+  }
+  if (status === 'included') {
+    throw new AppError('This extension is part of the booking payment. Record that payment instead.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const amount = Number(extension.added_amount)
+  if (amount <= 0) {
+    throw new AppError('This extension has nothing to pay.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const paidAt = new Date().toISOString()
+  const payment = await insertPayment(client, {
+    rental_id: identity.id,
+    customer_id: identity.customer_id,
+    amount,
+    currency: BUSINESS_CURRENCY,
+    provider: 'shop',
+    provider_transaction_id: `shop-extension-${extension.uuid}`,
+    status: 'paid',
+    payment_method: input.paymentMethod,
+    paid_at: paidAt,
+    metadata: {
+      kind: 'extension',
+      extensionUuid: extension.uuid,
+      recordedBy: 'admin',
+      rentAmount: amount,
+      includesDeposit: false,
+    },
+  })
+
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: rental.status,
+    changedBy: null,
+    note: `Admin recorded a ${input.paymentMethod} payment of ${amount.toFixed(2)} ${BUSINESS_CURRENCY} for the extension to ${extension.ends_on}.`,
+  })
+
+  try {
+    await issueReceiptForPayment(event, payment)
+  }
+  catch {
+    // Receipt email can fail without rolling back the sale.
+  }
+
+  await recordAudit(event, client, {
+    action: 'rental.extension.paid',
+    entity: 'payment_transactions',
+    entityId: payment.uuid,
+    next: {
+      rentalCode: rental.code,
+      extensionUuid: extension.uuid,
+      amount,
+      paymentMethod: input.paymentMethod,
+    },
+  })
+
+  return loadAdminRental(client, rental.uuid)
+}
+
+export async function editAdminRentalExtension(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  identifier: string,
+  extensionUuid: string,
+  input: EditAdminRentalExtensionInput,
+): Promise<RentalExtensionPreview | ReturnType<typeof toShopRental>> {
+  const rental = await loadAdminRental(client, identifier)
+  const identity = await findRentalIdentity(client, rental.uuid)
+  const extension = await findRentalExtension(client, extensionUuid)
+  if (!identity || !extension || extension.rental_id !== identity.id) {
+    throw new AppError('Extension not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (extension.cancelled_at) {
+    throw new AppError('A cancelled extension cannot be edited.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const note = input.note === undefined ? extension.note : (input.note.trim() || null)
+  const activeRows = await listRentalExtensions(client, identity.id)
+  const extensionPaid = (await extensionPaymentContext(client, identity.id)).statusOf(extension) === 'paid'
+  const isLatestEditable = !extensionPaid
+    && canCancelRentalExtension(rental, extension, activeRows.find(row => !row.cancelled_at)?.uuid)
+  const changesDates = Boolean(input.endsOn) && (input.endsOn !== extension.ends_on || isLatestEditable)
+
+  if (!changesDates) {
+    if (input.preview) {
+      throw new AppError('Choose a different return date to preview.', 422, ERROR_CODES.VALIDATION_ERROR)
+    }
+    await updateRentalExtension(client, extension.uuid, { note, edited_at: new Date().toISOString(), edited_by: profileId })
+    await recordAudit(event, client, {
+      action: 'rental.extension.edit',
+      entity: 'rental_extensions',
+      entityId: extension.uuid,
+      previous: { rentalCode: rental.code, note: extension.note },
+      next: { rentalCode: rental.code, note },
+    })
+    return loadAdminRental(client, rental.uuid)
+  }
+
+  if (extensionPaid) {
+    throw new AppError('This extension is already paid. Its return date cannot change.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const rows = await listRentalExtensions(client, identity.id)
+  const latestActive = rows.find(row => !row.cancelled_at)
+  if (!canCancelRentalExtension(rental, extension, latestActive?.uuid)) {
+    throw new AppError(
+      extension.uuid !== latestActive?.uuid
+        ? 'Only the most recent extension can change its return date.'
+        : 'The return date changed after this extension. Edit the booking instead.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const item = rental.items[0]
+  if (!item) {
+    throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const oldAdded = Number(extension.added_amount)
+  const { quote, extension: line, base, subtotal, lineTotal, totalAmount, addedAmount } = await quoteAdminExtension(
+    client,
+    rental,
+    input.endsOn!,
+    {
+      endsOn: extension.previous_ends_on,
+      totalAmount: Math.max(0, addMoney(rental.totalAmount, -oldAdded)),
+      subtotal: Math.max(0, addMoney(rental.subtotal, -oldAdded)),
+      lineTotal: Math.max(0, addMoney(item.lineTotal, -oldAdded)),
+    },
+  )
+
+  const preview: RentalExtensionPreview = {
+    previousEndsOn: extension.previous_ends_on,
+    endsOn: quote.endsOn,
+    previousReturnAt: extension.previous_return_at || rental.returnAt,
+    returnAt: quote.returnAt,
+    days: quote.days,
+    extensionDays: line.days,
+    extensionRentAmount: line.rentAmount,
+    extensionLessAmount: line.lessAmount,
+    previousTotalAmount: base.totalAmount,
+    totalAmount,
+    addedAmount,
+    canFulfill: quote.canFulfill,
+  }
+
+  if (input.preview) {
+    return preview
+  }
+
+  if (!quote.canFulfill) {
+    throw new AppError(
+      quote.hasBlockedDates
+        ? 'Those dates are blocked by the shop.'
+        : 'Another booking already holds that kit on the new dates.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  await updateRentalExtension(client, extension.uuid, {
+    ends_on: quote.endsOn,
+    return_at: quote.returnAt,
+    total_amount: totalAmount,
+    added_amount: addedAmount,
+    note,
+    edited_at: new Date().toISOString(),
+    edited_by: profileId,
+  })
+
+  const schedule = {
+    startsOn: rental.startsOn,
+    endsOn: quote.endsOn,
+    pickupAt: rental.pickupAt,
+    returnAt: quote.returnAt,
+    notes: rental.notes,
+    subtotal,
+    depositAmount: rental.depositAmount,
+    totalAmount,
+  }
+  await updateRentalSchedule(client, rental.uuid, schedule)
+  await updateRentalItemByRentalId(client, identity.id, {
+    quantity: item.quantity,
+    dailyPrice: item.dailyPrice,
+    lineTotal,
+  })
+  const updated = await updateRentalSchedule(client, rental.uuid, schedule)
+
+  if (rental.commissioner) {
+    await syncAssignedCommission(client, {
+      id: identity.id,
+      uuid: rental.uuid,
+      code: rental.code,
+    }, {
+      commissionerUuid: rental.commissioner.uuid,
+      productUuid: item.product.uuid,
+      productName: item.product.name,
+      startsOn: rental.startsOn,
+      endsOn: quote.endsOn,
+      days: quote.days,
+      quantity: item.quantity,
+    })
+  }
+
+  const paymentAdjustment = await syncRentalPayments(client, identity.id, {
+    totalAmount: Number(updated.total_amount),
+    depositAmount: Number(updated.deposit_amount),
+  })
+
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: rental.status,
+    changedBy: profileId,
+    note: `Admin edited the extension: return ${extension.ends_on} → ${quote.endsOn}. Extension ${oldAdded.toFixed(2)} → ${addedAmount.toFixed(2)} ${BUSINESS_CURRENCY}.`,
+  })
+
+  await recordAudit(event, client, {
+    action: 'rental.extension.edit',
+    entity: 'rental_extensions',
+    entityId: extension.uuid,
+    previous: {
+      rentalCode: rental.code,
+      endsOn: extension.ends_on,
+      addedAmount: oldAdded,
+      totalAmount: rental.totalAmount,
+      note: extension.note,
+    },
+    next: {
+      rentalCode: rental.code,
+      endsOn: quote.endsOn,
+      addedAmount,
+      totalAmount,
+      note,
+      paymentAdjustment,
+    },
+  })
+
+  return loadAdminRental(client, rental.uuid)
+}
+
+function canCancelRentalExtension(
+  rental: { status: RentalStatus, endsOn: string },
+  extension: { uuid: string, ends_on: string, cancelled_at?: string | null },
+  latestActiveUuid?: string,
+) {
+  return canModifyAdminRental(rental)
+    && !extension.cancelled_at
+    && extension.uuid === latestActiveUuid
+    && rental.endsOn === extension.ends_on
+}
+
+export async function cancelAdminRentalExtension(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  identifier: string,
+  extensionUuid: string,
+  input: { reason?: string },
+) {
+  const rental = await loadAdminRental(client, identifier)
+  const identity = await findRentalIdentity(client, rental.uuid)
+  const extension = await findRentalExtension(client, extensionUuid)
+  if (!identity || !extension || extension.rental_id !== identity.id) {
+    throw new AppError('Extension not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (extension.cancelled_at) {
+    throw new AppError('That extension is already cancelled.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  if ((await extensionPaymentContext(client, identity.id)).statusOf(extension) === 'paid') {
+    throw new AppError('This extension is already paid and cannot be cancelled.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const rows = await listRentalExtensions(client, identity.id)
+  const latestActive = rows.find(row => !row.cancelled_at)
+  if (!canCancelRentalExtension(rental, extension, latestActive?.uuid)) {
+    throw new AppError(
+      !canModifyAdminRental(rental)
+        ? 'That booking can no longer be changed.'
+        : extension.uuid !== latestActive?.uuid
+          ? 'Cancel the most recent extension first.'
+          : 'The return date changed after this extension. Edit the booking instead.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const item = rental.items[0]
+  if (!item) {
+    throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const added = Number(extension.added_amount)
+  const totalAmount = Math.max(0, addMoney(rental.totalAmount, -added))
+  const schedule = {
+    startsOn: rental.startsOn,
+    endsOn: extension.previous_ends_on,
+    pickupAt: rental.pickupAt,
+    returnAt: extension.previous_return_at || resolveRentalWindow({
+      startsOn: rental.startsOn,
+      endsOn: extension.previous_ends_on,
+      pickupTime: rental.pickupTime,
+    }).returnAt,
+    notes: rental.notes,
+    subtotal: Math.max(0, addMoney(rental.subtotal, -added)),
+    depositAmount: rental.depositAmount,
+    totalAmount,
+  }
+
+  const reason = input.reason?.trim() || null
+  await markRentalExtensionCancelled(client, extension.uuid, { cancelledBy: profileId, reason })
+  await updateRentalSchedule(client, rental.uuid, schedule)
+  await updateRentalItemByRentalId(client, identity.id, {
+    quantity: item.quantity,
+    dailyPrice: item.dailyPrice,
+    lineTotal: Math.max(0, addMoney(item.lineTotal, -added)),
+  })
+  const updated = await updateRentalSchedule(client, rental.uuid, schedule)
+
+  if (rental.commissioner) {
+    await syncAssignedCommission(client, {
+      id: identity.id,
+      uuid: rental.uuid,
+      code: rental.code,
+    }, {
+      commissionerUuid: rental.commissioner.uuid,
+      productUuid: item.product.uuid,
+      productName: item.product.name,
+      startsOn: rental.startsOn,
+      endsOn: extension.previous_ends_on,
+      days: rentalPeriodDays(rental.startsOn, extension.previous_ends_on),
+      quantity: item.quantity,
+    })
+  }
+
+  const paymentAdjustment = await syncRentalPayments(client, identity.id, {
+    totalAmount: Number(updated.total_amount),
+    depositAmount: Number(updated.deposit_amount),
+  })
+
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: rental.status,
+    changedBy: profileId,
+    note: [
+      `Admin cancelled the extension and moved the return date back from ${extension.ends_on} to ${extension.previous_ends_on}. Removed ${added.toFixed(2)} ${BUSINESS_CURRENCY}.`,
+      reason ? `Reason: ${reason}` : '',
+    ].filter(Boolean).join(' '),
+  })
+
+  await recordAudit(event, client, {
+    action: 'rental.extension.cancel',
+    entity: 'rental_extensions',
+    entityId: extension.uuid,
+    previous: { rentalCode: rental.code, endsOn: extension.ends_on, totalAmount: rental.totalAmount },
+    next: {
+      rentalCode: rental.code,
+      endsOn: extension.previous_ends_on,
+      totalAmount,
+      removedAmount: added,
+      reason,
+      paymentAdjustment,
+    },
+  })
+
+  return loadAdminRental(client, rental.uuid)
 }
 
 export async function continueAdminRental(

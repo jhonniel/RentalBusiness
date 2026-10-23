@@ -493,6 +493,11 @@ export interface Database {
           note: string | null
           extended_by: number | null
           created_at: string
+          cancelled_at: string | null
+          cancelled_by: number | null
+          cancel_reason: string | null
+          edited_at: string | null
+          edited_by: number | null
         }
         Insert: {
           rental_id: number
@@ -507,7 +512,18 @@ export interface Database {
           extended_by?: number | null
           uuid?: string
         }
-        Update: Record<string, never>
+        Update: {
+          ends_on?: string
+          return_at?: string
+          total_amount?: number
+          added_amount?: number
+          note?: string | null
+          edited_at?: string | null
+          edited_by?: number | null
+          cancelled_at?: string | null
+          cancelled_by?: number | null
+          cancel_reason?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: 'rental_extensions_extended_by_fkey'

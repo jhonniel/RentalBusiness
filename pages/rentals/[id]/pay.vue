@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { PublicPaymentMethod } from '~/types/payment'
 import type { PublicRental } from '~/types/rental'
+import { FACEBOOK_MESSENGER_URL } from '~/utils/constants'
+import { canCustomerPayRental } from '~/utils/rental'
 
 definePageMeta({
   layout: 'account',
@@ -37,12 +39,22 @@ const canSubmit = computed(() =>
   && Boolean(rental.value?.waiver)
   && Boolean(rental.value?.identity),
 )
-const canPay = computed(() =>
-  Boolean(rental.value?.waiver)
-  && Boolean(rental.value?.identity)
-  && rental.value?.status === 'awaiting_payment',
-)
-const waitingForConfirm = computed(() => rental.value?.status === 'pending')
+const canPay = computed(() => rental.value ? canCustomerPayRental(rental.value) : false)
+const selectedMethodUuid = ref('')
+const paymentSent = ref(false)
+const selectedMethod = computed(() => (
+  paymentMethods.value?.find(method => method.uuid === selectedMethodUuid.value) ?? null
+))
+
+watch(paymentMethods, (methods) => {
+  if (!selectedMethodUuid.value && methods?.length === 1) {
+    selectedMethodUuid.value = methods[0].uuid
+  }
+}, { immediate: true })
+
+watch(selectedMethodUuid, () => {
+  paymentSent.value = false
+})
 const nothingDue = computed(() => Boolean(
   rental.value
   && rental.value.totalAmount === 0
@@ -149,17 +161,6 @@ async function copyValue(value: string, label: string) {
     </CatalogNotice>
 
     <CatalogNotice
-      v-else-if="rental && waitingForConfirm"
-      class="mt-8"
-      title="Waiting for the shop"
-      description="Your dates are reserved for 24 hours. Payment opens after the shop confirms this booking. If they do not, the request is cancelled."
-    >
-      <UButton :to="`/rentals/${rental.code}`">
-        Back to rental
-      </UButton>
-    </CatalogNotice>
-
-    <CatalogNotice
       v-else-if="rental && rental.status === 'paid'"
       class="mt-8"
       title="This rental is paid"
@@ -255,58 +256,126 @@ async function copyValue(value: string, label: string) {
             Send payment here
           </h2>
           <p class="mt-1 text-sm text-stone-600">
-            Transfer the amount due to a method below, then keep your reference number.
+            Choose how you will pay, then send {{ formatMoney(rental.totalAmount + rental.depositAmount) }} and keep your reference number.
+          </p>
+          <p
+            v-if="rental.status === 'pending'"
+            class="mt-1 text-sm text-stone-500"
+          >
+            The shop still confirms this booking. Your dates are reserved while it is reviewed.
           </p>
         </div>
-        <ul class="grid gap-4 sm:grid-cols-2">
-          <li
-            v-for="method in paymentMethods"
-            :key="method.uuid"
-            class="rounded-2xl border border-stone-200 bg-white p-5"
+
+        <label class="block text-sm">
+          <span class="mb-1.5 block font-medium text-stone-700">Payment method</span>
+          <select
+            v-model="selectedMethodUuid"
+            class="h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm text-stone-900 focus:border-lumen-700 focus:outline-none"
           >
-            <p class="text-sm font-medium text-stone-900">
+            <option
+              value=""
+              disabled
+            >
+              Choose a payment method
+            </option>
+            <option
+              v-for="method in paymentMethods"
+              :key="method.uuid"
+              :value="method.uuid"
+            >
               {{ method.name }}
+            </option>
+          </select>
+        </label>
+
+        <div
+          v-if="selectedMethod"
+          class="rounded-2xl border border-stone-200 bg-white p-5"
+        >
+          <p class="text-sm font-medium text-stone-900">
+            {{ selectedMethod.name }}
+          </p>
+          <div
+            v-if="selectedMethod.qrUrl"
+            class="mt-4 flex justify-center rounded-xl border border-stone-100 bg-stone-50 p-4"
+          >
+            <img
+              :src="selectedMethod.qrUrl"
+              :alt="`${selectedMethod.name} QR`"
+              class="aspect-square w-full max-w-56 object-contain"
+            >
+          </div>
+          <p
+            v-if="selectedMethod.accountName"
+            class="mt-4 text-sm text-stone-700"
+          >
+            {{ selectedMethod.accountName }}
+          </p>
+          <div
+            v-if="selectedMethod.accountNumber"
+            class="mt-1 flex items-center justify-between gap-3"
+          >
+            <p class="min-w-0 text-sm font-medium break-all text-stone-900">
+              {{ selectedMethod.accountNumber }}
             </p>
-            <div
-              v-if="method.qrUrl"
-              class="mt-4 flex justify-center rounded-xl border border-stone-100 bg-stone-50 p-4"
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              @click="copyValue(selectedMethod.accountNumber!, selectedMethod.name)"
             >
-              <img
-                :src="method.qrUrl"
-                :alt="`${method.name} QR`"
-                class="h-44 w-44 object-contain"
-              >
-            </div>
-            <p
-              v-if="method.accountName"
-              class="mt-4 text-sm text-stone-700"
+              Copy
+            </UButton>
+          </div>
+          <p
+            v-if="selectedMethod.instructions"
+            class="mt-2 whitespace-pre-wrap text-sm text-stone-600"
+          >
+            {{ selectedMethod.instructions }}
+          </p>
+
+          <UButton
+            v-if="!paymentSent"
+            class="mt-5 w-full justify-center sm:w-auto"
+            @click="paymentSent = true"
+          >
+            I've sent the payment
+          </UButton>
+        </div>
+
+        <div
+          v-if="selectedMethod && paymentSent"
+          class="rounded-2xl border border-lumen-200 bg-lumen-50 p-5"
+          role="status"
+        >
+          <h3 class="text-base font-medium text-stone-900">
+            Send your proof of payment
+          </h3>
+          <p class="mt-2 text-sm text-stone-700">
+            Message a screenshot or photo of your payment to our Facebook page so the shop can confirm it. Include your booking code
+            <span class="font-medium text-stone-900">{{ rental.code }}</span>.
+          </p>
+          <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <UButton
+              :to="FACEBOOK_MESSENGER_URL"
+              target="_blank"
+              rel="noopener"
+              icon="i-lucide-facebook"
+              class="w-full justify-center sm:w-auto"
             >
-              {{ method.accountName }}
-            </p>
-            <div
-              v-if="method.accountNumber"
-              class="mt-1 flex items-center justify-between gap-3"
+              Message us on Facebook
+            </UButton>
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-copy"
+              class="w-full justify-center sm:w-auto"
+              @click="copyValue(rental.code, 'Booking code')"
             >
-              <p class="text-sm font-medium text-stone-900">
-                {{ method.accountNumber }}
-              </p>
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                @click="copyValue(method.accountNumber!, method.name)"
-              >
-                Copy
-              </UButton>
-            </div>
-            <p
-              v-if="method.instructions"
-              class="mt-2 whitespace-pre-wrap text-sm text-stone-600"
-            >
-              {{ method.instructions }}
-            </p>
-          </li>
-        </ul>
+              Copy booking code
+            </UButton>
+          </div>
+        </div>
       </section>
 
       <UButton

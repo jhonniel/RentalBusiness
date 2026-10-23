@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
@@ -231,13 +231,23 @@ describe('customer rental transitions', () => {
       status: 'pending',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
-    })).toBe('Waiting for confirmation')
+    })).toBe('Pay now')
     expect(customerRentalNextPath({
       code: 'JRY-20260913-00001',
       status: 'pending',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
-    })).toBe('/rentals/JRY-20260913-00001')
+    })).toBe('/rentals/JRY-20260913-00001/pay')
+    expect(canCustomerPayRental({
+      status: 'pending',
+      waiver: null,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe(false)
+    expect(canCustomerPayRental({
+      status: 'paid',
+      waiver: { uuid: 'waiver' } as never,
+      identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
+    })).toBe(false)
     expect(customerRentalNextLabel({
       status: 'awaiting_payment',
       waiver: { uuid: 'waiver' } as never,

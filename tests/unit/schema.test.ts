@@ -516,6 +516,19 @@ describe('admin-only rental delete', () => {
   })
 })
 
+describe('extension cancel and edit', () => {
+  const cancel = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261023010000_rental_extension_cancel.sql'), 'utf8')
+  const edit = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261023020000_rental_extension_edit.sql'), 'utf8')
+
+  it('lets only the server update the cancel and edit columns', () => {
+    expect(cancel).toContain('grant update (cancelled_at, cancelled_by, cancel_reason) on public.rental_extensions to service_role')
+    expect(edit).toContain('add column if not exists edited_at timestamptz')
+    expect(edit).toContain('to service_role')
+    expect(`${cancel}\n${edit}`).not.toMatch(/to (anon|authenticated)/)
+    expect(`${cancel}\n${edit}`).not.toContain('delete')
+  })
+})
+
 describe('extension line price', () => {
   const extensionLinePrice = readFileSync(
     resolve(process.cwd(), 'supabase/migrations/20261023000000_extension_line_price.sql'),

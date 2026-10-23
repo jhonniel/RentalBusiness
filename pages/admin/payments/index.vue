@@ -59,6 +59,22 @@ function resetForm() {
   }
 }
 
+const qrPreviewUrl = ref<string | null>(null)
+const editingMethod = computed(() => methods.value?.find(method => method.uuid === editingUuid.value) ?? null)
+
+watch(qrFile, (file) => {
+  if (qrPreviewUrl.value) {
+    URL.revokeObjectURL(qrPreviewUrl.value)
+  }
+  qrPreviewUrl.value = file ? URL.createObjectURL(file) : null
+})
+
+onBeforeUnmount(() => {
+  if (qrPreviewUrl.value) {
+    URL.revokeObjectURL(qrPreviewUrl.value)
+  }
+})
+
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   qrFile.value = input.files?.[0] ?? null
@@ -211,7 +227,24 @@ async function removeQr(method: PublicPaymentMethod) {
             />
           </label>
           <label class="block text-sm sm:col-span-2">
-            <span class="mb-1.5 block text-stone-700">QR image</span>
+            <span class="mb-1.5 block text-stone-700">
+              {{ editingMethod?.qrUrl ? 'Replace QR image' : 'QR image' }}
+            </span>
+            <span
+              v-if="qrPreviewUrl || editingMethod?.qrUrl"
+              class="mb-3 flex items-center gap-3"
+            >
+              <span class="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-stone-200 bg-stone-50 p-1">
+                <img
+                  :src="qrPreviewUrl || editingMethod?.qrUrl || ''"
+                  :alt="qrPreviewUrl ? 'New QR preview' : `${editingMethod?.name} QR`"
+                  class="size-full object-contain"
+                >
+              </span>
+              <span class="text-xs text-stone-500">
+                {{ qrPreviewUrl ? 'New image. It uploads when you save.' : 'Current QR shown to customers.' }}
+              </span>
+            </span>
             <input
               ref="qrInput"
               type="file"

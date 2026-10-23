@@ -113,6 +113,12 @@ export const continueAdminRentalSchema = addEditWindowChecks(z.object({
   commissionerUuid: z.string().uuid('Choose a commissioner.').optional().or(z.literal('')),
 }).strict())
 
+export const editAdminRentalExtensionSchema = z.object({
+  endsOn: z.string().date('Choose the new return date.').optional(),
+  note: z.string().trim().max(500).optional().or(z.literal('')),
+  preview: z.boolean().optional(),
+}).strict()
+
 export const cancelAdminRentalSchema = z.object({
   reason: z.string().trim().max(500).optional().or(z.literal('')),
 }).strict()
@@ -141,6 +147,7 @@ export type ContinueAdminRentalInput = z.infer<typeof continueAdminRentalSchema>
 export type AssignAdminCommissionerInput = z.infer<typeof assignAdminCommissionerSchema>
 export type ExtendAdminRentalInput = z.infer<typeof extendAdminRentalSchema>
 export type CancelAdminRentalInput = z.infer<typeof cancelAdminRentalSchema>
+export type EditAdminRentalExtensionInput = z.infer<typeof editAdminRentalExtensionSchema>
 export type UpdateWaiverInviteScheduleInput = z.infer<typeof updateWaiverInviteScheduleSchema>
 export type RentalQuoteQuery = z.infer<typeof rentalQuoteQuerySchema>
 export type AdminRentalQuoteQuery = z.infer<typeof adminRentalQuoteSchema>

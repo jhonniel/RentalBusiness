@@ -11,6 +11,7 @@ export const BUSINESS_CITY = 'Davao City'
 export const BUSINESS_COUNTRY = 'PH'
 export const BUSINESS_ADDRESS = 'Davao City, Philippines'
 export const FACEBOOK_URL = 'https://www.facebook.com/jryrentals/'
+export const FACEBOOK_MESSENGER_URL = 'https://m.me/jryrentals'
 
 export const CURRENT_COOKIE_POLICY_VERSION = 'JRY-COOKIE-v1.0'
 export const CURRENT_COOKIE_POLICY_META = {

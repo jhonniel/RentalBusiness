@@ -90,6 +90,15 @@ export interface PublicRentalExtension {
   note: string | null
   extendedBy: string | null
   createdAt: string
+  cancelledAt: string | null
+  cancelReason: string | null
+  editedAt: string | null
+  paymentStatus: 'included' | 'unpaid' | 'paid'
+  paidAt: string | null
+  canMarkPaid: boolean
+  canCancel: boolean
+  canEdit: boolean
+  canEditDates: boolean
 }
 
 export interface RentalListResponse {

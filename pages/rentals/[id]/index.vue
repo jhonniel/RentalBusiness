@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
 import { formatBusinessDateTime } from '~/utils/datetime'
-import { canSubmitRentalRequest } from '~/utils/rental'
+import { canCustomerPayRental, canSubmitRentalRequest } from '~/utils/rental'
 
 definePageMeta({
   layout: 'account',
@@ -40,11 +40,7 @@ const canUploadIdentity = computed(() =>
   && !rental.value?.identity,
 )
 const canSubmit = computed(() => rental.value ? canSubmitRentalRequest(rental.value) : false)
-const canPay = computed(() =>
-  Boolean(rental.value?.waiver)
-  && Boolean(rental.value?.identity)
-  && rental.value?.status === 'awaiting_payment',
-)
+const canPay = computed(() => rental.value ? canCustomerPayRental(rental.value) : false)
 const waitingForConfirm = computed(() => rental.value?.status === 'pending')
 const canApplyVoucher = computed(() =>
   ['draft', 'pending', 'awaiting_payment'].includes(rental.value?.status ?? ''),
