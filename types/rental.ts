@@ -60,7 +60,20 @@ export interface PublicRental {
     lastName: string
   } | null
   commissionAmount?: number
+  pendingExtensionAmount?: number
+  extensionLines?: RentalExtensionLine[]
   createdAt: string
+}
+
+export interface RentalExtensionLine {
+  uuid: string
+  previousEndsOn: string
+  endsOn: string
+  previousReturnAt: string | null
+  returnAt: string
+  days: number
+  addedAmount: number
+  paymentStatus: 'included' | 'unpaid' | 'paid'
 }
 
 export interface RentalReschedulePreview {

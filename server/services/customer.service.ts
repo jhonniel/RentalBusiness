@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import type { Database } from '../../types/database.types'
 import { canPromoteProfile } from '../../utils/auth'
 import { accountEmails } from '../utils/account-email'
+import { isPlaceholderBookingEmail } from '../utils/placeholder-booking-email'
 import { countOpenRentalsForProfile, listCustomers } from '../repositories/customer.repository'
 import {
   countActiveAdmins,
@@ -44,15 +45,20 @@ export async function listAdminCustomers(client: Client, query: {
   const emails = await accountEmails(rows.map(row => row.user_id))
 
   return {
-    items: rows.map(row => ({
-      uuid: row.uuid,
-      firstName: row.first_name,
-      lastName: row.last_name,
-      email: emails.get(row.user_id) || null,
-      phone: row.phone,
-      rentalCount: rentalCount(row.rental_requests),
-      createdAt: row.created_at,
-    })),
+    items: rows.map((row) => {
+      const email = emails.get(row.user_id) || null
+      const walkIn = isPlaceholderBookingEmail(email)
+      return {
+        uuid: row.uuid,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        email: walkIn ? null : email,
+        walkIn,
+        phone: row.phone,
+        rentalCount: rentalCount(row.rental_requests),
+        createdAt: row.created_at,
+      }
+    }),
     page: query.page,
     pageSize: query.pageSize,
     total,

@@ -6,7 +6,7 @@ import { firstReceipts, type ReceiptRow } from './receipt'
 import { toPublicRentalVoucher, type VoucherRedemptionRow } from './voucher'
 import { firstWaiverAcceptance, type WaiverAcceptanceRow } from './waiver'
 import { fromMinorUnits, toMinorUnits } from './currency'
-import { DEFAULT_PICKUP_TIME, pickupTimeFromInstant, resolveRentalWindow } from './rental-window'
+import { DEFAULT_PICKUP_TIME, pickupTimeFromInstant, rentalPeriodDays, resolveRentalWindow } from './rental-window'
 
 interface ProductRef {
   uuid: string
@@ -193,6 +193,37 @@ export function canSubmitRentalRequest(rental: Pick<PublicRental, 'status' | 'wa
 
 export function amountDue(rental: { totalAmount: number, depositAmount?: number }) {
   return fromMinorUnits(toMinorUnits(Math.max(0, rental.totalAmount) + Math.max(0, rental.depositAmount ?? 0)))
+}
+
+export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'startsOn' | 'endsOn' | 'discountAmount' | 'totalAmount' | 'commissionAmount' | 'commissioner' | 'pendingExtensionAmount' | 'extensionLines'>) {
+  const extensions = rental.extensionLines ?? []
+  const baseEndsOn = extensions[0]?.previousEndsOn ?? rental.endsOn
+  const days = rentalPeriodDays(rental.startsOn, rental.endsOn)
+  const baseDays = rentalPeriodDays(rental.startsOn, baseEndsOn)
+  const extensionTotal = extensions.reduce((sum, extension) => sum + toMinorUnits(extension.addedAmount), 0)
+  const lineTotal = rental.items.reduce((sum, item) => sum + toMinorUnits(item.lineTotal), 0)
+  const baseRent = Math.max(0, lineTotal - extensionTotal)
+  const baseListRent = rental.items.reduce((sum, item) => sum + toMinorUnits(item.dailyPrice * baseDays * item.quantity), 0)
+  const rent = toMinorUnits(Math.max(0, rental.totalAmount))
+  const pendingExtension = Math.min(rent, toMinorUnits(Math.max(0, rental.pendingExtensionAmount ?? 0)))
+  const confirmedRent = rent - pendingExtension
+  const commission = rental.commissioner ? toMinorUnits(Math.max(0, rental.commissionAmount ?? 0)) : 0
+
+  return {
+    days,
+    baseEndsOn,
+    baseDays,
+    baseListRent: fromMinorUnits(baseListRent),
+    baseRateDiscount: fromMinorUnits(Math.max(0, baseListRent - baseRent)),
+    baseRent: fromMinorUnits(baseRent),
+    extensions,
+    voucherDiscount: fromMinorUnits(toMinorUnits(Math.max(0, rental.discountAmount))),
+    rent: fromMinorUnits(rent),
+    pendingExtension: fromMinorUnits(pendingExtension),
+    confirmedRent: fromMinorUnits(confirmedRent),
+    commission: fromMinorUnits(commission),
+    shopKeeps: fromMinorUnits(confirmedRent - commission),
+  }
 }
 
 export function collectedPaymentFields(rental: { totalAmount: number, depositAmount?: number }) {

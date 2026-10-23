@@ -48,8 +48,15 @@ watch(search, () => {
   page.value = 1
 })
 
-function displayName(person: { firstName: string, lastName: string }) {
-  return `${person.firstName} ${person.lastName}`.trim() || 'This account'
+function displayName(person: { firstName: string, lastName: string, email?: string | null, walkIn?: boolean }) {
+  const name = `${person.firstName} ${person.lastName}`.trim()
+  if (name) {
+    return name
+  }
+  if (person.walkIn) {
+    return 'Walk-in customer'
+  }
+  return person.email || 'No name yet'
 }
 
 const deleteUuid = ref<string | null>(null)
@@ -290,7 +297,7 @@ async function promote(customer: AdminCustomer) {
               {{ displayName(customer) }}
             </p>
             <p class="text-sm break-words text-stone-500">
-              {{ customer.email || 'No account email' }}
+              {{ customer.walkIn ? 'Walk-in, no email given' : (customer.email || 'No account email') }}
               · {{ customer.phone || 'No phone' }}
               · joined {{ formatBusinessDate(customer.createdAt) }}
             </p>

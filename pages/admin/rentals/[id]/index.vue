@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
-import { formatBusinessDateTime } from '~/utils/datetime'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, SHOP_PAYMENT_METHODS } from '~/utils/rental'
+import { formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, rentalSalesBreakdown, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { renderWaiverBody } from '~/utils/waiver'
 import { canModifyAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
 
@@ -103,6 +103,7 @@ const resetting = ref(false)
 const canMarkPaid = computed(() => rental.value ? canMarkAdminRentalPaid(rental.value) : false)
 const canFinish = computed(() => rental.value ? canCompleteAdminRental(rental.value) : false)
 const canCancel = computed(() => rental.value ? canCancelAdminRental(rental.value) : false)
+const sales = computed(() => rental.value ? rentalSalesBreakdown(rental.value) : null)
 const paidPayment = computed(() => rental.value?.payments.find(payment => payment.status === 'paid') ?? null)
 const hasPaidPayment = computed(() => Boolean(paidPayment.value))
 const paidAmount = computed(() => paidPayment.value?.amount ?? 0)
@@ -510,21 +511,107 @@ async function removeRental() {
                 <span>{{ formatMoney(item.lineTotal) }}</span>
               </li>
             </ul>
-            <p
-              v-if="rental.voucher"
-              class="mt-3 text-sm text-stone-600"
+            <dl
+              v-if="sales"
+              class="mt-3 space-y-1.5 border-t border-stone-100 pt-3 text-sm"
             >
-              Voucher {{ rental.voucher.code }} · −{{ formatMoney(rental.discountAmount) }}
-            </p>
-            <p class="mt-3 text-sm text-stone-600">
-              Rent {{ formatMoney(rental.totalAmount) }}
-            </p>
-            <p class="text-sm text-stone-600">
-              Deposit {{ formatMoney(rental.depositAmount) }}
-            </p>
-            <p class="mt-1 text-sm font-medium">
-              Amount due {{ formatMoney(amountDue(rental)) }}
-            </p>
+              <div class="flex justify-between gap-4 font-medium text-stone-800">
+                <dt>
+                  {{ sales.extensions.length ? 'First booking' : 'Booking' }}
+                  · {{ formatBookingDateRange(rental.startsOn, sales.baseEndsOn) }}
+                  · {{ sales.baseDays }} day{{ sales.baseDays === 1 ? '' : 's' }}
+                </dt>
+              </div>
+              <div
+                v-if="sales.baseRateDiscount > 0"
+                class="flex justify-between gap-4 pl-3 text-stone-600"
+              >
+                <dt>Regular rent</dt>
+                <dd>{{ formatMoney(sales.baseListRent) }}</dd>
+              </div>
+              <div
+                v-if="sales.baseRateDiscount > 0"
+                class="flex justify-between gap-4 pl-3 text-stone-600"
+              >
+                <dt>Long-stay discount</dt>
+                <dd>−{{ formatMoney(sales.baseRateDiscount) }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 pl-3 text-stone-700">
+                <dt>Rent</dt>
+                <dd>{{ formatMoney(sales.baseRent) }}</dd>
+              </div>
+
+              <div
+                v-for="(extension, index) in sales.extensions"
+                :key="extension.uuid"
+                class="flex flex-wrap justify-between gap-x-4 gap-y-0.5 pt-1"
+              >
+                <dt class="min-w-0 text-stone-800">
+                  <span class="font-medium">Extension {{ sales.extensions.length > 1 ? index + 1 : '' }}</span>
+                  · {{ formatBookingDateRange(extension.previousEndsOn, extension.endsOn) }}
+                  · {{ extension.days }} day{{ extension.days === 1 ? '' : 's' }}
+                  <UBadge
+                    v-if="extension.paymentStatus === 'unpaid'"
+                    color="warning"
+                    variant="soft"
+                    size="sm"
+                    class="ml-1"
+                  >
+                    Unpaid
+                  </UBadge>
+                  <UBadge
+                    v-else-if="extension.paymentStatus === 'paid'"
+                    color="success"
+                    variant="soft"
+                    size="sm"
+                    class="ml-1"
+                  >
+                    Paid
+                  </UBadge>
+                </dt>
+                <dd class="text-stone-700">
+                  +{{ formatMoney(extension.addedAmount) }}
+                </dd>
+              </div>
+
+              <div
+                v-if="sales.voucherDiscount > 0"
+                class="flex justify-between gap-4 pt-1 text-stone-600"
+              >
+                <dt>Voucher{{ rental.voucher ? ` ${rental.voucher.code}` : '' }}</dt>
+                <dd>−{{ formatMoney(sales.voucherDiscount) }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 border-t border-stone-100 pt-2 text-stone-800">
+                <dt>Total rent · {{ sales.days }} day{{ sales.days === 1 ? '' : 's' }}</dt>
+                <dd>{{ formatMoney(sales.rent) }}</dd>
+              </div>
+              <div
+                v-if="sales.pendingExtension > 0"
+                class="flex justify-between gap-4 text-amber-800"
+              >
+                <dt>Unpaid extension · not counted yet</dt>
+                <dd>−{{ formatMoney(sales.pendingExtension) }}</dd>
+              </div>
+              <div
+                v-if="rental.commissioner"
+                class="flex justify-between gap-4 text-stone-600"
+              >
+                <dt>Commission · {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}{{ sales.pendingExtension > 0 ? ' (paid days only)' : '' }}</dt>
+                <dd>−{{ formatMoney(sales.commission) }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 font-medium text-stone-900">
+                <dt>Shop sales</dt>
+                <dd>{{ formatMoney(sales.shopKeeps) }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 border-t border-stone-100 pt-2 text-stone-600">
+                <dt>Deposit (returned after the rental)</dt>
+                <dd>{{ formatMoney(rental.depositAmount) }}</dd>
+              </div>
+              <div class="flex justify-between gap-4 font-medium text-stone-900">
+                <dt>Amount due from customer</dt>
+                <dd>{{ formatMoney(amountDue(rental)) }}</dd>
+              </div>
+            </dl>
           </section>
         </div>
 

@@ -167,7 +167,29 @@ export async function getAdminCalendar(client: Client, query: {
 }
 
 export async function getAdminRental(client: Client, identifier: string) {
-  return loadAdminRental(client, identifier)
+  const rental = await loadAdminRental(client, identifier)
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    return rental
+  }
+
+  const confirmed = await confirmedRentalEnd(client, rental, identity.id)
+  const rows = await loadExtensionsSafely(client, identity.id)
+  const payments = rows.length ? await extensionPaymentContext(client, identity.id) : null
+  const extensionLines = rows
+    .filter(row => !row.cancelled_at)
+    .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at))
+    .map(row => ({
+      uuid: row.uuid,
+      previousEndsOn: row.previous_ends_on,
+      endsOn: row.ends_on,
+      previousReturnAt: row.previous_return_at,
+      returnAt: row.return_at,
+      days: rentalPeriodDays(row.previous_ends_on, row.ends_on),
+      addedAmount: Number(row.added_amount),
+      paymentStatus: payments ? payments.statusOf(row) : 'included' as const,
+    }))
+  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines }
 }
 
 export async function createAdminRental(
@@ -312,6 +334,49 @@ async function separateExtensionTotal(client: Client, rentalId: number, mainPaid
     addedAmount: Number(row.added_amount),
     cancelled: Boolean(row.cancelled_at),
   })), mainPaidAt)
+}
+
+async function confirmedRentalEnd(client: Client, rental: { endsOn: string }, rentalId: number) {
+  const rows = await loadExtensionsSafely(client, rentalId)
+  if (!rows.length) {
+    return { endsOn: rental.endsOn, pendingAmount: 0 }
+  }
+
+  const payments = await extensionPaymentContext(client, rentalId)
+  const unpaid = rows
+    .filter(row => !row.cancelled_at && payments.statusOf(row) === 'unpaid')
+    .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at))
+  return {
+    endsOn: unpaid[0]?.previous_ends_on ?? rental.endsOn,
+    pendingAmount: Math.round(unpaid.reduce((sum, row) => sum + Number(row.added_amount) * 100, 0)) / 100,
+  }
+}
+
+async function syncConfirmedCommission(
+  client: Client,
+  rental: { uuid: string, code: string, startsOn: string, endsOn: string, items: { quantity: number, product: { uuid: string, name: string } }[] },
+  rentalId: number,
+  commissionerUuid: string | undefined,
+) {
+  const item = rental.items[0]
+  if (!item) {
+    return null
+  }
+
+  const confirmed = await confirmedRentalEnd(client, rental, rentalId)
+  return syncAssignedCommission(client, {
+    id: rentalId,
+    uuid: rental.uuid,
+    code: rental.code,
+  }, {
+    commissionerUuid,
+    productUuid: item.product.uuid,
+    productName: item.product.name,
+    startsOn: rental.startsOn,
+    endsOn: confirmed.endsOn,
+    days: rentalPeriodDays(rental.startsOn, confirmed.endsOn),
+    quantity: item.quantity,
+  })
 }
 
 async function extensionPaymentContext(client: Client, rentalId: number) {
@@ -486,19 +551,7 @@ export async function extendAdminRental(
   const updated = await updateRentalSchedule(client, rental.uuid, schedule)
 
   const commission = rental.commissioner
-    ? await syncAssignedCommission(client, {
-        id: identity.id,
-        uuid: rental.uuid,
-        code: rental.code,
-      }, {
-        commissionerUuid: rental.commissioner.uuid,
-        productUuid: item.product.uuid,
-        productName: item.product.name,
-        startsOn: quote.startsOn,
-        endsOn: quote.endsOn,
-        days: quote.days,
-        quantity: item.quantity,
-      })
+    ? await syncConfirmedCommission(client, { ...rental, endsOn: quote.endsOn }, identity.id, rental.commissioner.uuid)
     : null
 
   const paymentAdjustment = await syncRentalPayments(client, identity.id, {
@@ -628,12 +681,16 @@ export async function markAdminRentalExtensionPaid(
     },
   })
 
+  const commission = rental.commissioner
+    ? await syncConfirmedCommission(client, rental, identity.id, rental.commissioner.uuid)
+    : null
+
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
     fromStatus: rental.status,
     toStatus: rental.status,
     changedBy: null,
-    note: `Admin recorded a ${input.paymentMethod} payment of ${amount.toFixed(2)} ${BUSINESS_CURRENCY} for the extension to ${extension.ends_on}.`,
+    note: `Admin recorded a ${input.paymentMethod} payment of ${amount.toFixed(2)} ${BUSINESS_CURRENCY} for the extension to ${extension.ends_on}.${commission ? ` Commission is now ${commission.commissionAmount.toFixed(2)} ${BUSINESS_CURRENCY}.` : ''}`,
   })
 
   try {
@@ -791,19 +848,7 @@ export async function editAdminRentalExtension(
   const updated = await updateRentalSchedule(client, rental.uuid, schedule)
 
   if (rental.commissioner) {
-    await syncAssignedCommission(client, {
-      id: identity.id,
-      uuid: rental.uuid,
-      code: rental.code,
-    }, {
-      commissionerUuid: rental.commissioner.uuid,
-      productUuid: item.product.uuid,
-      productName: item.product.name,
-      startsOn: rental.startsOn,
-      endsOn: quote.endsOn,
-      days: quote.days,
-      quantity: item.quantity,
-    })
+    await syncConfirmedCommission(client, { ...rental, endsOn: quote.endsOn }, identity.id, rental.commissioner.uuid)
   }
 
   const paymentAdjustment = await syncRentalPayments(client, identity.id, {
@@ -924,19 +969,7 @@ export async function cancelAdminRentalExtension(
   const updated = await updateRentalSchedule(client, rental.uuid, schedule)
 
   if (rental.commissioner) {
-    await syncAssignedCommission(client, {
-      id: identity.id,
-      uuid: rental.uuid,
-      code: rental.code,
-    }, {
-      commissionerUuid: rental.commissioner.uuid,
-      productUuid: item.product.uuid,
-      productName: item.product.name,
-      startsOn: rental.startsOn,
-      endsOn: extension.previous_ends_on,
-      days: rentalPeriodDays(rental.startsOn, extension.previous_ends_on),
-      quantity: item.quantity,
-    })
+    await syncConfirmedCommission(client, { ...rental, endsOn: extension.previous_ends_on }, identity.id, rental.commissioner.uuid)
   }
 
   const paymentAdjustment = await syncRentalPayments(client, identity.id, {
@@ -1043,19 +1076,13 @@ export async function continueAdminRental(
     lineTotal: quote.lineTotal,
   })
 
-  const commission = await syncAssignedCommission(client, {
-    id: identity.id,
+  const commission = await syncConfirmedCommission(client, {
     uuid: rental.uuid,
     code: rental.code,
-  }, {
-    commissionerUuid: input.commissionerUuid || undefined,
-    productUuid: item.product.uuid,
-    productName: item.product.name,
     startsOn: quote.startsOn,
     endsOn: quote.endsOn,
-    days: quote.days,
-    quantity: quote.quantity,
-  })
+    items: [{ quantity: quote.quantity, product: item.product }],
+  }, identity.id, input.commissionerUuid || undefined) ?? { commissionerUuid: null, commissionAmount: 0 }
 
   const book = Boolean(rental.waiver) && rental.status === 'draft'
   if (book) {
@@ -1120,19 +1147,8 @@ export async function assignAdminRentalCommissioner(
     throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
   }
 
-  const commission = await syncAssignedCommission(client, {
-    id: identity.id,
-    uuid: rental.uuid,
-    code: rental.code,
-  }, {
-    commissionerUuid: input.commissionerUuid || undefined,
-    productUuid: item.product.uuid,
-    productName: item.product.name,
-    startsOn: rental.startsOn,
-    endsOn: rental.endsOn,
-    days: rentalPeriodDays(rental.startsOn, rental.endsOn),
-    quantity: item.quantity,
-  })
+  const commission = await syncConfirmedCommission(client, rental, identity.id, input.commissionerUuid || undefined)
+    ?? { commissionerUuid: null, commissionAmount: 0 }
 
   await recordAudit(event, client, {
     action: 'rental.commissioner',

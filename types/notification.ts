@@ -19,6 +19,7 @@ export interface AdminCustomer {
   firstName: string
   lastName: string
   email: string | null
+  walkIn?: boolean
   phone: string | null
   rentalCount: number
   createdAt: string

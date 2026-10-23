@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
@@ -253,6 +253,69 @@ describe('customer rental transitions', () => {
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
     })).toBe('Pay now')
+  })
+
+  it('breaks a booking into rent, discounts, commission, and what the shop keeps', () => {
+    const sales = rentalSalesBreakdown({
+      startsOn: '2026-10-21',
+      endsOn: '2026-10-26',
+      items: [{ dailyPrice: 1000, quantity: 1, lineTotal: 4700 }] as never,
+      discountAmount: 0,
+      totalAmount: 4700,
+      commissionAmount: 500,
+      commissioner: { uuid: 'c', firstName: 'Kanna', lastName: 'Latayada' },
+    })
+
+    expect(sales).toMatchObject({
+      days: 5,
+      baseDays: 5,
+      baseListRent: 5000,
+      baseRateDiscount: 300,
+      voucherDiscount: 0,
+      rent: 4700,
+      commission: 500,
+      shopKeeps: 4200,
+    })
+    expect(rentalSalesBreakdown({
+      startsOn: '2026-10-21',
+      endsOn: '2026-10-26',
+      items: [{ dailyPrice: 1000, quantity: 1, lineTotal: 4700 }] as never,
+      discountAmount: 0,
+      totalAmount: 4700,
+      commissionAmount: 300,
+      commissioner: { uuid: 'c', firstName: 'Kanna', lastName: 'Latayada' },
+      pendingExtensionAmount: 2000,
+      extensionLines: [{
+        uuid: 'e',
+        previousEndsOn: '2026-10-24',
+        endsOn: '2026-10-26',
+        previousReturnAt: null,
+        returnAt: '2026-10-26T02:00:00.000Z',
+        days: 2,
+        addedAmount: 2000,
+        paymentStatus: 'unpaid',
+      }],
+    })).toMatchObject({
+      baseEndsOn: '2026-10-24',
+      baseDays: 3,
+      baseListRent: 3000,
+      baseRateDiscount: 300,
+      baseRent: 2700,
+      rent: 4700,
+      pendingExtension: 2000,
+      confirmedRent: 2700,
+      commission: 300,
+      shopKeeps: 2400,
+    })
+    expect(rentalSalesBreakdown({
+      startsOn: '2026-10-28',
+      endsOn: '2026-10-29',
+      items: [{ dailyPrice: 1000, quantity: 1, lineTotal: 1000 }] as never,
+      discountAmount: 100,
+      totalAmount: 900,
+      commissionAmount: 300,
+      commissioner: null,
+    })).toMatchObject({ baseRateDiscount: 0, voucherDiscount: 100, rent: 900, commission: 0, shopKeeps: 900 })
   })
 
   it('lets admins mark a signed rental paid so it is recorded as a sale', () => {
