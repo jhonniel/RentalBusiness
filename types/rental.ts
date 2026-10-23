@@ -69,6 +69,9 @@ export interface RentalExtensionPreview {
   previousReturnAt: string
   returnAt: string
   days: number
+  extensionDays: number
+  extensionRentAmount: number
+  extensionLessAmount: number
   previousTotalAmount: number
   totalAmount: number
   addedAmount: number

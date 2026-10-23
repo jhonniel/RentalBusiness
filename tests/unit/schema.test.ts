@@ -516,6 +516,19 @@ describe('admin-only rental delete', () => {
   })
 })
 
+describe('extension line price', () => {
+  const extensionLinePrice = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261023000000_extension_line_price.sql'),
+    'utf8',
+  )
+
+  it('keeps the server price on service-role updates and still prices customer writes', () => {
+    expect(extensionLinePrice).toContain("if tg_op = 'UPDATE' and auth.role() = 'service_role' then")
+    expect(extensionLinePrice).toContain('v_product.long_stay_min_days')
+    expect(extensionLinePrice).toContain('new.line_total := v_quote.line_total')
+  })
+})
+
 describe('rental extensions', () => {
   const rentalExtensions = readFileSync(
     resolve(process.cwd(), 'supabase/migrations/20261019000000_rental_extensions.sql'),

@@ -63,3 +63,29 @@ export function quoteRentalLine(input: {
     depositAmount: fromMinorUnits(toMinorUnits(input.depositAmount * quantity)),
   }
 }
+
+export function quoteExtensionLine(input: {
+  dailyPrice: number
+  weeklyPrice: number | null
+  monthlyPrice: number | null
+  quantity: number
+  extensionDays: number
+  longStayLess?: number
+  longStayMinDays?: number
+}) {
+  const line = quoteRentalLine({
+    ...input,
+    depositAmount: 0,
+    days: input.extensionDays,
+  })
+  return {
+    days: line.days,
+    rentAmount: line.rentAmount,
+    lessAmount: line.lessAmount,
+    lineTotal: line.lineTotal,
+  }
+}
+
+export function addMoney(...values: number[]) {
+  return fromMinorUnits(values.reduce((sum, value) => sum + toMinorUnits(value), 0))
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inclusiveRentalDays, quoteRentalLine } from '../../utils/pricing'
+import { addMoney, inclusiveRentalDays, quoteExtensionLine, quoteRentalLine } from '../../utils/pricing'
 
 describe('inclusive rental days', () => {
   it('counts same-day as one day and Sept 11-13 as three', () => {
@@ -77,5 +77,23 @@ describe('rental quotes', () => {
     })
     expect(laterStart.lessAmount).toBe(0)
     expect(laterStart.lineTotal).toBe(4000)
+  })
+
+  it('charges an extension for the added days only and applies the less only when the extension reaches the minimum', () => {
+    const prices = {
+      dailyPrice: 1000,
+      weeklyPrice: null,
+      monthlyPrice: null,
+      quantity: 1,
+      longStayLess: 100,
+      longStayMinDays: 3,
+    }
+
+    const short = quoteExtensionLine({ ...prices, extensionDays: 2 })
+    expect(short).toMatchObject({ days: 2, rentAmount: 2000, lessAmount: 0, lineTotal: 2000 })
+    expect(addMoney(1000, short.lineTotal)).toBe(3000)
+
+    const long = quoteExtensionLine({ ...prices, extensionDays: 3 })
+    expect(long).toMatchObject({ days: 3, rentAmount: 3000, lessAmount: 300, lineTotal: 2700 })
   })
 })

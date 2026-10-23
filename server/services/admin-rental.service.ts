@@ -13,6 +13,8 @@ import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRe
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { rentalPeriodDays } from '../../utils/rental-window'
+import { addMoney, quoteExtensionLine } from '../../utils/pricing'
+import { findProductByUuid } from '../repositories/product.repository'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { accountEmail } from '../utils/account-email'
@@ -312,13 +314,30 @@ async function quoteAdminExtension(
     exceptRentalUuid: rental.uuid,
     allowPastStart: true,
   })
-  const discount = Math.min(rental.discountAmount, quote.totalAmount)
-  const totalAmount = Math.max(0, quote.totalAmount - discount)
+
+  const product = await findProductByUuid(client, item.product.uuid)
+  if (!product) {
+    throw new AppError('Product not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const extension = quoteExtensionLine({
+    dailyPrice: Number(product.daily_price),
+    weeklyPrice: product.weekly_price === null ? null : Number(product.weekly_price),
+    monthlyPrice: product.monthly_price === null ? null : Number(product.monthly_price),
+    longStayLess: Number(product.long_stay_less ?? 0),
+    longStayMinDays: Number(product.long_stay_min_days ?? 3),
+    quantity: item.quantity,
+    extensionDays: rentalPeriodDays(rental.endsOn, endsOn),
+  })
+
   return {
     item,
     quote,
-    totalAmount,
-    addedAmount: Math.round((totalAmount - rental.totalAmount) * 100) / 100,
+    extension,
+    subtotal: addMoney(rental.subtotal, extension.lineTotal),
+    lineTotal: addMoney(item.lineTotal, extension.lineTotal),
+    totalAmount: addMoney(rental.totalAmount, extension.lineTotal),
+    addedAmount: extension.lineTotal,
   }
 }
 
@@ -330,13 +349,16 @@ export async function extendAdminRental(
   input: ExtendAdminRentalInput,
 ): Promise<RentalExtensionPreview | ReturnType<typeof toShopRental>> {
   const rental = await loadAdminRental(client, identifier)
-  const { item, quote, totalAmount, addedAmount } = await quoteAdminExtension(client, rental, input.endsOn)
+  const { item, quote, extension, subtotal, lineTotal, totalAmount, addedAmount } = await quoteAdminExtension(client, rental, input.endsOn)
   const preview: RentalExtensionPreview = {
     previousEndsOn: rental.endsOn,
     endsOn: quote.endsOn,
     previousReturnAt: rental.returnAt,
     returnAt: quote.returnAt,
     days: quote.days,
+    extensionDays: extension.days,
+    extensionRentAmount: extension.rentAmount,
+    extensionLessAmount: extension.lessAmount,
     previousTotalAmount: rental.totalAmount,
     totalAmount,
     addedAmount,
@@ -375,22 +397,23 @@ export async function extendAdminRental(
     extended_by: profileId,
   })
 
-  const updated = await updateRentalSchedule(client, rental.uuid, {
+  const schedule = {
     startsOn: quote.startsOn,
     endsOn: quote.endsOn,
     pickupAt: quote.pickupAt,
     returnAt: quote.returnAt,
     notes: rental.notes,
-    subtotal: quote.subtotal,
-    depositAmount: quote.depositAmount,
+    subtotal,
+    depositAmount: rental.depositAmount,
     totalAmount,
-  })
-
+  }
+  await updateRentalSchedule(client, rental.uuid, schedule)
   await updateRentalItemByRentalId(client, identity.id, {
-    quantity: quote.quantity,
-    dailyPrice: quote.dailyPrice,
-    lineTotal: quote.lineTotal,
+    quantity: item.quantity,
+    dailyPrice: item.dailyPrice,
+    lineTotal,
   })
+  const updated = await updateRentalSchedule(client, rental.uuid, schedule)
 
   const commission = rental.commissioner
     ? await syncAssignedCommission(client, {
@@ -404,7 +427,7 @@ export async function extendAdminRental(
         startsOn: quote.startsOn,
         endsOn: quote.endsOn,
         days: quote.days,
-        quantity: quote.quantity,
+        quantity: item.quantity,
       })
     : null
 

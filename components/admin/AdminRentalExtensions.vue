@@ -102,7 +102,7 @@ async function extend() {
       Extend booking
     </h3>
     <p class="mt-1 text-stone-600">
-      Choose the new return date. The new rent is priced on the server and every extension is logged below.
+      Choose the new return date. Only the added days are charged. The long-stay less applies when the extension itself is long enough. Every extension is logged below.
     </p>
 
     <div
@@ -137,6 +137,21 @@ async function extend() {
             Rent before
           </dt>
           <dd>{{ formatMoney(preview.previousTotalAmount) }}</dd>
+        </div>
+        <div class="flex justify-between gap-4">
+          <dt class="text-stone-500">
+            Extension · {{ preview.extensionDays }} day{{ preview.extensionDays === 1 ? '' : 's' }}
+          </dt>
+          <dd>{{ formatMoney(preview.extensionRentAmount) }}</dd>
+        </div>
+        <div
+          v-if="preview.extensionLessAmount > 0"
+          class="flex justify-between gap-4"
+        >
+          <dt class="text-stone-500">
+            Long-stay less
+          </dt>
+          <dd>−{{ formatMoney(preview.extensionLessAmount) }}</dd>
         </div>
         <div class="flex justify-between gap-4">
           <dt class="text-stone-500">
