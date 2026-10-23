@@ -3,10 +3,13 @@ import type { H3Event } from 'h3'
 import type { Database } from '../../types/database.types'
 import { canPromoteProfile } from '../../utils/auth'
 import { accountEmails } from '../utils/account-email'
-import { listCustomers } from '../repositories/customer.repository'
+import { countOpenRentalsForProfile, listCustomers } from '../repositories/customer.repository'
 import {
+  countActiveAdmins,
   findProfileByUuid,
+  findProfileForDeletion,
   listAdminProfiles,
+  markProfileDeleted,
   listCommissionerProfiles,
   promoteProfileToAdmin,
   promoteProfileToCommissioner,
@@ -119,6 +122,55 @@ export async function promoteAdminCustomer(
     lastName: target.last_name,
     role: 'admin' as const,
   }
+}
+
+export async function deleteAdminProfile(
+  event: H3Event,
+  client: Client,
+  actor: { uuid: string, profileId: number },
+  profileUuid: string,
+) {
+  const target = await findProfileForDeletion(client, profileUuid)
+  if (!target || target.deleted_at) {
+    throw new AppError('Account not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (target.uuid === actor.uuid) {
+    throw new AppError('You cannot delete your own account.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  if (target.role === 'admin' && await countActiveAdmins(client) <= 1) {
+    throw new AppError('Keep at least one system user.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const openRentals = await countOpenRentalsForProfile(client, target.id)
+  if (openRentals > 0) {
+    throw new AppError(
+      `This account still has ${openRentals} open booking${openRentals === 1 ? '' : 's'}. Cancel or finish ${openRentals === 1 ? 'it' : 'them'} first.`,
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const ban = await client.auth.admin.updateUserById(target.user_id, { ban_duration: '876000h' })
+  if (ban.error) {
+    throw new AppError('We could not disable that sign-in.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: ban.error })
+  }
+
+  await markProfileDeleted(client, target.uuid, actor.profileId)
+  await recordAudit(event, client, {
+    action: 'profile.delete',
+    entity: 'profiles',
+    entityId: target.uuid,
+    previous: {
+      role: target.role,
+      firstName: target.first_name,
+      lastName: target.last_name,
+    },
+    next: { deleted: true },
+  })
+
+  return { deleted: true, uuid: target.uuid }
 }
 
 export async function promoteCommissionerCustomer(

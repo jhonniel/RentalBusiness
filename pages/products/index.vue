@@ -72,7 +72,7 @@ watch([search, categorySlug, page], () => {
       Equipment
     </h1>
     <p class="mt-3 max-w-2xl text-sm text-[#5b6b64]">
-      Search cameras, drones, Starlink kits, and production accessories. Prices are in Philippine pesos.
+      Search cameras, drones, Starlink kits, and production accessories.
     </p>
 
     <form

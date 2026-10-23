@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { addCalendarDays } from '../../utils/expense'
 import {
   businessDateTimeToUtc,
   calendarDayOverlapsWindow,
+  defaultRentalReturnOn,
   formatPickupClock,
   formatRentalReturnLabel,
   isPastBusinessDateTime,
@@ -9,6 +11,24 @@ import {
   rentalPeriodDays,
   resolveRentalWindow,
 } from '../../utils/rental-window'
+
+describe('empty booking dates', () => {
+  it('does not throw while a date picker is cleared', () => {
+    expect(addCalendarDays('', 1)).toBe('')
+    expect(defaultRentalReturnOn('')).toBe('')
+    expect(resolveRentalWindow({ startsOn: '', endsOn: '2026-10-29', pickupTime: '10:00' })).toMatchObject({
+      days: 0,
+      pickupAt: '',
+      returnAt: '',
+    })
+    expect(resolveRentalWindow({ startsOn: '2026-10-28', endsOn: '', pickupTime: '10:00' })).toMatchObject({
+      endsOn: '2026-10-29',
+      days: 1,
+    })
+    expect(formatRentalReturnLabel('', '10:00')).toBe('after you choose the dates')
+    expect(addCalendarDays('2026-10-31', 1)).toBe('2026-11-01')
+  })
+})
 
 describe('rental pickup and return window', () => {
   it('returns the kit at the same clock time on the last day', () => {

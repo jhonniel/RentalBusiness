@@ -98,6 +98,7 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
   from?: string
   to?: string
   exceptRentalUuid?: string
+  confirmedOnly?: boolean
 }): Promise<AvailabilityCalendar> {
   const row = await loadActiveProduct(client, query.productUuid, query.productSlug)
   const from = query.from || calendarDateInZone()
@@ -107,7 +108,7 @@ export async function getProductAvailabilityCalendar(client: Client, query: {
     throw new AppError('Choose a date window of 366 days or less.', 422, ERROR_CODES.VALIDATION_ERROR)
   }
 
-  const ranges = await listOccupyingRanges(client, row.id, from, to, query.exceptRentalUuid)
+  const ranges = await listOccupyingRanges(client, row.id, from, to, query.exceptRentalUuid, query.confirmedOnly)
   const blockedRanges = await listBlockedRanges(client, row.id, from, to)
   const occupyingWindows = ranges.map((range) => {
     const startsOn = toCalendarDate(range.starts_on)

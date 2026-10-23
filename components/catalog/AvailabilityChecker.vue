@@ -34,8 +34,13 @@ const window = computed(() => resolveRentalWindow({
   pickupTime: pickupTime.value,
 }))
 
+const datesChosen = computed(() => Boolean(window.value.pickupAt && window.value.returnAt))
+
 watch(startsOn, (value, previous) => {
-  if (endsOn.value <= value || (previous && endsOn.value === defaultRentalReturnOn(previous))) {
+  if (!value) {
+    return
+  }
+  if (!endsOn.value || endsOn.value <= value || (previous && endsOn.value === defaultRentalReturnOn(previous))) {
     endsOn.value = defaultRentalReturnOn(value)
   }
 })
@@ -78,6 +83,10 @@ async function loadAvailability() {
 async function onSubmit() {
   formError.value = ''
   result.value = null
+  if (!datesChosen.value) {
+    formError.value = 'Choose a pickup date and a return date.'
+    return
+  }
   pending.value = true
 
   try {
@@ -96,6 +105,10 @@ async function onSubmit() {
 
 async function goRent() {
   formError.value = ''
+  if (!datesChosen.value) {
+    formError.value = 'Choose a pickup date and a return date.'
+    return
+  }
   pending.value = true
 
   try {
@@ -166,9 +179,18 @@ function tomorrow(date: string) {
       />
     </div>
 
-    <p class="mt-3 text-sm leading-6 text-[#12201a]">
+    <p
+      v-if="datesChosen"
+      class="mt-3 text-sm leading-6 text-[#12201a]"
+    >
       Return {{ formatRentalReturnLabel(window.endsOn, window.pickupTime) }}
       · {{ window.days }} day{{ window.days === 1 ? '' : 's' }}
+    </p>
+    <p
+      v-else
+      class="mt-3 text-sm leading-6 text-[#5b6b64]"
+    >
+      Choose an open pickup date. Crossed-out days are fully booked.
     </p>
 
     <AuthAlert

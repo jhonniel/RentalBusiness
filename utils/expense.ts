@@ -67,8 +67,9 @@ function occurrenceCount(value: RecurringExpenseRow['expense_occurrences']) {
 }
 
 export function addCalendarDays(date: string, days: number): string {
-  const [year, month, day] = date.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
+  const [year, month, day] = String(date || '').slice(0, 10).split('-').map(Number)
+  const value = new Date(Date.UTC(year, month - 1, day + days))
+  return Number.isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10)
 }
 
 export function addCalendarMonths(date: string, months: number, anchorDay?: number | null): string {

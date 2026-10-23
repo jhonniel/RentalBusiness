@@ -3,7 +3,7 @@ import { createClient, type JwtPayload } from '@supabase/supabase-js'
 import { serverSupabaseUser } from '#supabase/server'
 import type { PublicProfile } from '../../types/auth'
 import { toPublicProfile } from '../../utils/auth'
-import { findProfileByUserId } from '../repositories/profile.repository'
+import { findProfileByUserId, isProfileDeleted } from '../repositories/profile.repository'
 import { AppError, ERROR_CODES } from './errors'
 import { getAuthenticatedSupabaseClient, getSupabaseAdminClient, isSupabaseConfigured } from './supabase'
 
@@ -95,6 +95,10 @@ export async function getCurrentProfile(event: H3Event): Promise<PublicProfile> 
 
   if (!row) {
     throw new AppError('Your profile is not available yet.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  if (await isProfileDeleted(getSupabaseAdminClient(), user.sub)) {
+    throw new AppError('This account has been deleted. Contact the shop for help.', 403, ERROR_CODES.FORBIDDEN)
   }
 
   return toPublicProfile(row, emailFromClaims(user), emailVerifiedFromClaims(user))

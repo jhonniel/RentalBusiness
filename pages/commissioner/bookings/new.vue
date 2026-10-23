@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AvailabilityCalendar } from '~/types/availability'
 import type { RentalQuote } from '~/types/rental'
 import { fieldErrors } from '~/utils/auth-validation'
 import { calendarDateInZone } from '~/utils/datetime'
@@ -51,9 +52,28 @@ const created = ref<{ code: string, uuid: string, waiverUrl: string | null, comm
 const { data: equipment } = await useFetch<{ items: EquipmentOption[] }>('/api/commissioner/products')
 
 const selected = computed(() => equipment.value?.items.find(item => item.uuid === form.productUuid) || null)
+const calendar = ref<AvailabilityCalendar | null>(null)
+
+watch(() => [form.productUuid, form.quantity] as const, async ([productUuid, quantity]) => {
+  calendar.value = null
+  if (!productUuid) {
+    return
+  }
+  try {
+    calendar.value = await $fetch<AvailabilityCalendar>('/api/commissioner/availability/calendar', {
+      query: { productUuid, quantity },
+    })
+  }
+  catch {
+    calendar.value = null
+  }
+}, { immediate: true })
 
 watch(() => form.startsOn, (startsOn) => {
-  if (form.endsOn < startsOn) {
+  if (!startsOn) {
+    return
+  }
+  if (!form.endsOn || form.endsOn < startsOn) {
     form.endsOn = defaultRentalReturnOn(startsOn)
   }
 })
@@ -217,14 +237,14 @@ async function copyLink() {
         <BookingDateField
           v-model="form.startsOn"
           label="Pickup date"
-          :product-uuid="form.productUuid || undefined"
+          :availability="calendar"
           :quantity="form.quantity"
           :disabled="pending"
         />
         <BookingDateField
           v-model="form.endsOn"
           label="Return date"
-          :product-uuid="form.productUuid || undefined"
+          :availability="calendar"
           :quantity="form.quantity"
           :min="form.startsOn"
           :disabled="pending"
@@ -232,7 +252,7 @@ async function copyLink() {
       </div>
       <BookingPickupTime
         v-model="form.pickupTime"
-        :product-uuid="form.productUuid || undefined"
+        :availability="calendar"
         :quantity="form.quantity"
         :starts-on="form.startsOn"
         :ends-on="form.endsOn"

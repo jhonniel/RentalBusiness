@@ -158,7 +158,7 @@ export async function listCommissionerEquipment(client: Client) {
 }
 
 export async function quoteCommissionerRental(client: Client, input: QuoteInput) {
-  const quote = await buildQuote(client, input)
+  const quote = await buildQuote(client, input, { confirmedOnly: true })
   const product = quote.product.uuid ? await findProductByUuid(client, quote.product.uuid) : null
   const commissionPerDay = Number(product?.commission_per_day ?? 0)
   return {

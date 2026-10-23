@@ -11,7 +11,7 @@ export const BUSINESS_CITY = 'Davao City'
 export const BUSINESS_COUNTRY = 'PH'
 export const BUSINESS_ADDRESS = 'Davao City, Philippines'
 export const FACEBOOK_URL = 'https://www.facebook.com/jryrentals/'
-export const FACEBOOK_MESSENGER_URL = 'https://m.me/jryrentals'
+export const FACEBOOK_MESSENGER_URL = 'https://www.facebook.com/jryrentals'
 
 export const CURRENT_COOKIE_POLICY_VERSION = 'JRY-COOKIE-v1.0'
 export const CURRENT_COOKIE_POLICY_META = {
@@ -100,6 +100,14 @@ export type EquipmentStatus = (typeof EQUIPMENT_STATUSES)[number]
 export const INVENTORY_OCCUPYING_RENTAL_STATUSES = [
   'pending',
   'awaiting_payment',
+  'paid',
+  'approved',
+  'ready_for_pickup',
+  'active',
+  'overdue',
+] as const
+
+export const CONFIRMED_RENTAL_STATUSES = [
   'paid',
   'approved',
   'ready_for_pickup',

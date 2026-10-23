@@ -63,6 +63,23 @@ export interface PublicRental {
   createdAt: string
 }
 
+export interface RentalReschedulePreview {
+  startsOn: string
+  endsOn: string
+  pickupTime: string
+  pickupAt: string
+  returnAt: string
+  days: number
+  rentAmount: number
+  lessAmount: number
+  discountAmount: number
+  totalAmount: number
+  depositAmount: number
+  amountDue: number
+  available: number
+  canFulfill: boolean
+}
+
 export interface RentalExtensionPreview {
   previousEndsOn: string
   endsOn: string

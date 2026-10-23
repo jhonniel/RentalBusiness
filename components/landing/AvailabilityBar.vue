@@ -24,7 +24,10 @@ const window = computed(() => resolveRentalWindow({
 }))
 
 watch(startsOn, (value, previous) => {
-  if (endsOn.value <= value || (previous && endsOn.value === defaultRentalReturnOn(previous))) {
+  if (!value) {
+    return
+  }
+  if (!endsOn.value || endsOn.value <= value || (previous && endsOn.value === defaultRentalReturnOn(previous))) {
     endsOn.value = defaultRentalReturnOn(value)
   }
 })

@@ -52,6 +52,31 @@ function displayName(person: { firstName: string, lastName: string }) {
   return `${person.firstName} ${person.lastName}`.trim() || 'This account'
 }
 
+const deleteUuid = ref<string | null>(null)
+const deleting = ref(false)
+
+async function deleteAccount(person: { uuid: string, firstName: string, lastName: string }) {
+  deleting.value = true
+  try {
+    await $fetch(`/api/admin/customers/${person.uuid}`, { method: 'DELETE' })
+    deleteUuid.value = null
+    toast.add({ title: `${displayName(person)} was deleted`, color: 'success' })
+    await Promise.all([refresh(), refreshSystemUsers(), refreshCommissioners()])
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not delete that account.',
+      color: 'error',
+    })
+  }
+  finally {
+    deleting.value = false
+  }
+}
+
 async function promote(customer: AdminCustomer) {
   if (!confirmRole.value) {
     return
@@ -155,9 +180,19 @@ async function promote(customer: AdminCustomer) {
                 {{ user.email || 'No account email' }} · joined {{ formatBusinessDate(user.createdAt) }}
               </p>
             </div>
-            <p class="text-sm text-stone-600">
-              Admin
-            </p>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <p class="text-sm text-stone-600">
+                Admin
+              </p>
+              <AdminDeleteAccount
+                v-if="user.uuid !== profile?.uuid"
+                :open="deleteUuid === user.uuid"
+                :loading="deleting"
+                @start="deleteUuid = user.uuid"
+                @cancel="deleteUuid = null"
+                @confirm="deleteAccount(user)"
+              />
+            </div>
           </li>
         </ul>
       </section>
@@ -193,9 +228,18 @@ async function promote(customer: AdminCustomer) {
                 {{ user.email || 'No account email' }} · joined {{ formatBusinessDate(user.createdAt) }}
               </p>
             </div>
-            <p class="text-sm text-stone-600">
-              Commissioner
-            </p>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <p class="text-sm text-stone-600">
+                Commissioner
+              </p>
+              <AdminDeleteAccount
+                :open="deleteUuid === user.uuid"
+                :loading="deleting"
+                @start="deleteUuid = user.uuid"
+                @cancel="deleteUuid = null"
+                @confirm="deleteAccount(user)"
+              />
+            </div>
           </li>
         </ul>
       </section>
@@ -285,10 +329,17 @@ async function promote(customer: AdminCustomer) {
               color="neutral"
               variant="outline"
               size="xs"
-              @click="confirmUuid = customer.uuid"
+              @click="confirmUuid = customer.uuid; deleteUuid = null"
             >
               Change role
             </UButton>
+            <AdminDeleteAccount
+              :open="deleteUuid === customer.uuid"
+              :loading="deleting"
+              @start="deleteUuid = customer.uuid; confirmUuid = null; confirmRole = null"
+              @cancel="deleteUuid = null"
+              @confirm="deleteAccount(customer)"
+            />
           </div>
         </li>
       </ul>

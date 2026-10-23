@@ -184,6 +184,8 @@ export async function createAdminRental(
     endsOn: input.endsOn,
     pickupTime: input.pickupTime,
     quantity: input.quantity,
+  }, {
+    confirmedOnly: true,
   })
 
   if (!quote.canFulfill) {
@@ -379,6 +381,7 @@ async function quoteAdminExtension(
   }, {
     exceptRentalUuid: rental.uuid,
     allowPastStart: true,
+    confirmedOnly: true,
   })
 
   const product = await findProductByUuid(client, item.product.uuid)
@@ -1003,6 +1006,7 @@ export async function continueAdminRental(
   }, {
     exceptRentalUuid: rental.uuid,
     allowPastStart: true,
+    confirmedOnly: true,
   })
 
   if (!quote.canFulfill) {
@@ -1274,6 +1278,10 @@ async function advanceAdminRentalStatus(
       endsOn: rental.endsOn,
       pickupTime: rental.pickupTime,
       quantity: item.quantity,
+    }, {
+      exceptRentalUuid: rental.uuid,
+      allowPastStart: true,
+      confirmedOnly: true,
     })
 
     if (!quote.canFulfill) {
@@ -1577,7 +1585,7 @@ export async function completeAdminRental(event: H3Event, client: Client, profil
     type: 'rental.completed',
     title: 'Rental finished',
     body: rental.depositAmount > 0
-      ? `Rental ${rental.code} is finished. The deposit is no longer part of the sale.`
+      ? `Rental ${rental.code} is finished. The shop returns your deposit.`
       : `Rental ${rental.code} is finished.`,
     metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
   })

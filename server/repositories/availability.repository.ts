@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import { INVENTORY_OCCUPYING_RENTAL_STATUSES } from '../../utils/constants'
+import { CONFIRMED_RENTAL_STATUSES, INVENTORY_OCCUPYING_RENTAL_STATUSES } from '../../utils/constants'
 import { addCalendarDays } from '../../utils/expense'
 import { businessDateTimeToUtc } from '../../utils/rental-window'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -9,6 +9,7 @@ import { getSupabaseAdminClient } from '../utils/supabase'
 type Client = SupabaseClient<Database>
 
 const HOLD_STATUSES = ['draft', ...INVENTORY_OCCUPYING_RENTAL_STATUSES] as const
+const CONFIRMED_HOLD_STATUSES = CONFIRMED_RENTAL_STATUSES
 
 function windowsOverlap(startA: string, endA: string, startB: string, endB: string) {
   const aStart = Date.parse(startA)
@@ -28,13 +29,14 @@ export async function listOccupyingRanges(
   startsOn: string,
   endsOn: string,
   exceptRentalUuid?: string,
+  confirmedOnly = false,
 ) {
   const rangeStart = businessDateTimeToUtc(startsOn, '00:00')
   const rangeEnd = businessDateTimeToUtc(addCalendarDays(endsOn, 1), '00:00')
   const { data, error } = await getSupabaseAdminClient()
     .from('rental_requests')
     .select('uuid, starts_on, ends_on, pickup_at, return_at, rental_items!inner(quantity, product_id)')
-    .in('status', [...HOLD_STATUSES])
+    .in('status', confirmedOnly ? [...CONFIRMED_HOLD_STATUSES] : [...HOLD_STATUSES])
     .lt('pickup_at', rangeEnd)
     .gt('return_at', rangeStart)
     .eq('rental_items.product_id', productId)
@@ -62,9 +64,9 @@ export async function getBookedQuantity(
   productId: number,
   startsOn: string,
   endsOn: string,
-  window?: { pickupAt: string, returnAt: string, exceptRentalUuid?: string },
+  window?: { pickupAt: string, returnAt: string, exceptRentalUuid?: string, confirmedOnly?: boolean },
 ) {
-  const ranges = await listOccupyingRanges(client, productId, startsOn, endsOn, window?.exceptRentalUuid)
+  const ranges = await listOccupyingRanges(client, productId, startsOn, endsOn, window?.exceptRentalUuid, window?.confirmedOnly)
   const pickupAt = window?.pickupAt || businessDateTimeToUtc(startsOn, '00:00')
   const returnAt = window?.returnAt || businessDateTimeToUtc(addCalendarDays(endsOn, 1), '00:00')
 

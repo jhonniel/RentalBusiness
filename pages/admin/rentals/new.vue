@@ -100,7 +100,10 @@ const rentalWindow = computed(() => resolveRentalWindow({
 }))
 
 watch(() => form.startsOn, (value, previous) => {
-  if (form.endsOn <= value || (previous && form.endsOn === defaultRentalReturnOn(previous))) {
+  if (!value) {
+    return
+  }
+  if (!form.endsOn || form.endsOn <= value || (previous && form.endsOn === defaultRentalReturnOn(previous))) {
     form.endsOn = defaultRentalReturnOn(value)
   }
 })

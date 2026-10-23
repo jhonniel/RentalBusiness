@@ -145,7 +145,7 @@ async function copyValue(value: string, label: string) {
       title="Submit this request first"
       description="Send the request to the shop. The bank and QR details appear after that."
     >
-      <AccountRentalVoucherForm
+      <RentalVoucherForm
         class="mb-4 text-left"
         :rental-uuid="rental.uuid"
         :voucher="rental.voucher"
@@ -177,7 +177,7 @@ async function copyValue(value: string, label: string) {
       title="Nothing to pay"
       description="The voucher covers the rent and there is no deposit to collect. The shop will review and approve it."
     >
-      <AccountRentalVoucherForm
+      <RentalVoucherForm
         class="mb-4 text-left"
         :rental-uuid="rental.uuid"
         :voucher="rental.voucher"
@@ -224,7 +224,7 @@ async function copyValue(value: string, label: string) {
           Voucher {{ rental.voucher.code }} saved {{ formatMoney(rental.discountAmount) }}.
         </p>
         <p class="mt-2 text-sm text-stone-500">
-          Pay the rent and the deposit together. The rent is not refundable once booked. The shop returns the deposit from the sale after the rental is finished.
+          Pay the rent and the deposit together. The rent is not refundable once booked. The shop returns the deposit after the rental is finished.
         </p>
         <p
           v-if="latestPayment"
@@ -234,7 +234,7 @@ async function copyValue(value: string, label: string) {
         </p>
       </section>
 
-      <AccountRentalVoucherForm
+      <RentalVoucherForm
         :rental-uuid="rental.uuid"
         :voucher="rental.voucher"
         :editable="true"

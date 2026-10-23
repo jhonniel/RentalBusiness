@@ -2,6 +2,7 @@
 import type { PublicRental } from '~/types/rental'
 import { formatBusinessDateTime } from '~/utils/datetime'
 import { canCustomerPayRental, canSubmitRentalRequest } from '~/utils/rental'
+import { FACEBOOK_MESSENGER_URL } from '~/utils/constants'
 
 definePageMeta({
   layout: 'account',
@@ -76,6 +77,19 @@ async function submitRental() {
   }
 }
 
+async function copyCode() {
+  if (!rental.value) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(rental.value.code)
+    toast.add({ title: 'Booking code copied', color: 'success' })
+  }
+  catch {
+    toast.add({ title: 'Could not copy the booking code.', color: 'error' })
+  }
+}
+
 async function cancelRental() {
   if (!rental.value) {
     return
@@ -143,6 +157,12 @@ async function cancelRental() {
         </p>
       </section>
 
+      <RentalReschedule
+        v-if="rental.status === 'draft'"
+        :rental="rental"
+        @rescheduled="refresh()"
+      />
+
       <section class="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 class="text-sm font-medium text-stone-900">
           Equipment
@@ -199,7 +219,7 @@ async function cancelRental() {
         </dl>
       </section>
 
-      <AccountRentalVoucherForm
+      <RentalVoucherForm
         v-if="canApplyVoucher"
         :rental-uuid="rental.uuid"
         :voucher="rental.voucher"
@@ -229,6 +249,39 @@ async function cancelRental() {
         >
           Receipt {{ latestReceipt.receiptNumber }}
         </p>
+      </section>
+
+      <section
+        v-if="canPay"
+        class="rounded-2xl border border-lumen-200 bg-lumen-50 p-5"
+      >
+        <h2 class="text-sm font-medium text-stone-900">
+          Send your proof of payment
+        </h2>
+        <p class="mt-2 text-sm text-stone-700">
+          After you pay, message a screenshot or photo of your payment to our Facebook page so the shop can confirm it. Include your booking code
+          <span class="font-medium text-stone-900">{{ rental.code }}</span>.
+        </p>
+        <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <UButton
+            :to="FACEBOOK_MESSENGER_URL"
+            target="_blank"
+            rel="noopener"
+            icon="i-lucide-facebook"
+            class="w-full justify-center sm:w-auto"
+          >
+            Message us on Facebook
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-copy"
+            class="w-full justify-center sm:w-auto"
+            @click="copyCode"
+          >
+            Copy booking code
+          </UButton>
+        </div>
       </section>
 
       <section class="rounded-2xl border border-stone-200 bg-white p-5">

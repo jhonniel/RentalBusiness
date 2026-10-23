@@ -61,6 +61,8 @@ export interface Database {
           terms_accepted_at: string | null
           marketing_opt_in: boolean
           marketing_opted_at: string | null
+          deleted_at: string | null
+          deleted_by: number | null
           created_at: string
           updated_at: string
         }
@@ -88,6 +90,8 @@ export interface Database {
           terms_accepted_at?: string | null
           marketing_opt_in?: boolean
           marketing_opted_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: number | null
           updated_at?: string
         }
         Relationships: [

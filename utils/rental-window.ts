@@ -79,13 +79,31 @@ export function rentalPeriodDays(startsOn: string, returnOn: string): number {
   return startsOn === returnOn ? Math.max(1, inclusive) : Math.max(1, inclusive - 1)
 }
 
+const CALENDAR_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export function isCalendarDate(value: unknown): value is string {
+  return typeof value === 'string' && CALENDAR_DATE_RE.test(value) && addCalendarDays(value, 0) === value
+}
+
 export function resolveRentalWindow(input: {
   startsOn: string
   endsOn: string
   pickupTime: string
 }) {
   const pickupTime = isPickupTime(input.pickupTime) ? input.pickupTime : DEFAULT_PICKUP_TIME
-  const endsOn = input.endsOn <= input.startsOn ? addCalendarDays(input.startsOn, 1) : input.endsOn
+  if (!isCalendarDate(input.startsOn)) {
+    return {
+      startsOn: input.startsOn || '',
+      endsOn: isCalendarDate(input.endsOn) ? input.endsOn : '',
+      days: 0,
+      pickupTime,
+      pickupAt: '',
+      returnAt: '',
+    }
+  }
+  const endsOn = !isCalendarDate(input.endsOn) || input.endsOn <= input.startsOn
+    ? addCalendarDays(input.startsOn, 1)
+    : input.endsOn
 
   return {
     startsOn: input.startsOn,
@@ -108,10 +126,10 @@ export function calendarDayOverlapsWindow(date: string, pickupAt: string, return
 }
 
 export function formatRentalReturnLabel(endsOn: string, pickupTime: string): string {
-  const [year, month, day] = endsOn.split('-').map(Number)
+  const [year, month, day] = String(endsOn || '').split('-').map(Number)
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   if (!year || !month || !day) {
-    return `${endsOn} at ${formatPickupClock(pickupTime)}`
+    return endsOn ? `${endsOn} at ${formatPickupClock(pickupTime)}` : 'after you choose the dates'
   }
 
   return `${day} ${months[month - 1]} ${year} at ${formatPickupClock(pickupTime)}`

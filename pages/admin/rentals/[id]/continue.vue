@@ -89,7 +89,7 @@ watch(() => form.startsOn, (value, previous) => {
   if (!value) {
     return
   }
-  if (form.endsOn <= value || (previous && form.endsOn === defaultRentalReturnOn(previous))) {
+  if (!form.endsOn || form.endsOn <= value || (previous && form.endsOn === defaultRentalReturnOn(previous))) {
     form.endsOn = defaultRentalReturnOn(value)
   }
 })

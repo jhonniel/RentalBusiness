@@ -12,7 +12,7 @@ export default defineApiHandler(async (event) => {
   assertRateLimit(`admin-rental-quote:${profile.uuid}`, 40, 60_000)
   await expireUnconfirmedRentals(event).catch(() => undefined)
   const query = parseWithSchema(adminRentalQuoteSchema, await readBody(event))
-  const quote = await quoteRental(client, query)
+  const quote = await quoteRental(client, query, { confirmedOnly: true })
   if (!query.commissionerUuid) {
     return quote
   }

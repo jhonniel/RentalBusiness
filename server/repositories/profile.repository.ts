@@ -112,12 +112,83 @@ export async function findProfileKeyByUuid(client: TypedClient, uuid: string) {
   return data
 }
 
-export async function listAdminProfiles(client: TypedClient) {
+export function isMissingDeletedColumn(error: { code?: string, message?: string } | null) {
+  return Boolean(error && (error.code === '42703' || error.code === 'PGRST204') && /deleted_at/.test(error.message || ''))
+}
+
+export async function isProfileDeleted(client: TypedClient, userId: string) {
   const { data, error } = await client
     .from('profiles')
-    .select('uuid, user_id, first_name, last_name, created_at')
+    .select('deleted_at')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    return false
+  }
+
+  return Boolean((data as { deleted_at?: string | null } | null)?.deleted_at)
+}
+
+export async function findProfileForDeletion(client: TypedClient, uuid: string) {
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, uuid, user_id, role, first_name, last_name, deleted_at')
+    .eq('uuid', uuid)
+    .maybeSingle()
+
+  if (error) {
+    if (isMissingDeletedColumn(error)) {
+      throw new AppError('Paste the profile delete SQL in Supabase before deleting an account.', 409, ERROR_CODES.CONFLICT, { cause: error })
+    }
+    throw new AppError('We could not load that account.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return data
+}
+
+export async function countActiveAdmins(client: TypedClient) {
+  const { count, error } = await client
+    .from('profiles')
+    .select('uuid', { count: 'exact', head: true })
     .eq('role', 'admin')
-    .order('created_at', { ascending: true })
+    .is('deleted_at', null)
+
+  if (error) {
+    throw new AppError('We could not count system users.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return count ?? 0
+}
+
+export async function markProfileDeleted(client: TypedClient, uuid: string, deletedBy: number) {
+  const { error } = await client
+    .from('profiles')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: deletedBy })
+    .eq('uuid', uuid)
+    .is('deleted_at', null)
+
+  if (error) {
+    throw new AppError('We could not delete that account.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+  }
+}
+
+export async function listAdminProfiles(client: TypedClient) {
+  const query = (activeOnly: boolean) => {
+    let builder = client
+      .from('profiles')
+      .select('uuid, user_id, first_name, last_name, created_at')
+      .eq('role', 'admin')
+      .order('created_at', { ascending: true })
+    if (activeOnly) {
+      builder = builder.is('deleted_at', null)
+    }
+    return builder
+  }
+  let { data, error } = await query(true)
+  if (isMissingDeletedColumn(error)) {
+    ({ data, error } = await query(false))
+  }
 
   if (error) {
     throw new AppError(
@@ -132,11 +203,21 @@ export async function listAdminProfiles(client: TypedClient) {
 }
 
 export async function listCommissionerProfiles(client: TypedClient) {
-  const { data, error } = await client
-    .from('profiles')
-    .select('uuid, user_id, first_name, last_name, created_at')
-    .eq('role', 'commissioner')
-    .order('created_at', { ascending: true })
+  const query = (activeOnly: boolean) => {
+    let builder = client
+      .from('profiles')
+      .select('uuid, user_id, first_name, last_name, created_at')
+      .eq('role', 'commissioner')
+      .order('created_at', { ascending: true })
+    if (activeOnly) {
+      builder = builder.is('deleted_at', null)
+    }
+    return builder
+  }
+  let { data, error } = await query(true)
+  if (isMissingDeletedColumn(error)) {
+    ({ data, error } = await query(false))
+  }
 
   if (error) {
     throw new AppError(

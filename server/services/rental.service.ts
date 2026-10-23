@@ -1,8 +1,8 @@
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { AdminRentalQuoteQuery, CreateRentalInput, RentalQuoteQuery } from '../../utils/rental-validation'
-import type { PublicRental, RentalQuote } from '../../types/rental'
+import type { AdminRentalQuoteQuery, CreateRentalInput, RentalQuoteQuery, RescheduleOwnRentalInput } from '../../utils/rental-validation'
+import type { PublicRental, RentalQuote, RentalReschedulePreview } from '../../types/rental'
 import { RENTAL_REQUEST_NOTIFY_EMAIL, isBookableProductStatus } from '../../utils/constants'
 import { evaluateAvailability } from '../../utils/availability'
 import { EMAIL_TEMPLATES } from '../../utils/email'
@@ -29,6 +29,8 @@ import {
   insertRentalRequest,
   insertRentalStatusHistory,
   listRentals,
+  updateRentalDraft,
+  updateRentalItemByRentalId,
   updateRentalStatus,
 } from '../repositories/rental.repository'
 import { cancelOpenPaymentsByRentalId, findPaidPaymentByRentalId } from '../repositories/payment.repository'
@@ -110,6 +112,7 @@ async function loadActiveProduct(client: Client, query: { productUuid?: string, 
 export async function buildQuote(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery, options?: {
   exceptRentalUuid?: string
   allowPastStart?: boolean
+  confirmedOnly?: boolean
 }): Promise<RentalQuote & {
   productId: number
   hasBlockedDates: boolean
@@ -124,6 +127,7 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     pickupAt: window.pickupAt,
     returnAt: window.returnAt,
     exceptRentalUuid: options?.exceptRentalUuid,
+    confirmedOnly: options?.confirmedOnly,
   })
   const blockedRanges = await listBlockedRanges(client, product.id, window.startsOn, window.endsOn)
   const hasBlockedDates = blockedRanges.length > 0
@@ -176,11 +180,16 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
   }
 }
 
-export async function quoteRental(client: Client, query: RentalQuoteQuery | AdminRentalQuoteQuery) {
+export async function quoteRental(
+  client: Client,
+  query: RentalQuoteQuery | AdminRentalQuoteQuery,
+  options: { confirmedOnly?: boolean } = {},
+) {
   const exceptRentalUuid = 'exceptRentalUuid' in query ? query.exceptRentalUuid : undefined
   const { productId: _productId, hasBlockedDates: _hasBlockedDates, ...quote } = await buildQuote(client, query, {
     exceptRentalUuid,
     allowPastStart: Boolean(exceptRentalUuid),
+    confirmedOnly: options.confirmedOnly,
   })
   return quote
 }
@@ -328,6 +337,8 @@ export async function submitOwnRental(event: H3Event, client: Client, profileId:
     endsOn: rental.endsOn,
     pickupTime: rental.pickupTime,
     quantity: item.quantity,
+  }, {
+    exceptRentalUuid: rental.uuid,
   })
 
   if (!quote.canFulfill) {
@@ -374,6 +385,141 @@ export async function submitOwnRental(event: H3Event, client: Client, profileId:
   }
 
   return next
+}
+
+export async function rescheduleOwnRental(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  identifier: string,
+  input: RescheduleOwnRentalInput,
+): Promise<RentalReschedulePreview | PublicRental> {
+  const rental = await getOwnRental(client, identifier)
+  if (rental.status !== 'draft') {
+    throw new AppError('Only a draft booking can be rescheduled. Contact the shop to change a submitted booking.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const item = rental.items[0]
+  if (!item) {
+    throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const admin = getSupabaseAdminClient()
+  await expireUnconfirmedRentals(event).catch(() => undefined)
+  const quote = await buildQuote(admin, {
+    productUuid: item.product.uuid,
+    startsOn: input.startsOn,
+    endsOn: input.endsOn,
+    pickupTime: input.pickupTime,
+    quantity: item.quantity,
+  }, {
+    exceptRentalUuid: rental.uuid,
+  })
+
+  const discountAmount = Math.min(rental.discountAmount, quote.totalAmount)
+  const totalAmount = Math.max(0, quote.totalAmount - discountAmount)
+  const preview: RentalReschedulePreview = {
+    startsOn: quote.startsOn,
+    endsOn: quote.endsOn,
+    pickupTime: quote.pickupTime,
+    pickupAt: quote.pickupAt,
+    returnAt: quote.returnAt,
+    days: quote.days,
+    rentAmount: quote.rentAmount,
+    lessAmount: quote.lessAmount,
+    discountAmount,
+    totalAmount,
+    depositAmount: quote.depositAmount,
+    amountDue: Math.round((totalAmount + quote.depositAmount) * 100) / 100,
+    available: quote.available,
+    canFulfill: quote.canFulfill,
+  }
+
+  if (input.preview) {
+    return preview
+  }
+
+  if (!quote.canFulfill) {
+    throw new AppError(
+      quote.hasBlockedDates
+        ? 'Those dates are blocked by the shop.'
+        : 'Those dates are not available. Another booking already holds that kit.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const identity = await findRentalIdentity(admin, rental.uuid)
+  if (!identity || identity.customer_id !== profileId) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const schedule = {
+    startsOn: quote.startsOn,
+    endsOn: quote.endsOn,
+    pickupAt: quote.pickupAt,
+    returnAt: quote.returnAt,
+    notes: rental.notes,
+    subtotal: quote.subtotal,
+    depositAmount: quote.depositAmount,
+    totalAmount,
+  }
+  await updateRentalDraft(admin, rental.uuid, schedule)
+  await updateRentalItemByRentalId(admin, identity.id, {
+    quantity: quote.quantity,
+    dailyPrice: quote.dailyPrice,
+    lineTotal: quote.lineTotal,
+  })
+  await updateRentalDraft(admin, rental.uuid, schedule)
+
+  if (identity.commissioner_id) {
+    const commissioner = await findProfileById(admin, identity.commissioner_id)
+    if (commissioner) {
+      const { syncAssignedCommission } = await import('./commissioner.service')
+      await syncAssignedCommission(admin, { id: identity.id, uuid: rental.uuid, code: rental.code }, {
+        commissionerUuid: commissioner.uuid,
+        productUuid: item.product.uuid,
+        productName: item.product.name,
+        startsOn: quote.startsOn,
+        endsOn: quote.endsOn,
+        days: quote.days,
+        quantity: quote.quantity,
+      })
+    }
+  }
+
+  await insertRentalStatusHistory(admin, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: rental.status,
+    changedBy: profileId,
+    note: 'Customer rescheduled the draft booking.',
+  })
+
+  await recordAudit(event, client, {
+    action: 'rental.schedule.customer',
+    entity: 'rental_requests',
+    entityId: rental.uuid,
+    previous: { startsOn: rental.startsOn, endsOn: rental.endsOn, pickupTime: rental.pickupTime, totalAmount: rental.totalAmount },
+    next: { startsOn: quote.startsOn, endsOn: quote.endsOn, pickupTime: quote.pickupTime, totalAmount },
+  })
+
+  return getOwnRental(client, rental.uuid)
+}
+
+export async function getOwnRentalCalendar(client: Client, identifier: string) {
+  const rental = await getOwnRental(client, identifier)
+  const item = rental.items[0]
+  if (!item) {
+    throw new AppError('That rental has no equipment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const { getProductAvailabilityCalendar } = await import('./availability.service')
+  return getProductAvailabilityCalendar(client, {
+    productUuid: item.product.uuid,
+    quantity: item.quantity,
+    exceptRentalUuid: rental.uuid,
+  })
 }
 
 export async function cancelOwnRental(event: H3Event, client: Client, profileId: number, identifier: string) {
