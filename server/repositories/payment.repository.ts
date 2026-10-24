@@ -103,7 +103,7 @@ export async function findPaidPaymentByRentalId(client: Client, rentalId: number
     .select(PAYMENT_SELECT)
     .eq('rental_id', rentalId)
     .eq('status', 'paid')
-    .or('metadata->>kind.is.null,metadata->>kind.neq.extension')
+    .or('metadata->>kind.is.null,metadata->>kind.not.in.(extension,late_fee)')
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()

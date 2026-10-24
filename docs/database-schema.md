@@ -57,6 +57,10 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `id`, `uuid`, `product_id`, `storage_path`, `alt`, `sort_order`
 - `storage_path` is an object key in the public Supabase Storage `product-images` bucket (S3). Uploads are compressed to JPEG on the server before they are written. Public APIs return the Storage URL, never a local file path.
 
+**rental_late_fees**
+
+- One row per booking once an admin changes the late fee type, voids, restores, or pays it, or the rental is marked done while late: `fee_type`, `custom_amount`, `stopped_at`, `paid_amount`, `paid_at`, `payment_id`, `voided_at`, `voided_by`, `void_reason`, `updated_by`. Unique on `rental_id`. The amount itself is computed on the server. Admin select only; the server writes with the service-role key. Added in `20261024000000_rental_late_fees.sql`.
+
 **rental_extensions**
 
 - `uuid`, `rental_id` (cascade), `previous_ends_on`, `ends_on`, `previous_return_at`, `return_at`, `previous_total_amount`, `total_amount`, `added_amount`, `note`, `extended_by`, `created_at`.

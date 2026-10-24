@@ -3,6 +3,7 @@ import type { PublicReceipt } from '~/types/receipt'
 import type { PublicRentalVoucher } from '~/types/voucher'
 import type { PublicWaiverAcceptance } from '~/types/waiver'
 import type { RentalStatus } from '~/utils/constants'
+import type { LateFeeStatus, LateFeeType } from '~/utils/late-fee'
 
 export interface PublicRentalIdentity {
   submittedAt: string
@@ -64,7 +65,25 @@ export interface PublicRental {
   commissionStatus?: 'not_recorded' | 'unclaimed' | 'collected'
   pendingExtensionAmount?: number
   extensionLines?: RentalExtensionLine[]
+  lateFee?: RentalLateFee | null
   createdAt: string
+}
+
+export interface RentalLateFee {
+  uuid: string | null
+  type: LateFeeType
+  status: LateFeeStatus
+  amount: number
+  hoursLate: number
+  daysLate: number
+  asOf: string
+  returnAt: string
+  dailyRent: number
+  customAmount: number | null
+  paidAt: string | null
+  voidedAt: string | null
+  voidReason: string | null
+  available: boolean
 }
 
 export interface RentalExtensionLine {

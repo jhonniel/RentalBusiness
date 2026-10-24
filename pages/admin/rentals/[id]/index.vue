@@ -3,6 +3,7 @@ import type { PublicRental } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
 import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, rentalSalesBreakdown, SHOP_PAYMENT_METHODS } from '~/utils/rental'
+import { LATE_FEE_OUT_STATUSES } from '~/utils/late-fee'
 import { renderWaiverBody } from '~/utils/waiver'
 import { canModifyAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
 
@@ -103,6 +104,10 @@ const resetting = ref(false)
 const canMarkPaid = computed(() => rental.value ? canMarkAdminRentalPaid(rental.value) : false)
 const canFinish = computed(() => rental.value ? canCompleteAdminRental(rental.value) : false)
 const canCancel = computed(() => rental.value ? canCancelAdminRental(rental.value) : false)
+const showLateFee = computed(() => {
+  const fee = rental.value?.lateFee
+  return Boolean(fee && (fee.status !== 'none' || fee.uuid || LATE_FEE_OUT_STATUSES.includes(rental.value!.status)))
+})
 const sales = computed(() => rental.value ? rentalSalesBreakdown(rental.value) : null)
 const commissionStatusLabel = computed(() => {
   if (rental.value?.commissionStatus === 'collected') {
@@ -500,6 +505,12 @@ async function removeRental() {
               {{ formatBusinessDateTime(rental.pickupAt) }} – {{ formatBusinessDateTime(rental.returnAt) }}
             </p>
           </section>
+
+          <AdminRentalLateFee
+            v-if="showLateFee"
+            :rental="rental"
+            @changed="refresh"
+          />
 
           <AdminRentalExtensions
             :rental="rental"

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { RENTAL_STATUSES } from './constants'
+import { LATE_FEE_TYPES } from './late-fee'
 import { calendarDateInZone, isPastBusinessDate } from './datetime'
 import { DEFAULT_PICKUP_TIME, isPastBusinessDateTime, isPickupTime } from './rental-window'
 
@@ -119,6 +120,18 @@ export const editAdminRentalExtensionSchema = z.object({
   preview: z.boolean().optional(),
 }).strict()
 
+export const adminLateFeeTypeSchema = z.object({
+  type: z.enum(LATE_FEE_TYPES),
+  customAmount: z.coerce.number().min(0, 'Enter zero or more.').max(1_000_000).optional(),
+}).strict().refine(data => data.type !== 'custom' || data.customAmount !== undefined, {
+  message: 'Enter the custom late fee.',
+  path: ['customAmount'],
+})
+
+export const voidAdminLateFeeSchema = z.object({
+  reason: z.string().trim().max(500).optional().or(z.literal('')),
+}).strict()
+
 export const cancelAdminRentalSchema = z.object({
   reason: z.string().trim().max(500).optional().or(z.literal('')),
 }).strict()
@@ -154,6 +167,8 @@ export type ContinueAdminRentalInput = z.infer<typeof continueAdminRentalSchema>
 export type AssignAdminCommissionerInput = z.infer<typeof assignAdminCommissionerSchema>
 export type ExtendAdminRentalInput = z.infer<typeof extendAdminRentalSchema>
 export type CancelAdminRentalInput = z.infer<typeof cancelAdminRentalSchema>
+export type AdminLateFeeTypeInput = z.infer<typeof adminLateFeeTypeSchema>
+export type VoidAdminLateFeeInput = z.infer<typeof voidAdminLateFeeSchema>
 export type EditAdminRentalExtensionInput = z.infer<typeof editAdminRentalExtensionSchema>
 export type UpdateWaiverInviteScheduleInput = z.infer<typeof updateWaiverInviteScheduleSchema>
 export type RescheduleOwnRentalInput = z.infer<typeof rescheduleOwnRentalSchema>

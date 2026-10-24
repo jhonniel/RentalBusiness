@@ -42,6 +42,7 @@ import { findRentalExtension, insertRentalExtension, listExtensionStartsByRental
 import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
 import { reconcileCommissionExpense, syncAssignedCommission } from './commissioner.service'
+import { rentalLateFee, stopLateFeeClock } from './late-fee.service'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
 import {
@@ -207,11 +208,12 @@ function toCalendarEvent(row: Awaited<ReturnType<typeof listRentalsOverlapping>>
 export async function getAdminRental(client: Client, identifier: string) {
   const loaded = await loadAdminRentalRow(client, identifier)
   const rentalId = loaded.row.id
-  const [rental, rows, commissionExpense, paymentContext] = await Promise.all([
+  const [rental, rows, commissionExpense, paymentContext, lateFee] = await Promise.all([
     enrichAdminRental(client, loaded.rental, loaded.row),
     loadExtensionsSafely(client, rentalId),
     loaded.rental.commissioner ? findOpenCommissionExpenseByRentalId(client, rentalId) : Promise.resolve(null),
     extensionPaymentContext(client, rentalId).catch(() => null),
+    rentalLateFee(client, loaded.rental, rentalId),
   ])
   const payments = rows.length ? paymentContext : null
   const confirmed = confirmedEndFrom(rental, rows, payments)
@@ -231,7 +233,7 @@ export async function getAdminRental(client: Client, identifier: string) {
   const commissionStatus = !commissionExpense
     ? 'not_recorded' as const
     : commissionExpense.status === 'paid' ? 'collected' as const : 'unclaimed' as const
-  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines, commissionStatus }
+  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines, commissionStatus, lateFee }
 }
 
 export async function createAdminRental(
@@ -1636,6 +1638,8 @@ export async function completeAdminRental(event: H3Event, client: Client, profil
   if (!identity) {
     throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
   }
+
+  await stopLateFeeClock(client, rental, identity.id, profileId)
 
   const payment = await findPaidPaymentByRentalId(client, identity.id)
   if (payment && rental.depositAmount > 0 && paymentCollectedDeposit(payment.metadata)) {

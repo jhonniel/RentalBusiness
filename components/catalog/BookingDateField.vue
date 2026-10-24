@@ -16,11 +16,12 @@ const props = defineProps<{
   min?: string
   until?: string
   flexible?: boolean
+  allowPast?: boolean
   availability?: AvailabilityCalendar | null
 }>()
 
 const today = calendarDateInZone()
-const minDate = computed(() => props.min || today)
+const minDate = computed(() => props.min || (props.allowPast ? '' : today))
 const { calendar: fetchedCalendar, enabled: fetchEnabled } = useAvailabilityCalendar(() => (
   props.availability
     ? {}
@@ -138,7 +139,7 @@ const displayValue = computed(() => model.value ? formatBookingDate(model.value)
           <UCalendar
             :key="calendarKey"
             v-model="calendarValue"
-            :min-value="parseDate(minDate)"
+            :min-value="minDate ? parseDate(minDate) : undefined"
             :is-date-disabled="isDateDisabled"
             :is-date-unavailable="isDateUnavailable"
             :ui="{
