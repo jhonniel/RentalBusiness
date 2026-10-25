@@ -113,7 +113,18 @@ const { isAuthenticated } = useAuth()
 
     <div class="border-t border-white/10">
       <div class="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 py-4 text-center text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left lg:px-8">
-        <p>© {{ year }} {{ APP_NAME }}. All rights reserved.</p>
+        <div class="flex flex-col items-center gap-1 sm:flex-row sm:gap-3">
+          <p>© {{ year }} {{ APP_NAME }}. All rights reserved.</p>
+          <p>
+            Powered By:
+            <a
+              href="https://www.thefusionwork.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-medium text-white/70 hover:text-white"
+            >FusionWork</a>
+          </p>
+        </div>
         <div class="flex justify-center gap-4 sm:justify-start">
           <NuxtLink to="/privacy" class="hover:text-white">
             Privacy Policy
