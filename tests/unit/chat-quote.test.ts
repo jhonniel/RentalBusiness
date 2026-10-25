@@ -3,6 +3,9 @@ import {
   CHAT_KIT_PROMPT,
   chatDatesPrompt,
   chatQuestionContext,
+  chatPastDateReply,
+  chatPickupTime,
+  chatQuoteActions,
   chatQuoteRange,
   formatChatQuoteAnswer,
   formatLiveAvailabilityFacts,
@@ -142,12 +145,114 @@ describe('chat quote intent', () => {
   })
 })
 
+describe('chat never books past dates', () => {
+  const monday = '2026-10-26'
+
+  it('keeps a recently passed date in the past instead of moving it to next year', () => {
+    const intent = parseChatQuoteIntent('How much is Starlink from Sept 20 to 22?', monday)
+    expect(intent.startsOn).toBe('2026-09-20')
+    expect(chatPastDateReply('2026-09-20', monday)).toContain('has already passed')
+  })
+
+  it('still reads early-year dates in December as next year', () => {
+    expect(parseChatQuoteIntent('starlink on Jan 5', '2026-12-20').startsOn).toBe('2027-01-05')
+  })
+
+  it('uses the next open pickup time today and stops when today is over', () => {
+    expect(chatPickupTime('2026-10-26', new Date('2026-10-26T00:00:00+08:00'))).toBe('09:00')
+    expect(chatPickupTime('2026-10-26', new Date('2026-10-26T14:10:00+08:00'))).toBe('14:30')
+    expect(chatPickupTime('2026-10-26', new Date('2026-10-26T20:30:00+08:00'))).toBeNull()
+    expect(chatPickupTime('2026-10-27', new Date('2026-10-26T20:30:00+08:00'))).toBe('09:00')
+  })
+})
+
+describe('chat dates with typos and follow-ups', () => {
+  const monday = '2026-10-26'
+
+  it('reads "tommorow until friday" as a multi-day window', () => {
+    const question = chatQuestionContext([
+      { role: 'user', content: 'Is the starlink available?' },
+      { role: 'assistant', content: 'Which dates?' },
+      { role: 'user', content: 'i want to booked tommorow until friday' },
+    ])
+    const intent = parseChatQuoteIntent(question, monday)
+    expect(intent.action).toBe('quote')
+    expect(intent.slugs).toEqual(['starlink-mini'])
+    expect(chatQuoteRange(intent, monday)).toMatchObject({ startsOn: '2026-10-27', endsOn: '2026-10-30' })
+  })
+
+  it('understands common short forms and the day after tomorrow', () => {
+    expect(parseChatQuoteIntent('starlink tmrw to saturday', monday).startsOn).toBe('2026-10-27')
+    expect(parseChatQuoteIntent('starlink tmrw to saturday', monday).endsOn).toBe('2026-10-31')
+    expect(parseChatQuoteIntent('starlink bukas hanggang friday', monday).startsOn).toBe('2026-10-27')
+    expect(parseChatQuoteIntent('is starlink free the day after tomorrow?', monday).startsOn).toBe('2026-10-28')
+    expect(parseChatQuoteIntent('starlink from tomorrow until firday', monday).endsOn).toBe('2026-10-30')
+  })
+
+  it('starts today when they only say until when', () => {
+    const intent = parseChatQuoteIntent('can i rent the starlink until friday?', monday)
+    expect(chatQuoteRange(intent, monday)).toMatchObject({ startsOn: monday, endsOn: '2026-10-30' })
+  })
+
+  it('uses the newest dates instead of an older range in the chat', () => {
+    const question = chatQuestionContext([
+      { role: 'user', content: 'How much is Starlink from Nov 2 to 4?' },
+      { role: 'assistant', content: '...' },
+      { role: 'user', content: 'how about tomorrow until friday' },
+    ])
+    expect(chatQuoteRange(parseChatQuoteIntent(question, monday), monday)).toMatchObject({ startsOn: '2026-10-27', endsOn: '2026-10-30' })
+  })
+
+  it('keeps an earlier start date when a later message only gives the number of days', () => {
+    const question = chatQuestionContext([
+      { role: 'user', content: 'Is starlink free tomorrow?' },
+      { role: 'assistant', content: '...' },
+      { role: 'user', content: 'for 3 days' },
+    ])
+    expect(chatQuoteRange(parseChatQuoteIntent(question, monday), monday)).toMatchObject({ startsOn: '2026-10-27', endsOn: '2026-10-30' })
+  })
+})
+
+describe('chat booking buttons and quantity', () => {
+  it('does not match every kit that shares a brand word', () => {
+    const catalog = [
+      { slug: 'dji-air-3', name: 'DJI Air 3' },
+      { slug: 'dji-osmo-360', name: 'DJI OSMO 360' },
+    ]
+    expect(parseChatQuoteIntent('can i rent the dji air 3 tomorrow?', today, catalog).slugs).toEqual(['dji-air-3'])
+  })
+
+  it('reads how many units they want without mistaking dates for units', () => {
+    expect(parseChatQuoteIntent('Can I rent 2 starlink from Sept 20 to 22?', today).quantity).toBe(2)
+    expect(parseChatQuoteIntent('How much for two units of the drone tomorrow?', today).quantity).toBe(2)
+    expect(parseChatQuoteIntent('Is Sept 20 starlink free?', today).quantity).toBe(1)
+    expect(parseChatQuoteIntent('starlink from Sept 20 to 22', today).quantity).toBe(1)
+  })
+
+  it('links the book button to the booking form with the chat details filled in', () => {
+    const [action] = chatQuoteActions(quote({ quantity: 2, available: 2 }))
+    expect(action).toEqual({
+      kind: 'book',
+      label: 'Book 2 × Starlink Mini',
+      to: '/rentals/new?product=starlink-mini&startsOn=2026-09-20&endsOn=2026-09-22&pickupTime=09%3A00&quantity=2',
+    })
+    expect(action.to).not.toContain('11111111')
+  })
+
+  it('offers the free units when fewer are free than asked for', () => {
+    const partial = quote({ quantity: 3, available: 1, canFulfill: false })
+    expect(formatChatQuoteAnswer(partial)).toContain('Only 1 unit of Starlink Mini is free')
+    expect(chatQuoteActions(partial)[0]?.to).toContain('quantity=1')
+    expect(chatQuoteActions(quote({ canFulfill: false, available: 0 }))[0]).toMatchObject({ kind: 'view', to: '/products/starlink-mini' })
+  })
+})
+
 describe('chat quote answer', () => {
   it('states availability and PHP totals without database ids', () => {
     const available = formatChatQuoteAnswer(quote())
     expect(available).toContain('Starlink Mini is available')
     expect(available).toContain('₱4,500.00')
-    expect(available).toContain('/products/starlink-mini')
+    expect(available).toContain('button below')
     expect(available).not.toMatch(/\bSL-MINI\b/)
     expect(available).not.toContain('11111111')
 

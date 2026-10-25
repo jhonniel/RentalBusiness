@@ -20,11 +20,20 @@ export interface PublicMaintenanceStatus {
   products: PublicMaintenanceProduct[]
 }
 
+export interface MaintenanceChatAction {
+  kind: 'book' | 'view'
+  label: string
+  to: string
+}
+
 export interface MaintenanceChatMessage {
   role: 'user' | 'assistant'
   content: string
+  actions?: MaintenanceChatAction[]
 }
 
 export interface MaintenanceChatResponse {
   reply: string
+  actions?: MaintenanceChatAction[]
+  suggestions?: string[]
 }

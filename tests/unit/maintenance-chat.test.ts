@@ -53,7 +53,7 @@ describe('maintenance chat', () => {
       liveFacts: 'Starlink Mini: booked dates are 20 Sep 2026. Any other date is available.',
     })).toContain('booked dates are 20 Sep 2026')
     expect(FREE_CHAT_AI.provider).toBe('groq')
-    expect(FREE_CHAT_AI.model).toBe('llama-3.1-8b-instant')
+    expect(FREE_CHAT_AI.model).toBe('openai/gpt-oss-20b')
     expect(FREE_CHAT_AI.baseUrl).toContain('api.groq.com')
     expect(FREE_CHAT_AI.baseUrl).not.toContain('api.openai.com')
   })

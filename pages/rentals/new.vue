@@ -18,6 +18,11 @@ const { formatMoney } = useCurrency()
 const toast = useToast()
 const today = calendarDateInZone()
 
+function queryQuantity(value: unknown) {
+  const parsed = typeof value === 'string' ? Number.parseInt(value, 10) : 1
+  return Number.isFinite(parsed) ? Math.min(99, Math.max(1, parsed)) : 1
+}
+
 const form = reactive({
   productSlug: typeof route.query.product === 'string' ? route.query.product : '',
   startsOn: typeof route.query.startsOn === 'string' ? route.query.startsOn : today,
@@ -25,12 +30,13 @@ const form = reactive({
     ? route.query.endsOn
     : defaultRentalReturnOn(typeof route.query.startsOn === 'string' ? route.query.startsOn : today),
   pickupTime: typeof route.query.pickupTime === 'string' ? route.query.pickupTime : DEFAULT_PICKUP_TIME,
-  quantity: 1,
+  quantity: queryQuantity(route.query.quantity),
   firstName: '',
   lastName: '',
   phone: '',
   notes: '',
 })
+const showQuantity = form.quantity > 1
 if (form.endsOn <= form.startsOn) {
   form.endsOn = defaultRentalReturnOn(form.startsOn)
 }
@@ -250,7 +256,7 @@ async function onSubmit() {
               v-model="form.startsOn"
               label="Pickup date"
               :product-slug="form.productSlug || undefined"
-              :quantity="1"
+              :quantity="form.quantity"
               :until="form.endsOn || undefined"
               :disabled="pending"
             />
@@ -265,7 +271,7 @@ async function onSubmit() {
               v-model="form.endsOn"
               label="Return date"
               :product-slug="form.productSlug || undefined"
-              :quantity="1"
+              :quantity="form.quantity"
               :min="form.startsOn || undefined"
               :disabled="pending"
             />
@@ -276,6 +282,20 @@ async function onSubmit() {
               class="size-4 shrink-0 text-[#5b6b64]"
             />
             <span>Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}</span>
+          </div>
+          <div
+            v-if="showQuantity"
+            class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#12201a]/10 px-3.5 py-2.5 text-sm"
+          >
+            <span class="text-[#12201a]">Units</span>
+            <UInputNumber
+              v-model="form.quantity"
+              :min="1"
+              :max="99"
+              :disabled="pending"
+              size="sm"
+              class="w-28"
+            />
           </div>
         </section>
 
@@ -420,7 +440,9 @@ async function onSubmit() {
             <dl class="space-y-2 border-t border-dashed border-[#12201a]/12 pt-4 text-sm">
               <div class="flex justify-between gap-4">
                 <dt class="text-[#5b6b64]">
-                  Rent · {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
+                  Rent · {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}<template v-if="quote.quantity > 1">
+                    × {{ quote.quantity }} units
+                  </template>
                 </dt>
                 <dd class="tabular-nums text-[#12201a]">
                   {{ formatMoney(quote.rentAmount) }}

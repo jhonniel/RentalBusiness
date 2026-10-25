@@ -1,7 +1,8 @@
+import type { MaintenanceChatAction } from '../types/maintenance'
 import type { RentalQuote } from '../types/rental'
-import { formatBookingDate } from './datetime'
+import { calendarDateInZone, formatBookingDate } from './datetime'
 import { addCalendarDays } from './expense'
-import { DEFAULT_PICKUP_TIME, formatPickupClock, rentalPeriodDays } from './rental-window'
+import { DEFAULT_PICKUP_TIME, formatPickupClock, isPastBusinessDateTime, pickupTimeSlots, rentalPeriodDays } from './rental-window'
 import { formatMoney } from './currency'
 import { STOREFRONT_KIT_PRODUCTS } from './storefront'
 
@@ -103,8 +104,26 @@ export function chatKitPrompt(names: string[] = []) {
   return `Which kit? I can check ${list}. Name the gear and the dates.`
 }
 
+const DATE_WORD_FIXES: Array<[RegExp, string]> = [
+  [/\b(?:the\s+)?day\s+after\s+(?:tomorrow|tommorow|tomorow|tommorrow)\b|\bovermorrow\b|\bsamakalawa\b/g, 'overmorrow'],
+  [/\b(?:tommorow|tommorrow|tomorow|tomorro|tomoro|tommoro|tmrw|tmr|tmw|2morrow|2moro|2mrw|bukas)\b/g, 'tomorrow'],
+  [/\b(?:tdy|todayy|ngayon)\b/g, 'today'],
+  [/\b(?:untill|untl|til)\b/g, 'until'],
+  [/\b(?:munday|mondy)\b/g, 'monday'],
+  [/\b(?:tuseday|tusday|tuesdy)\b/g, 'tuesday'],
+  [/\b(?:wednsday|wensday|wedensday|wednesdy)\b/g, 'wednesday'],
+  [/\b(?:thursdy|thurday|thrusday)\b/g, 'thursday'],
+  [/\b(?:firday|frday|fridy|frieday)\b/g, 'friday'],
+  [/\b(?:saturdy|satuday|saterday)\b/g, 'saturday'],
+  [/\b(?:sundy|sundey)\b/g, 'sunday'],
+]
+
 function normalize(value: string) {
-  return value.toLowerCase().replace(/₱/g, ' php ').replace(/[^a-z0-9\s\/.-]/g, ' ').replace(/\s+/g, ' ').trim()
+  let text = value.toLowerCase().replace(/₱/g, ' php ').replace(/[^a-z0-9\s/.-]/g, ' ').replace(/\s+/g, ' ').trim()
+  for (const [pattern, replacement] of DATE_WORD_FIXES) {
+    text = text.replace(pattern, replacement)
+  }
+  return text
 }
 
 function pad(value: number) {
@@ -125,8 +144,10 @@ function utcWeekday(date: string) {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
 }
 
+const RECENT_PAST_DAYS = 183
+
 function bumpIfPast(date: string, today: string) {
-  if (date >= today) {
+  if (date >= today || addCalendarDays(date, RECENT_PAST_DAYS) >= today) {
     return date
   }
   const [year, month, day] = date.split('-').map(Number)
@@ -213,6 +234,9 @@ function parseRelativeDates(query: string, today: string) {
   if (/\btomorrow\b/.test(query) || /\b(?:the\s+)?next\s+day\b/.test(query) || /\bfollowing\s+day\b/.test(query)) {
     dates.push(addCalendarDays(today, 1))
   }
+  if (/\bovermorrow\b/.test(query)) {
+    dates.push(addCalendarDays(today, 2))
+  }
   if (/\bweekend\b/.test(query)) {
     dates.push(onOrAfterWeekday(today, 6))
   }
@@ -271,6 +295,9 @@ function parseSingleDate(
   if (token === 'tomorrow' || token === 'next day' || token === 'the next day' || token === 'following day') {
     return addCalendarDays(today, 1)
   }
+  if (token === 'overmorrow') {
+    return addCalendarDays(today, 2)
+  }
   if (token === 'weekend') {
     return onOrAfterWeekday(today, 6)
   }
@@ -303,9 +330,23 @@ function parseSingleDate(
   return null
 }
 
+function dateBitPattern() {
+  const months = monthNamesPattern()
+  return `(?:20\\d{2}-\\d{2}-\\d{2}|\\d{1,2}[/.]\\d{1,2}(?:[/.]\\d{2,4})?|(?:${months})\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s+20\\d{2})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${months})(?:\\s+20\\d{2})?|today|tomorrow|overmorrow|(?:the\\s+)?next\\s+day|following\\s+day|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\\d{1,2}(?:st|nd|rd|th)?)`
+}
+
+function parseUntilOnly(query: string, today: string) {
+  const match = query.match(new RegExp(`\\b(?:until|till|hanggang|up\\s+to)\\s+(${dateBitPattern()})\\b`))
+  if (!match || /^\d{1,2}(?:st|nd|rd|th)?$/.test(match[1])) {
+    return null
+  }
+  const endsOn = parseSingleDate(match[1], today)
+  return endsOn ? { startsOn: today, endsOn: ensureOnOrAfter(endsOn, today) } : null
+}
+
 function parseFromToRange(query: string, today: string) {
   const months = monthNamesPattern()
-  const dateBit = `(?:20\\d{2}-\\d{2}-\\d{2}|\\d{1,2}[/.]\\d{1,2}(?:[/.]\\d{2,4})?|(?:${months})\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s+20\\d{2})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${months})(?:\\s+20\\d{2})?|today|tomorrow|(?:the\\s+)?next\\s+day|following\\s+day|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\\d{1,2}(?:st|nd|rd|th)?)`
+  const dateBit = dateBitPattern()
   const connector = '(?:to|until|till|til|through|hanggang|-)'
 
   const sameMonth = query.match(new RegExp(`\\b(${months})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*${connector}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+(20\\d{2}))?\\b`))
@@ -375,12 +416,74 @@ function parseDays(query: string) {
   return null
 }
 
-function parseQuantity(query: string) {
-  const match = query.match(/\b(\d{1,2})\s*(units?|kits?|pieces?|pcs|qty)\b/)
-  if (!match) {
-    return 1
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+}
+
+function quantityToken(token: string) {
+  return NUMBER_WORDS[token] ?? Number(token)
+}
+
+function parseQuantity(query: string, keywords: string[] = []) {
+  const words = Object.keys(NUMBER_WORDS).join('|')
+  const amount = `(\\d{1,2}|${words})`
+  const notADate = `(?<!(?:${monthNamesPattern()}|to|until|till|from|on|-)\\s?)`
+  const patterns = [
+    new RegExp(`\\b${amount}\\s*(?:units?|kits?|pieces?|pcs|qty|sets?)\\b`),
+    /\bx\s?(\d{1,2})\b/,
+    /\b(\d{1,2})\s?x\b/,
+    ...keywords
+      .filter(keyword => keyword.length >= 3)
+      .map(keyword => new RegExp(`${notADate}\\b([1-9]|${words})\\s+(?:pcs\\s+|units?\\s+of\\s+|of\\s+)?(?:the\\s+)?${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)),
+  ]
+  for (const pattern of patterns) {
+    const match = query.match(pattern)
+    if (match) {
+      return Math.min(99, Math.max(1, quantityToken(match[1])))
+    }
   }
-  return Math.min(99, Math.max(1, Number(match[1])))
+  return null
+}
+
+function parseWhen(query: string, today: string) {
+  const range = parseFromToRange(query, today) || parseUntilOnly(query, today)
+  const dates = [...new Set([
+    ...parseIsoDates(query),
+    ...parseNumericDates(query, today),
+    ...parseNamedDates(query, today),
+    ...parseRelativeDates(query, today),
+  ])].sort()
+  return {
+    startsOn: range?.startsOn || dates[0] || null,
+    endsOn: range?.endsOn || (dates.length > 1 ? dates[dates.length - 1] : null),
+    days: range ? null : parseDays(query),
+  }
+}
+
+function latestWhen(lines: string[], today: string) {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const when = parseWhen(lines[index], today)
+    if (!when.startsOn && !when.endsOn && !when.days) {
+      continue
+    }
+    if (!when.startsOn && when.days) {
+      const earlier = lines.slice(0, index).reverse()
+        .map(line => parseWhen(line, today))
+        .find(item => item.startsOn && !item.endsOn)
+      return { ...when, startsOn: earlier?.startsOn ?? null }
+    }
+    return when
+  }
+  return { startsOn: null, endsOn: null, days: null }
 }
 
 function extraKitKeywords(name: string, slug: string) {
@@ -406,11 +509,22 @@ export function chatKitAliases(catalog: ChatKit[] = []): KitAlias[] {
     return KIT_ALIASES
   }
 
+  const productTokens = catalog.map(product => new Set([
+    ...product.name.toLowerCase().split(/\s+/),
+    ...product.slug.split('-'),
+  ]))
+  const tokenCounts = new Map<string, number>()
+  for (const tokens of productTokens) {
+    for (const token of tokens) {
+      tokenCounts.set(token, (tokenCounts.get(token) ?? 0) + 1)
+    }
+  }
+
   return catalog.map((product) => {
     const name = product.name.toLowerCase()
     const slugWords = product.slug.replace(/-/g, ' ')
     const tokens = [...new Set([...name.split(/\s+/), ...slugWords.split(/\s+/)])]
-      .filter(token => token.length >= 3 && !NAME_STOP_WORDS.has(token) && !/^\d+$/.test(token))
+      .filter(token => token.length >= 3 && !NAME_STOP_WORDS.has(token) && !/^\d+$/.test(token) && (tokenCounts.get(token) ?? 0) <= 1)
 
     return {
       slug: product.slug,
@@ -441,19 +555,15 @@ export function chatQuestionContext(messages: Array<{ role: string, content: str
 
 export function parseChatQuoteIntent(question: string, today: string, catalog: ChatKit[] = []): ChatQuoteIntent {
   const query = normalize(question)
+  const lines = question.split('\n').map(normalize).filter(Boolean)
   const slugs = matchKitSlugs(query, catalog)
-  const range = parseFromToRange(query, today)
-  const dates = [
-    ...parseIsoDates(query),
-    ...parseNumericDates(query, today),
-    ...parseNamedDates(query, today),
-    ...parseRelativeDates(query, today),
-  ]
-  const uniqueDates = [...new Set(dates)].sort()
-  const startsOn = range?.startsOn || uniqueDates[0] || null
-  const endsOn = range?.endsOn || (uniqueDates.length > 1 ? uniqueDates[uniqueDates.length - 1] : null)
-  const days = range ? null : parseDays(query)
-  const quantity = parseQuantity(query)
+  const { startsOn, endsOn, days } = latestWhen(lines, today)
+  const kitKeywords = chatKitAliases(catalog)
+    .filter(kit => slugs.includes(kit.slug))
+    .flatMap(kit => kit.keywords)
+  const quantity = [...lines].reverse()
+    .map(line => parseQuantity(line, kitKeywords))
+    .find((value): value is number => value !== null) ?? 1
   const wantsPrice = PRICE_RE.test(query)
   const wantsAvailability = AVAIL_RE.test(query)
   const wantsBooking = BOOK_RE.test(query) && !HOW_TO_RE.test(query)
@@ -494,6 +604,21 @@ export function parseChatQuoteIntent(question: string, today: string, catalog: C
   }
 }
 
+export function chatPickupTime(startsOn: string, now: Date = new Date()): string | null {
+  if (startsOn !== calendarDateInZone(now) || !isPastBusinessDateTime(startsOn, DEFAULT_PICKUP_TIME, now)) {
+    return DEFAULT_PICKUP_TIME
+  }
+  return pickupTimeSlots().find(time => !isPastBusinessDateTime(startsOn, time, now)) ?? null
+}
+
+export function chatPastDateReply(startsOn: string, today: string) {
+  return `${formatBookingDate(startsOn)} has already passed, so it can't be booked. I can check and book dates from today, ${formatBookingDate(today)}, onward. Which dates do you want?`
+}
+
+export function chatNoPickupLeftTodayReply(today: string) {
+  return `Pickup times for today, ${formatBookingDate(today)}, are over. The earliest pickup is tomorrow, ${formatBookingDate(addCalendarDays(today, 1))}. Want me to check tomorrow?`
+}
+
 export function chatQuoteRange(intent: ChatQuoteIntent, today: string) {
   const startsOn = intent.startsOn || today
   let endsOn = intent.endsOn
@@ -516,6 +641,41 @@ export function chatQuoteRange(intent: ChatQuoteIntent, today: string) {
   }
 }
 
+export type ChatBookingAction = MaintenanceChatAction
+
+export function chatBookingPath(quote: Pick<RentalQuote, 'startsOn' | 'endsOn' | 'pickupTime' | 'quantity'> & { product: { slug: string } }) {
+  const params = new URLSearchParams({
+    product: quote.product.slug,
+    startsOn: quote.startsOn,
+    endsOn: quote.endsOn,
+    pickupTime: quote.pickupTime,
+    quantity: String(quote.quantity),
+  })
+  return `/rentals/new?${params.toString()}`
+}
+
+export function chatQuoteActions(quote: RentalQuote): ChatBookingAction[] {
+  if (quote.canFulfill) {
+    return [{
+      kind: 'book',
+      label: quote.quantity > 1 ? `Book ${quote.quantity} × ${quote.product.name}` : `Book ${quote.product.name}`,
+      to: chatBookingPath(quote),
+    }]
+  }
+  if (quote.quantity > 1 && quote.available > 0) {
+    return [{
+      kind: 'book',
+      label: `Book ${quote.available} × ${quote.product.name}`,
+      to: chatBookingPath({ ...quote, quantity: quote.available }),
+    }]
+  }
+  return [{ kind: 'view', label: `Pick other dates for ${quote.product.name}`, to: `/products/${quote.product.slug}` }]
+}
+
+function unitsLabel(count: number) {
+  return count === 1 ? '1 unit' : `${count} units`
+}
+
 export function formatChatQuoteAnswer(quote: RentalQuote) {
   const start = formatBookingDate(quote.startsOn)
   const end = formatBookingDate(quote.endsOn)
@@ -524,17 +684,18 @@ export function formatChatQuoteAnswer(quote: RentalQuote) {
   const dayLabel = quote.days === 1 ? '1 day' : `${quote.days} days`
   const rental = formatMoney(quote.lineTotal)
   const due = formatMoney(quote.lineTotal + quote.depositAmount)
-  const less = quote.lessAmount > 0
-    ? ` That total already takes off ${formatMoney(quote.lessAmount)} for a booking of ${quote.days} days.`
-    : ''
   const deposit = formatMoney(quote.depositAmount)
-  const path = `/products/${quote.product.slug}`
+  const units = quote.quantity > 1 ? ` for ${unitsLabel(quote.quantity)}` : ''
 
   if (quote.canFulfill) {
-    return `${quote.product.name} is available from ${window} (${dayLabel}) — those dates are not booked. You can book it. The rental is ${rental}. The amount to pay is ${due}, including a ${deposit} deposit.${less} Book it at ${path}`
+    return `${quote.product.name} is available${units} from ${window} (${dayLabel}) — those dates are not booked. You can book it. The rental is ${rental}. The amount to pay is ${due}, including a ${deposit} deposit. Tap the button below to book with these details.`
   }
 
-  return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}. The amount to pay would be ${due}, including a ${deposit} deposit.${less} Choose other dates at ${path}`
+  if (quote.quantity > 1 && quote.available > 0) {
+    return `Only ${unitsLabel(quote.available)} of ${quote.product.name} ${quote.available === 1 ? 'is' : 'are'} free from ${window} (${dayLabel}); you asked for ${unitsLabel(quote.quantity)}. You can book ${quote.available === 1 ? 'that unit' : 'those units'} with the button below or try other dates.`
+  }
+
+  return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}. The amount to pay would be ${due}, including a ${deposit} deposit. Choose other dates with the button below.`
 }
 
 export function formatLiveAvailabilityFacts(kits: Array<{

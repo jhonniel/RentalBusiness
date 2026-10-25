@@ -36,7 +36,7 @@ Copy `.env.example`. Set these in the Vercel project settings:
 - `PAYMENT_WEBHOOK_SECRET` / `NUXT_PAYMENT_WEBHOOK_SECRET`
 - `CRON_SECRET` / `NUXT_CRON_SECRET`
 - `GROQ_API_KEY` / `NUXT_GROQ_API_KEY` (optional free Groq key; maintenance chat uses business knowledge without it)
-- `GROQ_BASE_URL` / `GROQ_MODEL` (optional; defaults to Groq `llama-3.1-8b-instant`)
+- `GROQ_BASE_URL` / `GROQ_MODEL` (optional; defaults to Groq `openai/gpt-oss-20b`)
 
 ## Local
 

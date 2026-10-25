@@ -7,6 +7,7 @@ import {
   BUSINESS_TIMEZONE,
   FACEBOOK_URL,
 } from './constants'
+import { formatBookingDate } from './datetime'
 import { STOREFRONT_KIT_PRODUCTS } from './storefront'
 
 export interface MaintenanceChatContext {
@@ -14,6 +15,9 @@ export interface MaintenanceChatContext {
   message: string
   enabled: boolean
   liveFacts?: string
+  catalogFacts?: string
+  policyFacts?: string
+  today?: string
 }
 
 interface KnowledgeEntry {
@@ -27,7 +31,7 @@ const KIT_NAMES = STOREFRONT_KIT_PRODUCTS.map(product => product.name).join(', '
 export const FREE_CHAT_AI = {
   provider: 'groq',
   baseUrl: 'https://api.groq.com/openai/v1',
-  model: 'llama-3.1-8b-instant',
+  model: 'openai/gpt-oss-20b',
 } as const
 
 export const MAINTENANCE_CHAT_KNOWLEDGE: KnowledgeEntry[] = [
@@ -94,6 +98,18 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
     `You are the ${APP_NAME} assistant on the public website.`,
     availability,
     `Business facts: based in ${BUSINESS_ADDRESS}; currency ${BUSINESS_CURRENCY}; dates use ${BUSINESS_TIMEZONE}; kits include ${KIT_NAMES}.`,
+    context.today
+      ? `Today is ${formatBookingDate(context.today)} (${context.today}) in ${BUSINESS_TIMEZONE}. Bookings can start today or later only. Never quote, confirm, or suggest dates before today; if a visitor asks for a past date, say it has passed and ask for a date from today onward.`
+      : '',
+    context.catalogFacts
+      ? `LIVE CATALOG from the system, the source of truth for equipment, prices, deposits, specs, what is included, rules, and coming-soon items. Never contradict it:\n${context.catalogFacts}`
+      : '',
+    context.policyFacts
+      ? `SHOP POLICIES from the system:\n${context.policyFacts}`
+      : '',
+    'Mention how many units the shop has only when the visitor asks how many or wants more than one; never in lists or general answers. Never mention long-stay discounts, or weekly and monthly prices. Rent is charged per day.',
+    'Write plain text only. No markdown, asterisks, bullet lists, or headings.',
+    'When you suggest booking, say they can tap the Book button under your reply; it opens the booking form with their details filled in. Do not paste booking links.',
     `Contact: ${BUSINESS_EMAIL} and Facebook ${FACEBOOK_URL}.`,
     'Booking: choose gear, pick dates, sign the waiver, upload ID and selfie, pay by QR, then pickup, meetup, or delivery.',
     'Refund: the down payment paid to confirm a booking is not refundable once the rental is booked. A security deposit is separate from the down payment.',

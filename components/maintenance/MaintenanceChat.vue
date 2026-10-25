@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MaintenanceChatMessage, MaintenanceChatResponse } from '~/types/maintenance'
+import { CHAT_MAX_SUGGESTIONS, chatStarterSuggestions } from '~/utils/chat-suggestions'
 import { APP_NAME, FACEBOOK_MESSENGER_URL } from '~/utils/constants'
 
 const props = withDefaults(defineProps<{
@@ -11,9 +12,7 @@ const props = withDefaults(defineProps<{
 })
 
 const live = computed(() => props.mode === 'live')
-const suggestions = computed(() => live.value
-  ? ['How much is Starlink from Sept 20 to 22?', 'Is the Air 3 free tomorrow?', 'How much is the Osmo for 3 days?', 'How do I book?']
-  : ['When will the site be back?', 'How much is Starlink from Sept 20 to 22?', 'Is the drone free tomorrow?', 'Where are you located?'])
+const suggestions = ref<string[]>(chatStarterSuggestions(live.value))
 
 const messages = ref<MaintenanceChatMessage[]>([{
   role: 'assistant',
@@ -28,6 +27,21 @@ const list = ref<HTMLElement | null>(null)
 const open = ref(props.variant === 'panel')
 
 const canSend = computed(() => Boolean(draft.value.trim()) && !pending.value)
+const slowReply = ref(false)
+let slowReplyTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(pending, (value) => {
+  clearTimeout(slowReplyTimer)
+  slowReply.value = false
+  if (value) {
+    slowReplyTimer = setTimeout(() => {
+      slowReply.value = true
+      scrollToEnd()
+    }, 3000)
+  }
+})
+
+onBeforeUnmount(() => clearTimeout(slowReplyTimer))
 
 function messageParts(content: string) {
   return content.split(/(https?:\/\/[^\s]+)/g)
@@ -45,6 +59,12 @@ function scrollToEnd() {
       list.value.scrollTop = list.value.scrollHeight
     }
   })
+}
+
+function followAction() {
+  if (props.variant === 'float') {
+    open.value = false
+  }
 }
 
 function toggleOpen() {
@@ -71,13 +91,20 @@ async function send(text = draft.value) {
     const payload = await $fetch<MaintenanceChatResponse>('/api/maintenance/chat', {
       method: 'POST',
       body: {
-        messages: messages.value.slice(-12),
+        messages: messages.value.slice(-12).map(message => ({ role: message.role, content: message.content })),
       },
     })
     messages.value.push({
       role: 'assistant',
       content: payload.reply,
+      actions: (payload.actions ?? []).filter(action => action.to.startsWith('/') && !action.to.startsWith('//')),
     })
+    const next = (payload.suggestions ?? [])
+      .filter(item => typeof item === 'string' && item.trim() && item.length <= 120)
+      .slice(0, CHAT_MAX_SUGGESTIONS)
+    if (next.length) {
+      suggestions.value = next
+    }
   }
   catch (error) {
     const payload = typeof error === 'object' && error && 'data' in error
@@ -96,8 +123,8 @@ async function send(text = draft.value) {
 }
 
 const panelClass = computed(() => props.variant === 'float'
-  ? 'h-[min(28rem,calc(100dvh-7rem))] w-[min(calc(100vw-1.5rem),22rem)]'
-  : 'h-[32rem] w-full')
+  ? 'h-[min(42rem,calc(100dvh-6rem))] w-[min(calc(100vw-1.5rem),28rem)]'
+  : 'h-[40rem] w-full')
 </script>
 
 <template>
@@ -149,11 +176,11 @@ const panelClass = computed(() => props.variant === 'float'
             <div
               v-for="(item, index) in messages"
               :key="`${item.role}-${index}`"
-              class="flex"
-              :class="item.role === 'user' ? 'justify-end' : 'justify-start'"
+              class="flex flex-col gap-2"
+              :class="item.role === 'user' ? 'items-end' : 'items-start'"
             >
               <p
-                class="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6"
+                class="max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-sm leading-6"
                 :class="item.role === 'user'
                   ? 'bg-[#12201a] text-white'
                   : 'bg-[#f3f5f4] text-[#3b4a44]'"
@@ -174,34 +201,45 @@ const panelClass = computed(() => props.variant === 'float'
                   </template>{{ part.trailing }}
                 </template>
               </p>
+              <div
+                v-if="item.actions?.length"
+                class="flex max-w-[85%] flex-wrap gap-2"
+              >
+                <UButton
+                  v-for="action in item.actions"
+                  :key="action.to"
+                  :to="action.to"
+                  size="sm"
+                  :color="action.kind === 'book' ? 'primary' : 'neutral'"
+                  :variant="action.kind === 'book' ? 'solid' : 'outline'"
+                  :icon="action.kind === 'book' ? 'i-lucide-calendar-check' : 'i-lucide-arrow-up-right'"
+                  class="rounded-full"
+                  @click="followAction"
+                >
+                  {{ action.label }}
+                </UButton>
+              </div>
             </div>
-            <p
+            <div
               v-if="pending"
-              class="text-xs text-[#5b6b64]"
+              class="chat-typing-bubble flex flex-col items-start gap-1"
+              role="status"
+              aria-live="polite"
             >
-              Thinking…
-            </p>
+              <span class="inline-flex items-center gap-1 rounded-2xl bg-[#f3f5f4] px-3.5 py-3">
+                <span class="chat-typing-dot size-1.5 rounded-full bg-[#5b6b64]" />
+                <span class="chat-typing-dot size-1.5 rounded-full bg-[#5b6b64]" />
+                <span class="chat-typing-dot size-1.5 rounded-full bg-[#5b6b64]" />
+                <span class="sr-only">{{ APP_NAME }} is typing</span>
+              </span>
+              <span
+                v-if="slowReply"
+                class="px-1 text-[11px] text-[#5b6b64]"
+              >
+                Checking live availability and prices…
+              </span>
+            </div>
           </div>
-
-          <a
-            :href="FACEBOOK_MESSENGER_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="flex items-center justify-center gap-1.5 border-t border-[#12201a]/8 bg-[#f4f8ff] px-3 py-2 text-xs text-[#3b4a44] hover:bg-[#eaf2ff]"
-          >
-            <UIcon
-              name="i-lucide-message-circle"
-              class="size-3.5 shrink-0"
-            />
-            Need help?
-            <span class="inline-flex items-center gap-1 font-medium text-[#1877f2]">
-              <UIcon
-                name="i-lucide-facebook"
-                class="size-3.5"
-              />
-              Message us on Facebook
-            </span>
-          </a>
 
           <div class="border-t border-[#12201a]/8 px-3 py-3">
             <div class="mb-3 flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

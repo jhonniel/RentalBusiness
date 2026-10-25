@@ -14,12 +14,23 @@ import {
   formatChatQuoteAnswer,
   formatLiveAvailabilityFacts,
   parseChatQuoteIntent,
+  chatNoPickupLeftTodayReply,
+  chatPastDateReply,
+  chatPickupTime,
+  chatQuoteActions,
+  type ChatBookingAction,
   type ChatKit,
 } from '../../utils/chat-quote'
 import { addCalendarDays } from '../../utils/expense'
 import { AppError } from '../utils/errors'
-import { getPublicSupabaseClient } from '../utils/supabase'
+import { getPublicSupabaseClient, getSupabaseAdminClient } from '../utils/supabase'
+import type { CatalogProduct } from '../../types/catalog'
+import { answerFromCatalog, catalogActions, catalogFacts, policyFacts, type ChatShopPolicies } from '../../utils/chat-knowledge'
+import { chatFollowUpSuggestions, type ChatTopic } from '../../utils/chat-suggestions'
 import { listPublicProductNames } from '../repositories/product.repository'
+import { getPublicProducts } from './catalog.service'
+import { getActivePaymentMethods } from './payment-method.service'
+import { getAdminSettings } from './settings.service'
 import { getProductAvailabilityCalendar } from './availability.service'
 import { getPublicMaintenanceSafe } from './maintenance.service'
 import { quoteRental } from './rental.service'
@@ -50,6 +61,24 @@ async function completeWithFreeAi(
     return null
   }
 
+  const models = model === FREE_CHAT_AI.model ? [model] : [model, FREE_CHAT_AI.model]
+  for (const candidate of models) {
+    const result = await requestChatCompletion(baseUrl, apiKey, candidate, input, prompt)
+    if (result !== 'model-unavailable') {
+      return result
+    }
+    console.warn(`[chat] AI model "${candidate}" is unavailable; update GROQ_MODEL.`)
+  }
+  return null
+}
+
+async function requestChatCompletion(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  input: MaintenanceChatInput,
+  prompt: string,
+): Promise<string | null | 'model-unavailable'> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 12_000)
 
@@ -57,13 +86,14 @@ async function completeWithFreeAi(
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model,
         temperature: 0.1,
-        max_tokens: 280,
+        max_tokens: 400,
+        ...(model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
         messages: [
           { role: 'system', content: prompt },
           ...input.messages.map(message => ({
@@ -76,11 +106,16 @@ async function completeWithFreeAi(
     })
 
     if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      if (response.status === 404 || detail.includes('model_not_found') || detail.includes('model_decommissioned')) {
+        return 'model-unavailable'
+      }
+      console.warn(`[chat] AI request failed with status ${response.status}.`)
       return null
     }
 
     const payload = await response.json() as ChatCompletionResponse
-    const content = payload.choices?.[0]?.message?.content?.trim()
+    const content = plainChatText(payload.choices?.[0]?.message?.content ?? '')
     return content || null
   }
   catch {
@@ -89,6 +124,50 @@ async function completeWithFreeAi(
   finally {
     clearTimeout(timer)
   }
+}
+
+function plainChatText(value: string) {
+  return value
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+interface ChatKnowledge {
+  products: CatalogProduct[]
+  policies: ChatShopPolicies
+  paymentMethods: string[]
+}
+
+const KNOWLEDGE_TTL_MS = 60_000
+let knowledgeCache: { at: number, value: ChatKnowledge } | null = null
+
+async function loadChatKnowledge(client: SupabaseClient<Database>): Promise<ChatKnowledge> {
+  if (knowledgeCache && Date.now() - knowledgeCache.at < KNOWLEDGE_TTL_MS) {
+    return knowledgeCache.value
+  }
+
+  const admin = getSupabaseAdminClient()
+  const [products, settings, methods] = await Promise.all([
+    getPublicProducts(client, { page: 1, pageSize: 50 }).then(result => result.items).catch(() => [] as CatalogProduct[]),
+    getAdminSettings(admin).catch(() => null),
+    getActivePaymentMethods(admin).catch(() => []),
+  ])
+  const value: ChatKnowledge = {
+    products,
+    policies: {
+      lateFeePolicy: settings?.lateFeePolicy ?? null,
+      depositRules: settings?.depositRules ?? null,
+      cancellationRules: settings?.cancellationRules ?? null,
+    },
+    paymentMethods: methods.map(method => method.name),
+  }
+  knowledgeCache = { at: Date.now(), value }
+  return value
 }
 
 async function loadChatKits(client: SupabaseClient<Database>): Promise<ChatKit[]> {
@@ -155,30 +234,59 @@ async function answerLiveQuote(
   client: SupabaseClient<Database>,
   question: string,
   catalog: ChatKit[],
-) {
+  comingSoonSlugs: Set<string>,
+): Promise<LiveQuoteAnswer | null> {
   const today = calendarDateInZone()
   const intent = parseChatQuoteIntent(question, today, catalog)
-  if (intent.action === 'none') {
+  const hasDates = Boolean(intent.startsOn || intent.endsOn || intent.days)
+  if (intent.action === 'none' || (!hasDates && /\bhow many\b/i.test(question))) {
     return null
   }
+  const comingSoon = intent.slugs.filter(slug => comingSoonSlugs.has(slug))
+  if (comingSoon.length && comingSoon.length === intent.slugs.length) {
+    const names = comingSoon.map(slug => kitName(catalog, slug) || slug).join(' and ')
+    return {
+      reply: `${names} ${comingSoon.length > 1 ? 'are' : 'is'} coming soon and can't be booked yet. Message us on Facebook to know when it becomes available.`,
+      actions: comingSoon.slice(0, 3).map(slug => ({ kind: 'view' as const, label: `View ${kitName(catalog, slug) || slug}`, to: `/products/${slug}` })),
+      topic: 'coming-soon',
+    }
+  }
+  const firstName = intent.slugs[0] ? kitName(catalog, intent.slugs[0]) ?? null : null
   if (intent.action === 'ask-kit') {
-    return chatKitPrompt(catalog.map(kit => kit.name))
+    return { reply: chatKitPrompt(catalog.map(kit => kit.name)), actions: [], topic: 'ask-kit' }
   }
   if (intent.action === 'ask-dates') {
-    return chatDatesPrompt(intent.slugs[0] ? kitName(catalog, intent.slugs[0]) : undefined)
+    const slug = intent.slugs[0]
+    return {
+      reply: chatDatesPrompt(firstName ?? undefined),
+      actions: slug && firstName ? [{ kind: 'book' as const, label: `Book ${firstName}`, to: `/rentals/new?product=${encodeURIComponent(slug)}` }] : [],
+      topic: 'ask-dates',
+      productName: firstName,
+    }
   }
 
-  const range = chatQuoteRange(intent, today)
-  if (isPastBusinessDate(range.startsOn, today)) {
-    return 'Those dates are in the past and cannot be booked.'
+  const quoteRange = chatQuoteRange(intent, today)
+  if (isPastBusinessDate(quoteRange.startsOn, today)) {
+    return { reply: chatPastDateReply(quoteRange.startsOn, today), actions: [], topic: 'past-date', productName: firstName }
   }
+  const pickupTime = chatPickupTime(quoteRange.startsOn)
+  if (!pickupTime) {
+    return { reply: chatNoPickupLeftTodayReply(today), actions: [], topic: 'past-date', productName: firstName }
+  }
+  const range = { ...quoteRange, pickupTime }
 
   const slugs = intent.slugs.length
     ? intent.slugs
     : catalog.map(kit => kit.slug).slice(0, 8)
   const replies: string[] = []
+  const actions: ChatBookingAction[] = []
+  let anyAvailable = false
+  let quotedName: string | null = null
 
   for (const productSlug of slugs) {
+    if (comingSoonSlugs.has(productSlug)) {
+      continue
+    }
     try {
       const quoted = await quoteRental(client, {
         productSlug,
@@ -188,6 +296,9 @@ async function answerLiveQuote(
         quantity: range.quantity,
       })
       replies.push(formatChatQuoteAnswer(quoted))
+      actions.push(...chatQuoteActions(quoted))
+      anyAvailable ||= quoted.canFulfill
+      quotedName ??= quoted.product.name
     }
     catch (error) {
       if (error instanceof AppError && error.statusCode === 409) {
@@ -196,20 +307,52 @@ async function answerLiveQuote(
     }
   }
 
-  return replies.length ? replies.join('\n\n') : null
+  return replies.length
+    ? {
+      reply: replies.join('\n\n'),
+      actions: actions.slice(0, 3),
+      topic: anyAvailable ? 'quote-available' : 'quote-unavailable',
+      productName: quotedName ?? firstName,
+    } satisfies LiveQuoteAnswer
+    : null
+}
+
+interface LiveQuoteAnswer {
+  reply: string
+  actions: ChatBookingAction[]
+  topic: ChatTopic
+  productName?: string | null
 }
 
 export async function answerMaintenanceChat(event: H3Event, input: MaintenanceChatInput) {
   const status = await getPublicMaintenanceSafe()
   const question = chatQuestionContext(input.messages)
+  const lastMessage = input.messages[input.messages.length - 1]?.content || ''
+  const asked = input.messages.filter(message => message.role === 'user').map(message => message.content)
   let liveFacts = ''
+  let knowledge: ChatKnowledge | null = null
+  const followUps = (topic: ChatTopic, productName?: string | null) => chatFollowUpSuggestions({
+    topic,
+    question: lastMessage,
+    asked,
+    products: knowledge?.products ?? [],
+    productName,
+  })
 
   try {
     const client = await getPublicSupabaseClient(event)
-    const catalog = await loadChatKits(client)
-    const quoted = await answerLiveQuote(client, question, catalog)
+    knowledge = await loadChatKnowledge(client).catch(() => null)
+    const catalog = knowledge?.products.length
+      ? knowledge.products.map(product => ({ slug: product.slug, name: product.name }))
+      : await loadChatKits(client)
+    const comingSoonSlugs = new Set(knowledge?.products.filter(product => product.comingSoon).map(product => product.slug) ?? [])
+    const quoted = await answerLiveQuote(client, question, catalog, comingSoonSlugs)
     if (quoted) {
-      return { reply: quoted }
+      return {
+        reply: quoted.reply,
+        actions: status.enabled ? [] : quoted.actions,
+        suggestions: followUps(quoted.topic, quoted.productName),
+      }
     }
     liveFacts = await liveAvailabilityFacts(client, question, catalog)
   }
@@ -222,11 +365,19 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
     message: status.message,
     enabled: status.enabled,
     liveFacts,
+    catalogFacts: knowledge?.products.length ? catalogFacts(knowledge.products) : '',
+    policyFacts: knowledge ? policyFacts(knowledge.policies, knowledge.paymentMethods) : '',
+    today: calendarDateInZone(),
   }
-  const fallback = answerFromKnowledge(input.messages[input.messages.length - 1]?.content || '', context)
+  const catalogAnswer = knowledge
+    ? answerFromCatalog(lastMessage, knowledge.products, knowledge.policies, knowledge.paymentMethods)
+    : null
+  const fallback = catalogAnswer || answerFromKnowledge(lastMessage, context)
   const reply = await completeWithFreeAi(input, maintenanceAssistantPrompt(context))
 
   return {
     reply: reply || fallback,
+    actions: knowledge && !status.enabled ? catalogActions(lastMessage, knowledge.products) : [],
+    suggestions: followUps('general'),
   }
 }

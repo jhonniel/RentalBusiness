@@ -18,17 +18,26 @@ const { isAuthenticated } = useAuth()
         </p>
         <ul class="mt-4 space-y-2 text-sm text-white/75">
           <li>
-            <NuxtLink to="/products" class="hover:text-white">
+            <NuxtLink
+              to="/products"
+              class="hover:text-white"
+            >
               Equipment
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink to="/register" class="hover:text-white">
+            <NuxtLink
+              to="/register"
+              class="hover:text-white"
+            >
               Create account
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink to="/#how-it-works" class="hover:text-white">
+            <NuxtLink
+              to="/#how-it-works"
+              class="hover:text-white"
+            >
               Explore
             </NuxtLink>
           </li>
@@ -41,32 +50,50 @@ const { isAuthenticated } = useAuth()
         </p>
         <ul class="mt-4 space-y-2 text-sm text-white/75">
           <li>
-            <NuxtLink to="/#how-it-works" class="hover:text-white">
+            <NuxtLink
+              to="/#how-it-works"
+              class="hover:text-white"
+            >
               How it Works
             </NuxtLink>
           </li>
           <li v-if="isAuthenticated">
-            <NuxtLink to="/my-rentals" class="hover:text-white">
+            <NuxtLink
+              to="/my-rentals"
+              class="hover:text-white"
+            >
               My Bookings
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink to="/about" class="hover:text-white">
+            <NuxtLink
+              to="/about"
+              class="hover:text-white"
+            >
               About
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink to="/terms" class="hover:text-white">
+            <NuxtLink
+              to="/terms"
+              class="hover:text-white"
+            >
               Terms & Conditions
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink to="/privacy" class="hover:text-white">
+            <NuxtLink
+              to="/privacy"
+              class="hover:text-white"
+            >
               Privacy Policy
             </NuxtLink>
           </li>
           <li>
-            <NuxtLink to="/cookies" class="hover:text-white">
+            <NuxtLink
+              to="/cookies"
+              class="hover:text-white"
+            >
               Cookie Policy
             </NuxtLink>
           </li>
@@ -112,27 +139,36 @@ const { isAuthenticated } = useAuth()
     </div>
 
     <div class="border-t border-white/10">
-      <div class="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 py-4 text-center text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left lg:px-8">
-        <div class="flex flex-col items-center gap-1 sm:flex-row sm:gap-3">
-          <p>© {{ year }} {{ APP_NAME }}. All rights reserved.</p>
-          <p>
-            Powered By:
-            <a
-              href="https://www.thefusionwork.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="font-medium text-white/70 hover:text-white"
-            >FusionWork</a>
-          </p>
-        </div>
-        <div class="flex justify-center gap-4 sm:justify-start">
-          <NuxtLink to="/privacy" class="hover:text-white">
+      <div class="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 py-4 text-center text-xs text-white/45 sm:px-6 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-6 lg:px-8">
+        <p class="md:justify-self-start md:text-left">
+          © {{ year }} {{ APP_NAME }}. All rights reserved.
+        </p>
+        <p class="md:justify-self-center">
+          Powered By:
+          <a
+            href="https://www.thefusionwork.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-medium text-white/70 hover:text-white"
+          >FusionWork</a>
+        </p>
+        <div class="flex flex-wrap justify-center gap-4 md:justify-self-end">
+          <NuxtLink
+            to="/privacy"
+            class="hover:text-white"
+          >
             Privacy Policy
           </NuxtLink>
-          <NuxtLink to="/cookies" class="hover:text-white">
+          <NuxtLink
+            to="/cookies"
+            class="hover:text-white"
+          >
             Cookie Policy
           </NuxtLink>
-          <NuxtLink to="/terms" class="hover:text-white">
+          <NuxtLink
+            to="/terms"
+            class="hover:text-white"
+          >
             Terms & Conditions
           </NuxtLink>
         </div>
