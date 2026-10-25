@@ -29,24 +29,8 @@ export function quoteRentalLine(input: {
 }) {
   const quantity = Math.max(1, Math.trunc(input.quantity))
   const days = Math.max(1, Math.trunc(input.days))
-  let best = input.dailyPrice * days
-
-  if (input.weeklyPrice !== null && days >= 7) {
-    const weeks = Math.floor(days / 7)
-    const remainder = days % 7
-    best = Math.min(best, weeks * input.weeklyPrice + remainder * input.dailyPrice)
-  }
-
-  if (input.monthlyPrice !== null && days >= 28) {
-    const months = Math.floor(days / 28)
-    const remainder = days % 28
-    const remainderCost = input.weeklyPrice !== null && remainder >= 7
-      ? Math.floor(remainder / 7) * input.weeklyPrice + (remainder % 7) * input.dailyPrice
-      : remainder * input.dailyPrice
-    best = Math.min(best, months * input.monthlyPrice + remainderCost)
-  }
-
-  const rentAmount = fromMinorUnits(toMinorUnits(best * quantity))
+  // Weekly and monthly prices are shown on the catalog only; rent is always the daily price per day.
+  const rentAmount = fromMinorUnits(toMinorUnits(input.dailyPrice * days * quantity))
   const lessPerDay = Math.max(0, input.longStayLess ?? 0)
   const minDays = Math.max(1, Math.trunc(input.longStayMinDays ?? LONG_STAY_LESS_DAYS))
   const lessAmount = lessPerDay > 0 && days >= minDays

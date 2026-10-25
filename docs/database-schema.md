@@ -46,7 +46,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `name`, `description`, `short_description`
 - `daily_price`, `weekly_price`, `monthly_price`, `long_stay_less`, `long_stay_min_days`, `deposit_amount`, `late_fee`, `commission_per_day`, `replacement_value`
 - `long_stay_less` is a per-day amount. `long_stay_min_days` is the booking length that turns it on (default 3). A booking that reaches that length subtracts `long_stay_less × days × quantity`. A zero less turns it off. The deposit is not reduced.
-- `hidden_price_fields` (`text[]`, default `{}`) — which of `daily`, `weekly`, `monthly`, `deposit`, `late_fee`, `replacement_value` stay off the public catalog. Stored amounts still apply to quotes and bookings.
+- `hidden_price_fields` (`text[]`, default `{}`) — which of `daily`, `weekly`, `monthly`, `deposit`, `late_fee`, `replacement_value` stay off the public catalog. Stored amounts still apply to quotes and bookings, except `weekly_price` and `monthly_price`, which are display-only; `quote_rental_line` charges the daily price per day less `long_stay_less`.
 - `quantity`, `status` (`draft` \| `active` \| `coming_soon` \| `hidden` \| `archived`). `coming_soon` is public and labeled, but not bookable.
 - `condition`, `specifications` (jsonb), `included_accessories` (jsonb), `rental_rules`
 - `model_path` (optional 3D), `is_featured`

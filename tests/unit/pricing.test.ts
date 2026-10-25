@@ -23,18 +23,29 @@ describe('rental quotes', () => {
     })
   })
 
-  it('uses a weekly rate when it is cheaper', () => {
+  it('charges the daily price per day even when weekly and monthly prices are set', () => {
     const quote = quoteRentalLine({
       dailyPrice: 1000,
       weeklyPrice: 5000,
-      monthlyPrice: null,
+      monthlyPrice: 15000,
       depositAmount: 0,
       quantity: 1,
       days: 7,
     })
 
-    expect(quote.lineTotal).toBe(5000)
+    expect(quote.lineTotal).toBe(7000)
     expect(quote.lessAmount).toBe(0)
+
+    expect(quoteRentalLine({
+      dailyPrice: 1000,
+      weeklyPrice: 5000,
+      monthlyPrice: 15000,
+      depositAmount: 0,
+      quantity: 1,
+      days: 30,
+      longStayLess: 100,
+      longStayMinDays: 3,
+    })).toMatchObject({ rentAmount: 30000, lessAmount: 3000, lineTotal: 27000 })
   })
 
   it('subtracts the daily less times the days for a booking of 3 days or more', () => {
