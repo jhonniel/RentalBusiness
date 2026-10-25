@@ -8,6 +8,7 @@
     >
       <slot />
     </main>
+    <NeedHelpBar />
     <PublicFooter />
   </div>
 </template>

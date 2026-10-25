@@ -9,6 +9,7 @@ export interface PaymentMethodRow {
   account_number: string | null
   instructions: string | null
   qr_storage_path: string | null
+  logo_storage_path?: string | null
   sort_order: number
   is_active: boolean
 }
@@ -26,6 +27,7 @@ export function toPublicPaymentMethod(row: PaymentMethodRow, supabaseUrl: string
     accountNumber: row.account_number,
     instructions: row.instructions,
     qrUrl: row.qr_storage_path ? publicQrUrl(supabaseUrl, row.qr_storage_path) : null,
+    logoUrl: row.logo_storage_path ? publicQrUrl(supabaseUrl, row.logo_storage_path) : null,
     sortOrder: row.sort_order,
     isActive: row.is_active,
   }

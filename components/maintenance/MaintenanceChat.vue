@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MaintenanceChatMessage, MaintenanceChatResponse } from '~/types/maintenance'
-import { APP_NAME, BUSINESS_EMAIL } from '~/utils/constants'
+import { APP_NAME, FACEBOOK_MESSENGER_URL } from '~/utils/constants'
 
 const props = withDefaults(defineProps<{
   variant?: 'panel' | 'float'
@@ -28,6 +28,16 @@ const list = ref<HTMLElement | null>(null)
 const open = ref(props.variant === 'panel')
 
 const canSend = computed(() => Boolean(draft.value.trim()) && !pending.value)
+
+function messageParts(content: string) {
+  return content.split(/(https?:\/\/[^\s]+)/g)
+    .filter(Boolean)
+    .map((text) => {
+      const link = /^https?:\/\//.test(text)
+      const href = link ? text.replace(/[.,!?)]+$/, '') : ''
+      return { text: link ? href : text, href, trailing: link ? text.slice(href.length) : '' }
+    })
+}
 
 function scrollToEnd() {
   nextTick(() => {
@@ -76,7 +86,7 @@ async function send(text = draft.value) {
     formError.value = payload?.message || 'We could not send that message.'
     messages.value.push({
       role: 'assistant',
-      content: `I could not reply just now. Email ${BUSINESS_EMAIL} and we will help as soon as we can.`,
+      content: `I could not reply just now. Message us on Facebook at ${FACEBOOK_MESSENGER_URL} and we will help as soon as we can.`,
     })
   }
   finally {
@@ -109,96 +119,142 @@ const panelClass = computed(() => props.variant === 'float'
           class="chat-support-panel pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[#12201a]/10 bg-white text-left shadow-[0_18px_50px_rgb(18_32_26_/_18%)]"
           :class="panelClass"
         >
-        <header class="flex items-center justify-between gap-3 bg-[#12201a] px-4 py-3 text-white">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
-              Chat support
+          <header class="flex items-center justify-between gap-3 bg-[#12201a] px-4 py-3 text-white">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+                Chat support
+              </p>
+              <h2 class="mt-0.5 text-sm font-semibold">
+                {{ APP_NAME }}
+              </h2>
+            </div>
+            <button
+              v-if="variant === 'float'"
+              type="button"
+              class="rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white"
+              aria-label="Close chat"
+              @click="open = false"
+            >
+              <UIcon
+                name="i-lucide-x"
+                class="size-4"
+              />
+            </button>
+          </header>
+
+          <div
+            ref="list"
+            class="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
+          >
+            <div
+              v-for="(item, index) in messages"
+              :key="`${item.role}-${index}`"
+              class="flex"
+              :class="item.role === 'user' ? 'justify-end' : 'justify-start'"
+            >
+              <p
+                class="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6"
+                :class="item.role === 'user'
+                  ? 'bg-[#12201a] text-white'
+                  : 'bg-[#f3f5f4] text-[#3b4a44]'"
+              >
+                <template
+                  v-for="(part, partIndex) in messageParts(item.content)"
+                  :key="partIndex"
+                >
+                  <a
+                    v-if="part.href"
+                    :href="part.href"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="font-medium break-all underline underline-offset-2"
+                    :class="item.role === 'user' ? 'text-white' : 'text-[#1877f2]'"
+                  >{{ part.text }}</a><template v-else>
+                    {{ part.text }}
+                  </template>{{ part.trailing }}
+                </template>
+              </p>
+            </div>
+            <p
+              v-if="pending"
+              class="text-xs text-[#5b6b64]"
+            >
+              Thinking…
             </p>
-            <h2 class="mt-0.5 text-sm font-semibold">
-              {{ APP_NAME }}
-            </h2>
           </div>
-          <button
-            v-if="variant === 'float'"
-            type="button"
-            class="rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white"
-            aria-label="Close chat"
-            @click="open = false"
+
+          <a
+            :href="FACEBOOK_MESSENGER_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center justify-center gap-1.5 border-t border-[#12201a]/8 bg-[#f4f8ff] px-3 py-2 text-xs text-[#3b4a44] hover:bg-[#eaf2ff]"
           >
             <UIcon
-              name="i-lucide-x"
-              class="size-4"
+              name="i-lucide-message-circle"
+              class="size-3.5 shrink-0"
             />
-          </button>
-        </header>
+            Need help?
+            <span class="inline-flex items-center gap-1 font-medium text-[#1877f2]">
+              <UIcon
+                name="i-lucide-facebook"
+                class="size-3.5"
+              />
+              Message us on Facebook
+            </span>
+          </a>
 
-        <div
-          ref="list"
-          class="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
-        >
-          <div
-            v-for="(item, index) in messages"
-            :key="`${item.role}-${index}`"
-            class="flex"
-            :class="item.role === 'user' ? 'justify-end' : 'justify-start'"
-          >
+          <div class="border-t border-[#12201a]/8 px-3 py-3">
+            <div class="mb-3 flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <a
+                :href="FACEBOOK_MESSENGER_URL"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#1877f2]/30 bg-[#f4f8ff] px-2.5 py-1 text-[11px] font-medium text-[#1877f2] hover:bg-[#eaf2ff]"
+              >
+                <UIcon
+                  name="i-lucide-facebook"
+                  class="size-3"
+                />
+                Message us on Facebook
+              </a>
+              <button
+                v-for="suggestion in suggestions"
+                :key="suggestion"
+                type="button"
+                class="shrink-0 whitespace-nowrap rounded-full border border-[#12201a]/10 px-2.5 py-1 text-[11px] text-[#3b4a44] hover:bg-[#f3f5f4]"
+                :disabled="pending"
+                @click="send(suggestion)"
+              >
+                {{ suggestion }}
+              </button>
+            </div>
             <p
-              class="max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6"
-              :class="item.role === 'user'
-                ? 'bg-[#12201a] text-white'
-                : 'bg-[#f3f5f4] text-[#3b4a44]'"
+              v-if="formError"
+              class="mb-2 text-xs text-red-700"
             >
-              {{ item.content }}
+              {{ formError }}
             </p>
+            <form
+              class="flex gap-2"
+              method="post"
+              @submit.prevent="send()"
+            >
+              <input
+                v-model="draft"
+                class="min-w-0 flex-1 rounded-full border border-[#12201a]/12 px-3 py-2 text-sm text-[#12201a]"
+                maxlength="500"
+                placeholder="Ask a question"
+                :disabled="pending"
+              >
+              <UButton
+                type="submit"
+                :disabled="!canSend"
+                :loading="pending"
+              >
+                Send
+              </UButton>
+            </form>
           </div>
-          <p
-            v-if="pending"
-            class="text-xs text-[#5b6b64]"
-          >
-            Thinking…
-          </p>
-        </div>
-
-        <div class="border-t border-[#12201a]/8 px-3 py-3">
-          <div class="mb-3 flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              v-for="suggestion in suggestions"
-              :key="suggestion"
-              type="button"
-              class="shrink-0 whitespace-nowrap rounded-full border border-[#12201a]/10 px-2.5 py-1 text-[11px] text-[#3b4a44] hover:bg-[#f3f5f4]"
-              :disabled="pending"
-              @click="send(suggestion)"
-            >
-              {{ suggestion }}
-            </button>
-          </div>
-          <p
-            v-if="formError"
-            class="mb-2 text-xs text-red-700"
-          >
-            {{ formError }}
-          </p>
-          <form
-            class="flex gap-2"
-            method="post"
-            @submit.prevent="send()"
-          >
-            <input
-              v-model="draft"
-              class="min-w-0 flex-1 rounded-full border border-[#12201a]/12 px-3 py-2 text-sm text-[#12201a]"
-              maxlength="500"
-              placeholder="Ask a question"
-              :disabled="pending"
-            >
-            <UButton
-              type="submit"
-              :disabled="!canSend"
-              :loading="pending"
-            >
-              Send
-            </UButton>
-          </form>
-        </div>
         </section>
       </Transition>
 

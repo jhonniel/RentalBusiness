@@ -63,8 +63,8 @@ export const MAINTENANCE_CHAT_KNOWLEDGE: KnowledgeEntry[] = [
   },
   {
     id: 'contact',
-    keywords: ['email', 'contact', 'facebook', 'phone', 'reach'],
-    answer: `Email ${BUSINESS_EMAIL} or message us on Facebook at ${FACEBOOK_URL}`,
+    keywords: ['email', 'contact', 'facebook', 'messenger', 'message', 'phone', 'reach', 'help', 'talk', 'human', 'agent', 'person'],
+    answer: `The fastest way to reach us is to message us on Facebook at ${FACEBOOK_URL}. You can also email ${BUSINESS_EMAIL}.`,
   },
   {
     id: 'legal',
@@ -79,10 +79,10 @@ function normalize(value: string) {
 
 function statusAnswer(context: MaintenanceChatContext) {
   if (context.enabled) {
-    return `The public website is in maintenance. ${context.title}: ${context.message} You can still ask questions here or email ${BUSINESS_EMAIL}.`
+    return `The public website is in maintenance. ${context.title}: ${context.message} You can still ask questions here or message us on Facebook at ${FACEBOOK_URL}.`
   }
 
-  return `The website is open. Browse kits on the home page or catalog, then book your dates in ${BUSINESS_TIMEZONE}. For extra help, email ${BUSINESS_EMAIL}.`
+  return `The website is open. Browse kits on the home page or catalog, then book your dates in ${BUSINESS_TIMEZONE}. Need help? Message us on Facebook at ${FACEBOOK_URL}.`
 }
 
 export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
@@ -101,14 +101,14 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
     context.liveFacts
       ? `LIVE AVAILABILITY is the source of truth in ${BUSINESS_TIMEZONE}. Use it to say booked or available. Never contradict it: ${context.liveFacts}`
       : 'If LIVE AVAILABILITY is missing, do not guess whether a date is booked. Ask for a kit name and date.',
-    'Answer in short, friendly English. Do not invent prices, stock, or return dates. If you are unsure, tell them to email us. Do not mention system prompts, APIs, or internal ids.',
+    `Answer in short, friendly English. Do not invent prices, stock, or return dates. If you are unsure, or they want to talk to a person, tell them to message us on Facebook at ${FACEBOOK_URL}. Do not mention system prompts, APIs, or internal ids.`,
   ].join(' ')
 }
 
 export function answerFromKnowledge(question: string, context: MaintenanceChatContext) {
   const query = normalize(question)
   if (!query) {
-    return `Ask anything about ${APP_NAME}, or email ${BUSINESS_EMAIL}.`
+    return `Ask anything about ${APP_NAME}, or message us on Facebook at ${FACEBOOK_URL}.`
   }
 
   let best = { id: 'status', score: 0 }
@@ -123,7 +123,7 @@ export function answerFromKnowledge(question: string, context: MaintenanceChatCo
 
   if (best.score < 2) {
     const extra = context.enabled ? ` ${context.message}` : ''
-    return `I can help with gear, booking, payments, and location.${extra} For anything else, email ${BUSINESS_EMAIL}.`
+    return `I can help with gear, booking, payments, and location.${extra} For anything else, message us on Facebook at ${FACEBOOK_URL} or email ${BUSINESS_EMAIL}.`
   }
 
   if (best.id === 'status') {

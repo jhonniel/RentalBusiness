@@ -18,7 +18,7 @@ function isActive(to: string) {
 </script>
 
 <template>
-  <div class="min-h-dvh overflow-x-clip bg-slate-50">
+  <div class="flex min-h-dvh flex-col overflow-x-clip bg-slate-50">
     <SkipToContent />
     <header class="border-b border-stone-200 bg-white">
       <div class="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
@@ -58,10 +58,11 @@ function isActive(to: string) {
     </header>
     <main
       id="main-content"
-      class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8"
+      class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
     >
       <slot />
     </main>
+    <NeedHelpBar />
     <USlideover
       v-model:open="mobileOpen"
       title="Commissioner"

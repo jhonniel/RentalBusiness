@@ -21,7 +21,13 @@ describe('maintenance chat', () => {
   it('points unknown questions to email instead of inventing prices', () => {
     const reply = answerFromKnowledge('What is the CEO middle name?', context)
     expect(reply).toContain('jryrentals@gmail.com')
+    expect(reply).toContain('message us on Facebook')
     expect(reply).not.toContain('₱')
+  })
+
+  it('suggests Facebook when someone asks for help or a person', () => {
+    expect(answerFromKnowledge('Can I talk to a person?', context)).toContain('message us on Facebook')
+    expect(answerFromKnowledge('How do I contact you?', context)).toContain('facebook.com/jryrentals')
   })
 
   it('requires the last message to come from the visitor', () => {

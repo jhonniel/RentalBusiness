@@ -11,14 +11,15 @@ export type UploadPart = { filename?: string, type?: string, data: Buffer }
 
 export interface CompressedImage {
   data: Buffer
-  type: 'image/jpeg'
-  extension: 'jpg'
+  type: 'image/jpeg' | 'image/png'
+  extension: 'jpg' | 'png'
 }
 
 export interface CompressImageOptions {
   label?: string
   maxEdge?: number
   quality?: number
+  format?: 'jpeg' | 'png'
 }
 
 export async function compressImageForStorage(
@@ -42,6 +43,18 @@ export async function compressImageForStorage(
   try {
     let quality = options.quality ?? 78
     const maxEdge = options.maxEdge ?? 1920
+    if (options.format === 'png') {
+      const png = await sharp(file.data, { failOn: 'none' })
+        .rotate()
+        .resize({ width: maxEdge, height: maxEdge, fit: 'inside', withoutEnlargement: true })
+        .png({ compressionLevel: 9, palette: true })
+        .toBuffer()
+      if (png.byteLength > IMAGE_STORED_MAX_BYTES) {
+        throw new AppError('That image is too large. Use a smaller logo.', 422, ERROR_CODES.VALIDATION_ERROR)
+      }
+      return { data: png, type: 'image/png', extension: 'png' }
+    }
+
     let data = await sharp(file.data, { failOn: 'none' })
       .rotate()
       .resize({

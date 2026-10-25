@@ -2,9 +2,10 @@
 import type { CatalogProduct } from '~/types/catalog'
 import type { RentalQuote, PublicRental } from '~/types/rental'
 import { fieldErrors } from '~/utils/auth-validation'
-import { calendarDateInZone } from '~/utils/datetime'
+import { calendarDateInZone, formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
 import { createRentalSchema } from '~/utils/rental-validation'
 import { DEFAULT_PICKUP_TIME, defaultRentalReturnOn, formatRentalReturnLabel, resolveRentalWindow } from '~/utils/rental-window'
+import { productVisual, resolvedProductImage } from '~/utils/storefront'
 
 definePageMeta({
   layout: 'account',
@@ -59,6 +60,18 @@ const { data: product, error: productError } = await useFetch<CatalogProduct>(
 )
 
 const unavailable = computed(() => productError.value?.statusCode === 503)
+const productImage = ref('')
+watch(product, (value) => {
+  productImage.value = value
+    ? resolvedProductImage(value.slug, value.category.slug, value.images[0]?.url)
+    : ''
+}, { immediate: true })
+
+function useImageFallback() {
+  if (product.value) {
+    productImage.value = productVisual(product.value.slug, product.value.category.slug)
+  }
+}
 const rentalWindow = computed(() => resolveRentalWindow({
   startsOn: form.startsOn,
   endsOn: form.endsOn,
@@ -156,13 +169,24 @@ async function onSubmit() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
-    <h1 class="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-      Request a rental
-    </h1>
-    <p class="mt-2 text-stone-600">
-      Confirm dates and your contact details. You will sign the waiver and photograph a government ID before this request is sent.
-    </p>
+  <section class="mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <div class="flex flex-col gap-6 border-b border-[#12201a]/8 pb-6 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#5b6b64]">
+          Booking
+        </p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-tight text-[#12201a] sm:text-3xl">
+          Request a rental
+        </h1>
+        <p class="mt-2 max-w-xl text-sm leading-6 text-[#5b6b64]">
+          Choose your pickup and return, then confirm your details. You will sign the waiver and photograph a government ID before the request is sent to the shop.
+        </p>
+      </div>
+      <BookingSteps
+        :current="0"
+        class="lg:min-w-[26rem]"
+      />
+    </div>
 
     <CatalogNotice
       v-if="unavailable"
@@ -199,153 +223,273 @@ async function onSubmit() {
 
     <form
       v-else
-      class="mt-8 space-y-6"
+      class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start"
       method="post"
       @submit.prevent="onSubmit"
     >
-      <AuthAlert
-        v-if="formError"
-        :description="formError"
-      />
+      <div class="min-w-0 space-y-6">
+        <AuthAlert
+          v-if="formError"
+          :description="formError"
+        />
 
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-medium text-stone-900">
-          Equipment
-        </h2>
-        <p class="mt-2 text-stone-700">
-          {{ product?.name || form.productSlug }}
-        </p>
-      </section>
-
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-medium text-stone-900">
-          Pickup and return
-        </h2>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2">
-          <BookingDateField
-            v-model="form.startsOn"
-            label="Pickup date"
-            :product-slug="form.productSlug || undefined"
-            :quantity="1"
-            :until="form.endsOn || undefined"
-            :disabled="pending"
-          />
-          <BookingPickupTime
-            v-model="form.pickupTime"
-            :product-slug="form.productSlug || undefined"
-            :starts-on="form.startsOn"
-            :ends-on="form.endsOn"
-            :disabled="pending"
-          />
-          <BookingDateField
-            v-model="form.endsOn"
-            label="Return date"
-            :product-slug="form.productSlug || undefined"
-            :quantity="1"
-            :min="form.startsOn || undefined"
-            :disabled="pending"
-          />
-        </div>
-        <p class="mt-3 text-sm text-stone-600">
-          Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}
-        </p>
-      </section>
-
-      <section
-        v-if="quote"
-        class="rounded-2xl border border-stone-200 bg-white p-5"
-      >
-        <h2 class="text-sm font-medium text-stone-900">
-          Summary
-        </h2>
-        <dl class="mt-4 space-y-2 text-sm">
-          <div class="flex justify-between gap-4">
-            <dt class="text-stone-500">
-              {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
-            </dt>
-            <dd>{{ formatMoney(quote.rentAmount) }}</dd>
+        <section class="storefront-card rounded-2xl p-5 sm:p-6">
+          <div class="flex items-start gap-3">
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">1</span>
+            <div class="min-w-0">
+              <h2 class="font-semibold text-[#12201a]">
+                Pickup and return
+              </h2>
+              <p class="mt-0.5 text-sm text-[#5b6b64]">
+                Crossed-out days are already booked. Return is at the same time as pickup.
+              </p>
+            </div>
           </div>
+          <div class="mt-5 grid gap-4 sm:grid-cols-3">
+            <BookingDateField
+              v-model="form.startsOn"
+              label="Pickup date"
+              :product-slug="form.productSlug || undefined"
+              :quantity="1"
+              :until="form.endsOn || undefined"
+              :disabled="pending"
+            />
+            <BookingPickupTime
+              v-model="form.pickupTime"
+              :product-slug="form.productSlug || undefined"
+              :starts-on="form.startsOn"
+              :ends-on="form.endsOn"
+              :disabled="pending"
+            />
+            <BookingDateField
+              v-model="form.endsOn"
+              label="Return date"
+              :product-slug="form.productSlug || undefined"
+              :quantity="1"
+              :min="form.startsOn || undefined"
+              :disabled="pending"
+            />
+          </div>
+          <div class="mt-4 flex items-center gap-2 rounded-xl bg-[#f4f6f5] px-3.5 py-2.5 text-sm text-[#12201a]">
+            <UIcon
+              name="i-lucide-clock"
+              class="size-4 shrink-0 text-[#5b6b64]"
+            />
+            <span>Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}</span>
+          </div>
+        </section>
+
+        <section class="storefront-card rounded-2xl p-5 sm:p-6">
+          <div class="flex items-start gap-3">
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">2</span>
+            <div class="min-w-0">
+              <h2 class="font-semibold text-[#12201a]">
+                Your details
+              </h2>
+              <p class="mt-0.5 text-sm text-[#5b6b64]">
+                The shop uses these to confirm your booking and arrange pickup.
+              </p>
+            </div>
+          </div>
+          <div class="mt-5 grid gap-4 sm:grid-cols-2">
+            <label class="block text-sm">
+              <span class="mb-1.5 block text-xs font-medium text-[#5b6b64]">First name</span>
+              <UInput
+                v-model="form.firstName"
+                size="lg"
+                class="w-full"
+                autocomplete="given-name"
+                :disabled="pending"
+              />
+              <span
+                v-if="errors.firstName"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.firstName }}</span>
+            </label>
+            <label class="block text-sm">
+              <span class="mb-1.5 block text-xs font-medium text-[#5b6b64]">Last name</span>
+              <UInput
+                v-model="form.lastName"
+                size="lg"
+                class="w-full"
+                autocomplete="family-name"
+                :disabled="pending"
+              />
+              <span
+                v-if="errors.lastName"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.lastName }}</span>
+            </label>
+            <label class="block text-sm sm:col-span-2">
+              <span class="mb-1.5 block text-xs font-medium text-[#5b6b64]">Mobile number</span>
+              <UInput
+                v-model="form.phone"
+                size="lg"
+                class="w-full"
+                type="tel"
+                autocomplete="tel"
+                placeholder="09XX XXX XXXX"
+                :disabled="pending"
+              />
+              <span
+                v-if="errors.phone"
+                class="mt-1 block text-xs text-red-700"
+              >{{ errors.phone }}</span>
+            </label>
+            <label class="block text-sm sm:col-span-2">
+              <span class="mb-1.5 block text-xs font-medium text-[#5b6b64]">Notes for the shop <span class="font-normal">(optional)</span></span>
+              <UTextarea
+                v-model="form.notes"
+                class="w-full"
+                :rows="3"
+                placeholder="Where you will use it, pickup questions, or anything we should know"
+                :disabled="pending"
+              />
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <aside class="storefront-card overflow-hidden rounded-2xl lg:sticky lg:top-24">
+        <div class="flex items-center gap-4 border-b border-[#12201a]/8 p-5">
+          <div class="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f4f6f5]">
+            <img
+              v-if="productImage"
+              :src="productImage"
+              :alt="product?.name || ''"
+              class="h-full w-full object-contain p-1.5"
+              @error="useImageFallback"
+            >
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs text-[#5b6b64]">
+              {{ product?.category.name || 'Equipment' }}
+            </p>
+            <p class="mt-0.5 font-semibold leading-snug text-[#12201a]">
+              {{ product?.name || form.productSlug }}
+            </p>
+            <NuxtLink
+              :to="`/products/${form.productSlug}`"
+              class="mt-1 inline-block text-xs text-[#5b6b64] underline-offset-2 hover:text-[#12201a] hover:underline"
+            >
+              View details
+            </NuxtLink>
+          </div>
+        </div>
+
+        <div class="space-y-4 p-5">
+          <dl class="space-y-2 text-sm">
+            <div class="flex justify-between gap-4">
+              <dt class="text-[#5b6b64]">
+                Dates
+              </dt>
+              <dd class="text-right text-[#12201a]">
+                {{ formatBookingDateRange(rentalWindow.startsOn, rentalWindow.endsOn) }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-[#5b6b64]">
+                Pickup
+              </dt>
+              <dd class="text-right text-[#12201a]">
+                {{ formatBusinessDateTime(rentalWindow.pickupAt) }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-4">
+              <dt class="text-[#5b6b64]">
+                Return
+              </dt>
+              <dd class="text-right text-[#12201a]">
+                {{ formatBusinessDateTime(rentalWindow.returnAt) }}
+              </dd>
+            </div>
+          </dl>
+
           <div
-            v-if="quote.lessAmount > 0"
-            class="flex justify-between gap-4"
+            v-if="quoting && !quote"
+            class="space-y-2"
+            role="status"
+            aria-busy="true"
           >
-            <dt class="text-stone-500">
-              Less
-            </dt>
-            <dd>−{{ formatMoney(quote.lessAmount) }}</dd>
+            <USkeleton class="h-4 w-full" />
+            <USkeleton class="h-4 w-3/4" />
+            <USkeleton class="h-6 w-full" />
           </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-stone-500">
-              Deposit
-            </dt>
-            <dd>{{ formatMoney(quote.depositAmount) }}</dd>
-          </div>
-          <div class="flex justify-between gap-4 font-medium text-stone-900">
-            <dt>Amount due</dt>
-            <dd>{{ formatMoney(quote.totalAmount + quote.depositAmount) }}</dd>
-          </div>
-        </dl>
-        <p
-          class="mt-4 text-sm"
-          :class="quote.canFulfill ? 'text-lumen-800' : 'text-red-800'"
-        >
-          {{ quote.canFulfill
-            ? `${quote.available} units are free for these dates.`
-            : 'That quantity is not available for these dates.' }}
-        </p>
-      </section>
 
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-medium text-stone-900">
-          Your details
-        </h2>
-        <div class="mt-4 grid gap-4 sm:grid-cols-2">
-          <label class="block text-sm">
-            <span class="mb-1.5 block text-stone-700">First name</span>
-            <UInput
-              v-model="form.firstName"
-              :disabled="pending"
+          <template v-else-if="quote">
+            <dl class="space-y-2 border-t border-dashed border-[#12201a]/12 pt-4 text-sm">
+              <div class="flex justify-between gap-4">
+                <dt class="text-[#5b6b64]">
+                  Rent · {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
+                </dt>
+                <dd class="tabular-nums text-[#12201a]">
+                  {{ formatMoney(quote.rentAmount) }}
+                </dd>
+              </div>
+              <div
+                v-if="quote.lessAmount > 0"
+                class="flex justify-between gap-4"
+              >
+                <dt class="text-[#5b6b64]">
+                  Less
+                </dt>
+                <dd class="tabular-nums text-emerald-700">
+                  −{{ formatMoney(quote.lessAmount) }}
+                </dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-[#5b6b64]">
+                  Refundable deposit
+                </dt>
+                <dd class="tabular-nums text-[#12201a]">
+                  {{ formatMoney(quote.depositAmount) }}
+                </dd>
+              </div>
+            </dl>
+            <div class="flex items-end justify-between gap-4 border-t border-[#12201a]/8 pt-4">
+              <span class="text-sm font-medium text-[#12201a]">Amount due</span>
+              <span class="text-2xl font-semibold tabular-nums text-[#12201a]">
+                {{ formatMoney(quote.totalAmount + quote.depositAmount) }}
+              </span>
+            </div>
+            <p
+              class="flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+              :class="quote.canFulfill ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'"
+            >
+              <UIcon
+                :name="quote.canFulfill ? 'i-lucide-circle-check' : 'i-lucide-circle-alert'"
+                class="size-4 shrink-0"
+              />
+              {{ quote.canFulfill ? 'Available for these dates' : 'Not available for these dates. Try other dates.' }}
+            </p>
+          </template>
+
+          <p
+            v-else
+            class="rounded-xl bg-[#f4f6f5] px-3 py-2 text-sm text-[#5b6b64]"
+          >
+            Choose your dates to see the price.
+          </p>
+
+          <UButton
+            type="submit"
+            size="lg"
+            block
+            class="rounded-full"
+            :loading="pending || quoting"
+            :disabled="!quote?.canFulfill"
+          >
+            Continue to waiver
+            <UIcon
+              name="i-lucide-arrow-right"
+              class="size-4"
             />
-            <span
-              v-if="errors.firstName"
-              class="mt-1 block text-xs text-red-700"
-            >{{ errors.firstName }}</span>
-          </label>
-          <label class="block text-sm">
-            <span class="mb-1.5 block text-stone-700">Last name</span>
-            <UInput
-              v-model="form.lastName"
-              :disabled="pending"
-            />
-          </label>
-          <label class="block text-sm sm:col-span-2">
-            <span class="mb-1.5 block text-stone-700">Phone</span>
-            <UInput
-              v-model="form.phone"
-              type="tel"
-              :disabled="pending"
-            />
-          </label>
-          <label class="block text-sm sm:col-span-2">
-            <span class="mb-1.5 block text-stone-700">Notes</span>
-            <UTextarea
-              v-model="form.notes"
-              :rows="3"
-              :disabled="pending"
-            />
-          </label>
+          </UButton>
+          <p class="text-center text-xs leading-5 text-[#5b6b64]">
+            You will not pay yet. The shop confirms your request after the waiver and ID are done.
+          </p>
         </div>
-      </section>
-
-      <UButton
-        type="button"
-        class="w-full sm:w-auto"
-        :loading="pending || quoting"
-        :disabled="!quote?.canFulfill"
-        @click="onSubmit"
-      >
-        Continue to waiver
-      </UButton>
+      </aside>
     </form>
   </section>
 </template>

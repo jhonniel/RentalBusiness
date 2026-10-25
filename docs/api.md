@@ -297,6 +297,8 @@ Admins configure GCash, Maya, bank transfer, or similar methods and upload a QR 
 | PATCH | `/api/admin/payment-methods/[uuid]` | Update method |
 | POST | `/api/admin/payment-methods/[uuid]/qr` | Multipart `file` (JPG/PNG/WebP/HEIC, 15 MB). Server compresses to JPEG before S3 |
 | DELETE | `/api/admin/payment-methods/[uuid]/qr` | Remove QR image and storage object |
+| POST | `/api/admin/payment-methods/[uuid]/logo` | Multipart `file` (JPG/PNG/WebP/HEIC, 15 MB). Server resizes to 512 px and stores PNG (keeps transparency) in `payment-qr-images`. Needs `20261025010000_payment_method_logo.sql`. Returned as `logoUrl` on payment methods |
+| DELETE | `/api/admin/payment-methods/[uuid]/logo` | Remove the logo and its storage object |
 | GET | `/api/payment-methods` | Active methods for signed-in customers |
 
 **Method body:** name, optional code, accountName, accountNumber, instructions, sortOrder, isActive. Extra fields such as `id` are rejected.  

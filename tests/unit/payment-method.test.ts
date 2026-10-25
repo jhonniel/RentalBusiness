@@ -54,9 +54,19 @@ describe('payment method mapping', () => {
       accountNumber: '09171234567',
       instructions: 'Send the rental total.',
       qrUrl: 'https://example.supabase.co/storage/v1/object/public/payment-qr-images/33333333-3333-4333-8333-333333333333/qr.png',
+      logoUrl: null,
       sortOrder: 1,
       isActive: true,
     })
+  })
+
+  it('builds a logo URL when a logo is stored', () => {
+    expect(toPublicPaymentMethod({
+      ...row,
+      logo_storage_path: '33333333-3333-4333-8333-333333333333/logo-a.png',
+    }, 'https://example.supabase.co').logoUrl).toBe(
+      'https://example.supabase.co/storage/v1/object/public/payment-qr-images/33333333-3333-4333-8333-333333333333/logo-a.png',
+    )
   })
 
   it('omits a QR URL when no image is stored', () => {

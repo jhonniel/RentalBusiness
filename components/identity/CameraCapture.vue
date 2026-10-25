@@ -136,12 +136,35 @@ function retake() {
 
 <template>
   <div class="mt-4">
-    <img
-      v-if="previewUrl && !live"
-      :src="previewUrl"
-      alt="Captured photo"
-      class="aspect-[4/3] w-full rounded-xl bg-stone-100 object-cover"
+    <div
+      v-if="!previewUrl && !live"
+      class="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 text-center"
     >
+      <UIcon
+        :name="facing === 'user' ? 'i-lucide-scan-face' : 'i-lucide-id-card'"
+        class="size-9 text-stone-400"
+      />
+      <p class="text-sm text-stone-500">
+        {{ facing === 'user' ? 'Front camera · hold your ID beside your face' : 'Back camera · place your ID on a flat surface' }}
+      </p>
+    </div>
+    <div
+      v-if="previewUrl && !live"
+      class="relative"
+    >
+      <img
+        :src="previewUrl"
+        alt="Captured photo"
+        class="aspect-[4/3] w-full rounded-xl bg-stone-100 object-cover"
+      >
+      <span class="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm">
+        <UIcon
+          name="i-lucide-check"
+          class="size-3.5"
+        />
+        Photo ready
+      </span>
+    </div>
     <video
       v-show="live"
       ref="videoRef"
@@ -163,8 +186,9 @@ function retake() {
       <UButton
         v-if="live"
         type="button"
-        class="w-full justify-center sm:w-auto"
+        class="w-full justify-center rounded-full sm:w-auto"
         :disabled="disabled"
+        icon="i-lucide-aperture"
         @click="capture"
       >
         Capture photo
@@ -174,8 +198,9 @@ function retake() {
         type="button"
         color="neutral"
         variant="outline"
-        class="w-full justify-center sm:w-auto"
+        class="w-full justify-center rounded-full sm:w-auto"
         :disabled="disabled"
+        icon="i-lucide-rotate-ccw"
         @click="retake"
       >
         Retake
@@ -183,8 +208,9 @@ function retake() {
       <UButton
         v-else
         type="button"
-        class="w-full justify-center sm:w-auto"
+        class="w-full justify-center rounded-full sm:w-auto"
         :disabled="disabled"
+        icon="i-lucide-camera"
         @click="openCamera"
       >
         Open camera
@@ -194,17 +220,11 @@ function retake() {
         type="button"
         color="neutral"
         variant="outline"
-        class="w-full justify-center sm:w-auto"
+        class="w-full justify-center rounded-full sm:w-auto"
         @click="stopCamera"
       >
         Close camera
       </UButton>
     </div>
-    <p
-      v-if="modelValue && !live"
-      class="mt-2 text-xs text-stone-500"
-    >
-      Photo ready.
-    </p>
   </div>
 </template>

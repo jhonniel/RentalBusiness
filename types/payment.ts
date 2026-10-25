@@ -8,6 +8,7 @@ export interface PublicPaymentMethod {
   accountNumber: string | null
   instructions: string | null
   qrUrl: string | null
+  logoUrl: string | null
   sortOrder: number
   isActive: boolean
 }

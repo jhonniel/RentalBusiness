@@ -7,6 +7,7 @@ const props = defineProps<{
   rentalUuid: string
   voucher: PublicRentalVoucher | null
   editable: boolean
+  centered?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,6 +16,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const { authHeaders } = useAuth()
+const { formatMoney } = useCurrency()
 const code = ref('')
 const pending = ref(false)
 const formError = ref('')
@@ -73,57 +75,115 @@ async function removeCode() {
 </script>
 
 <template>
-  <section class="rounded-2xl border border-stone-200 bg-white p-5">
-    <h2 class="text-sm font-medium text-stone-900">
-      Voucher
-    </h2>
-    <p class="mt-1 text-sm text-stone-600">
-      Enter a shop code to reduce the rental total. The deposit hold stays the same.
-    </p>
-
-    <p
-      v-if="voucher"
-      class="mt-3 text-sm text-stone-800"
+  <section class="storefront-card rounded-2xl p-5">
+    <div
+      class="flex gap-3"
+      :class="centered ? 'flex-col items-center text-center' : 'items-center'"
     >
-      Applied {{ voucher.code }} · {{ voucher.name }}
-    </p>
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#f4f6f5] text-[#12201a]">
+        <UIcon
+          name="i-lucide-ticket-percent"
+          class="size-4.5"
+        />
+      </span>
+      <div
+        class="min-w-0"
+        :class="centered ? '' : 'flex-1'"
+      >
+        <h2 class="text-sm font-semibold text-[#12201a]">
+          Voucher
+        </h2>
+        <p class="text-xs text-[#5b6b64]">
+          Have a voucher code? Enter it below to get a discount on your rental.
+        </p>
+      </div>
+    </div>
 
-    <AuthAlert
-      v-if="formError"
-      class="mt-3"
-      :description="formError"
-    />
+    <div
+      v-if="voucher"
+      class="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-emerald-300 bg-emerald-50 px-3.5 py-3 text-left"
+      :class="centered ? 'mx-auto max-w-sm' : ''"
+    >
+      <UIcon
+        name="i-lucide-badge-check"
+        class="size-5 shrink-0 text-emerald-600"
+      />
+      <div class="min-w-0 flex-1">
+        <p class="truncate font-mono text-sm font-semibold tracking-wide text-emerald-900">
+          {{ voucher.code }}
+        </p>
+        <p class="truncate text-xs text-emerald-800">
+          {{ voucher.name }}<template v-if="voucher.discountAmount > 0">
+            · saves {{ formatMoney(voucher.discountAmount) }}
+          </template>
+        </p>
+      </div>
+      <UButton
+        v-if="editable"
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        class="shrink-0"
+        :loading="pending"
+        @click="removeCode"
+      >
+        Remove
+      </UButton>
+    </div>
 
     <form
-      v-if="editable"
-      class="mt-4 flex flex-col gap-3 sm:flex-row"
+      v-else-if="editable"
+      class="mt-4"
       @submit.prevent="applyCode"
     >
-      <UInput
-        v-model="code"
-        class="w-full sm:flex-1"
-        placeholder="JRY-XXXXXX"
-        :disabled="pending"
-        autocomplete="off"
-      />
-      <div class="flex gap-2">
+      <div
+        class="flex max-w-sm gap-2"
+        :class="centered ? 'mx-auto' : ''"
+      >
+        <UInput
+          v-model="code"
+          class="min-w-0 flex-1"
+          :ui="{ base: 'font-mono uppercase tracking-wide' }"
+          icon="i-lucide-ticket"
+          placeholder="JRY-XXXXXX"
+          :disabled="pending"
+          autocomplete="off"
+        />
         <UButton
           type="submit"
+          color="neutral"
+          class="shrink-0 px-4"
           :loading="pending"
+          :disabled="!code.trim()"
         >
           Apply
         </UButton>
-        <UButton
-          v-if="voucher"
-          color="neutral"
-          variant="outline"
-          type="button"
-          :disabled="pending"
-          @click="removeCode"
-        >
-          Remove
-        </UButton>
       </div>
+      <p
+        v-if="formError"
+        class="mt-2 flex items-center gap-1.5 text-xs text-red-700"
+        :class="centered ? 'justify-center' : ''"
+        role="alert"
+      >
+        <UIcon
+          name="i-lucide-circle-alert"
+          class="size-3.5 shrink-0"
+        />
+        {{ formError }}
+      </p>
     </form>
+
+    <p
+      v-if="voucher && formError"
+      class="mt-2 flex items-center gap-1.5 text-xs text-red-700"
+      :class="centered ? 'justify-center' : ''"
+      role="alert"
+    >
+      <UIcon
+        name="i-lucide-circle-alert"
+        class="size-3.5 shrink-0"
+      />
+      {{ formError }}
+    </p>
   </section>
 </template>

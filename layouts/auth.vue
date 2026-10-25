@@ -64,6 +64,7 @@ const points = [
           <slot />
         </div>
       </main>
+      <NeedHelpBar class="bg-transparent" />
     </div>
   </div>
 </template>

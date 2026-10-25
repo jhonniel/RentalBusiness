@@ -24,6 +24,7 @@ watch(() => route.fullPath, () => {
           class="flex min-w-0 flex-1 flex-col pb-20 lg:pb-0"
         >
           <slot />
+          <NeedHelpBar class="mt-auto" />
         </main>
       </div>
     </div>

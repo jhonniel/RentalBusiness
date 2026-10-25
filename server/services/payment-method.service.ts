@@ -85,85 +85,119 @@ export async function savePaymentMethod(event: H3Event, client: Client, input: P
   return toPublicPaymentMethod(row, supabaseUrl())
 }
 
-export async function uploadPaymentMethodQr(
+type MethodImage = 'qr' | 'logo'
+
+const IMAGE_SETTINGS: Record<MethodImage, { label: string, maxEdge: number, quality: number, format: 'jpeg' | 'png', prefix: string }> = {
+  qr: { label: 'QR image', maxEdge: 1600, quality: 88, format: 'jpeg', prefix: '' },
+  logo: { label: 'logo', maxEdge: 512, quality: 90, format: 'png', prefix: 'logo-' },
+}
+
+function currentImagePath(row: NonNullable<Awaited<ReturnType<typeof findPaymentMethodByUuid>>>, kind: MethodImage) {
+  return kind === 'qr' ? row.qr_storage_path : row.logo_storage_path ?? null
+}
+
+function keepMethodFields(row: NonNullable<Awaited<ReturnType<typeof findPaymentMethodByUuid>>>) {
+  return {
+    name: row.name,
+    code: row.code,
+    accountName: row.account_name,
+    accountNumber: row.account_number,
+    instructions: row.instructions,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+  }
+}
+
+async function uploadPaymentMethodImage(
   event: H3Event,
   client: Client,
   uuid: string,
   file: { filename?: string, type?: string, data: Buffer },
+  kind: MethodImage,
 ) {
   const current = await findPaymentMethodByUuid(client, uuid)
   if (!current) {
     throw new AppError('Payment method not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  const image = await compressImageForStorage(file, {
-    label: 'QR image',
-    maxEdge: 1600,
-    quality: 88,
-  })
-  const storagePath = `${uuid}/${crypto.randomUUID()}.jpg`
+  const settings = IMAGE_SETTINGS[kind]
+  const image = await compressImageForStorage(file, settings)
+  const storagePath = `${uuid}/${settings.prefix}${crypto.randomUUID()}.${image.extension}`
   const { error } = await client.storage.from(QR_BUCKET).upload(storagePath, image.data, {
     contentType: image.type,
     upsert: false,
   })
 
   if (error) {
-    throw new AppError('We could not upload that QR image.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
+    throw new AppError(`We could not upload that ${settings.label}.`, 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
   }
 
-  if (current.qr_storage_path) {
-    await client.storage.from(QR_BUCKET).remove([current.qr_storage_path])
+  let row
+  try {
+    row = await updatePaymentMethod(client, uuid, {
+      ...keepMethodFields(current),
+      ...(kind === 'qr' ? { qrStoragePath: storagePath } : { logoStoragePath: storagePath }),
+    })
+  }
+  catch (caught) {
+    await client.storage.from(QR_BUCKET).remove([storagePath])
+    throw caught
   }
 
-  const row = await updatePaymentMethod(client, uuid, {
-    name: current.name,
-    code: current.code,
-    accountName: current.account_name,
-    accountNumber: current.account_number,
-    instructions: current.instructions,
-    qrStoragePath: storagePath,
-    sortOrder: current.sort_order,
-    isActive: current.is_active,
-  })
+  const previousPath = currentImagePath(current, kind)
+  if (previousPath) {
+    await client.storage.from(QR_BUCKET).remove([previousPath])
+  }
 
   await recordAudit(event, client, {
-    action: 'payment_method.qr.upload',
+    action: `payment_method.${kind}.upload`,
     entity: 'payment_methods',
     entityId: uuid,
-    previous: { storagePath: current.qr_storage_path },
+    previous: { storagePath: previousPath },
     next: { storagePath },
   })
 
   return toPublicPaymentMethod(row, supabaseUrl())
 }
 
-export async function removePaymentMethodQr(event: H3Event, client: Client, uuid: string) {
+async function removePaymentMethodImage(event: H3Event, client: Client, uuid: string, kind: MethodImage) {
   const current = await findPaymentMethodByUuid(client, uuid)
   if (!current) {
     throw new AppError('Payment method not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  if (current.qr_storage_path) {
-    await client.storage.from(QR_BUCKET).remove([current.qr_storage_path])
-  }
-
+  const previousPath = currentImagePath(current, kind)
   const row = await updatePaymentMethod(client, uuid, {
-    name: current.name,
-    code: current.code,
-    accountName: current.account_name,
-    accountNumber: current.account_number,
-    instructions: current.instructions,
-    qrStoragePath: null,
-    sortOrder: current.sort_order,
-    isActive: current.is_active,
+    ...keepMethodFields(current),
+    ...(kind === 'qr' ? { qrStoragePath: null } : { logoStoragePath: null }),
   })
 
+  if (previousPath) {
+    await client.storage.from(QR_BUCKET).remove([previousPath])
+  }
+
   await recordAudit(event, client, {
-    action: 'payment_method.qr.delete',
+    action: `payment_method.${kind}.delete`,
     entity: 'payment_methods',
     entityId: uuid,
-    previous: { storagePath: current.qr_storage_path },
+    previous: { storagePath: previousPath },
   })
 
   return asPublic(row)
+}
+
+export function uploadPaymentMethodQr(event: H3Event, client: Client, uuid: string, file: { filename?: string, type?: string, data: Buffer }) {
+  return uploadPaymentMethodImage(event, client, uuid, file, 'qr')
+}
+
+export function removePaymentMethodQr(event: H3Event, client: Client, uuid: string) {
+  return removePaymentMethodImage(event, client, uuid, 'qr')
+}
+
+export function uploadPaymentMethodLogo(event: H3Event, client: Client, uuid: string, file: { filename?: string, type?: string, data: Buffer }) {
+  return uploadPaymentMethodImage(event, client, uuid, file, 'logo')
+}
+
+export function removePaymentMethodLogo(event: H3Event, client: Client, uuid: string) {
+  return removePaymentMethodImage(event, client, uuid, 'logo')
 }

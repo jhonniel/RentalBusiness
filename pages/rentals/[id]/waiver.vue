@@ -65,6 +65,7 @@ const accepted = reactive<Record<(typeof acknowledgments)[number]['id'], boolean
   downpayment: false,
 })
 const allAcknowledged = computed(() => acknowledgments.every(item => accepted[item.id]))
+const acknowledgedCount = computed(() => acknowledgments.filter(item => accepted[item.id]).length)
 
 const accountName = computed(() => [profile.value?.firstName, profile.value?.lastName].filter(Boolean).join(' '))
 const accountEmail = computed(() => profile.value?.email || '')
@@ -166,13 +167,28 @@ async function onSubmit() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
-    <h1 class="text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-3xl">
-      Equipment Rental Agreement & Liability Waiver
-    </h1>
-    <p class="mt-2 text-stone-600">
-      Review the renter details from your account, read the current terms, confirm each acknowledgment, and sign. You will photograph a government ID next.
-    </p>
+  <section class="mx-auto max-w-4xl px-3 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <div class="flex flex-col gap-6 border-b border-[#12201a]/8 pb-6">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#5b6b64]">
+          <template v-if="rental">
+            {{ rental.code }}
+          </template>
+          <template v-else>
+            Booking
+          </template>
+        </p>
+        <h1 class="mt-2 text-2xl font-semibold tracking-tight break-words text-[#12201a] sm:text-3xl">
+          Equipment Rental Agreement & Liability Waiver
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-[#5b6b64]">
+          Check your booking details, read the agreement, confirm each acknowledgment, and sign. You will photograph a government ID next.
+        </p>
+      </div>
+      <BookingSteps
+        :current="1"
+      />
+    </div>
 
     <CatalogNotice
       v-if="unavailable"
@@ -223,121 +239,193 @@ async function onSubmit() {
         :description="formError"
       />
 
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-medium text-stone-900">
-          Booking details
-        </h2>
-        <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt class="text-stone-500">Renter</dt>
-            <dd class="mt-0.5 text-stone-800">
+      <section class="storefront-card rounded-2xl p-5 sm:p-6">
+        <div class="flex items-start gap-3">
+          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">1</span>
+          <div class="min-w-0">
+            <h2 class="font-semibold text-[#12201a]">
+              Booking details
+            </h2>
+            <p class="mt-0.5 text-sm text-[#5b6b64]">
+              From your account and this booking. Update your profile if anything is wrong.
+            </p>
+          </div>
+        </div>
+        <dl class="mt-5 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+          <div class="min-w-0">
+            <dt class="text-xs text-[#5b6b64]">
+              Renter
+            </dt>
+            <dd class="mt-0.5 font-medium break-words text-[#12201a]">
               {{ accountName || [rental.customer?.firstName, rental.customer?.lastName].filter(Boolean).join(' ') || 'Your account name' }}
             </dd>
           </div>
-          <div>
-            <dt class="text-stone-500">Email</dt>
-            <dd class="mt-0.5 text-stone-800">
+          <div class="min-w-0">
+            <dt class="text-xs text-[#5b6b64]">
+              Email
+            </dt>
+            <dd class="mt-0.5 font-medium break-words text-[#12201a]">
               {{ accountEmail || 'From your account' }}
             </dd>
           </div>
-          <div>
-            <dt class="text-stone-500">Mobile</dt>
-            <dd class="mt-0.5 text-stone-800">
+          <div class="min-w-0">
+            <dt class="text-xs text-[#5b6b64]">
+              Mobile
+            </dt>
+            <dd class="mt-0.5 font-medium break-words text-[#12201a]">
               {{ accountPhone || rental.customer?.phone || 'Add a phone number on your profile' }}
             </dd>
           </div>
-          <div>
-            <dt class="text-stone-500">Booking ID</dt>
-            <dd class="mt-0.5 text-stone-800">
+          <div class="min-w-0">
+            <dt class="text-xs text-[#5b6b64]">
+              Booking ID
+            </dt>
+            <dd class="mt-0.5 font-medium text-[#12201a]">
               {{ rental.code }}
             </dd>
           </div>
-          <div>
-            <dt class="text-stone-500">Rental start</dt>
-            <dd class="mt-0.5 text-stone-800">
+          <div class="min-w-0">
+            <dt class="text-xs text-[#5b6b64]">
+              Rental start
+            </dt>
+            <dd class="mt-0.5 font-medium text-[#12201a]">
               {{ formatBusinessDate(rental.startsOn) }}
             </dd>
           </div>
-          <div>
-            <dt class="text-stone-500">Rental return</dt>
-            <dd class="mt-0.5 text-stone-800">
+          <div class="min-w-0">
+            <dt class="text-xs text-[#5b6b64]">
+              Rental return
+            </dt>
+            <dd class="mt-0.5 font-medium text-[#12201a]">
               {{ formatBusinessDate(rental.endsOn) }}
             </dd>
           </div>
         </dl>
-        <ul class="mt-4 divide-y divide-stone-100 border-t border-stone-100 text-sm">
+        <ul class="mt-5 space-y-2">
           <li
             v-for="item in rental.items"
             :key="item.uuid"
-            class="flex justify-between gap-4 py-2"
+            class="flex items-center justify-between gap-4 rounded-xl bg-[#f4f6f5] px-3.5 py-2.5 text-sm"
           >
-            <span class="text-stone-800">{{ item.product.name }}</span>
-            <span class="text-stone-500">× {{ item.quantity }}</span>
+            <span class="flex min-w-0 items-center gap-2 text-[#12201a]">
+              <UIcon
+                name="i-lucide-package"
+                class="size-4 shrink-0 text-[#5b6b64]"
+              />
+              <span class="truncate font-medium">{{ item.product.name }}</span>
+            </span>
+            <span class="shrink-0 text-[#5b6b64]">Qty {{ item.quantity }}</span>
           </li>
         </ul>
       </section>
 
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <p class="text-xs uppercase tracking-wider text-lumen-700">
-          Version {{ currentWaiver.version }}
-        </p>
-        <h2 class="mt-2 text-lg font-medium text-stone-900">
-          {{ currentWaiver.title }}
-        </h2>
-        <div class="mt-4 max-h-[32rem] overflow-y-auto rounded-xl border border-stone-100 bg-stone-50 p-4">
-          <WaiverAgreementText
-            class="whitespace-pre-wrap text-sm leading-6 text-stone-700"
-            :text="waiverBody"
-          />
+      <section class="storefront-card overflow-hidden rounded-2xl">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-[#12201a]/8 p-5 sm:p-6">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">2</span>
+            <div class="min-w-0">
+              <h2 class="font-semibold text-[#12201a]">
+                {{ currentWaiver.title }}
+              </h2>
+              <p class="mt-0.5 text-sm text-[#5b6b64]">
+                Read the full agreement before you sign. Scroll inside the box to see every section.
+              </p>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1 rounded-full border border-[#12201a]/10 px-2.5 py-1 text-xs font-medium text-[#3b4a44]">
+            <UIcon
+              name="i-lucide-file-text"
+              class="size-3.5"
+            />
+            Version {{ currentWaiver.version }}
+          </span>
+        </div>
+        <div class="relative">
+          <div class="max-h-[30rem] overflow-y-auto bg-[#fbfcfb] px-5 py-6 sm:px-10 sm:py-8">
+            <WaiverAgreementText
+              class="mx-auto max-w-2xl whitespace-pre-wrap font-serif text-[15px] leading-7 text-[#26332e]"
+              :text="waiverBody"
+            />
+          </div>
+          <div class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#fbfcfb] to-transparent" />
         </div>
       </section>
 
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-medium text-stone-900">
-          Renter acknowledgment
-        </h2>
-        <p class="mt-1 text-sm text-stone-500">
-          Check every box to continue.
-        </p>
-        <label
-          v-for="item in acknowledgments"
-          :key="item.id"
-          class="mt-3 flex items-start gap-3 text-sm text-stone-700"
-        >
-          <input
-            v-model="accepted[item.id]"
-            type="checkbox"
-            class="mt-1"
-            :disabled="pending"
+      <section class="storefront-card rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">3</span>
+            <div class="min-w-0">
+              <h2 class="font-semibold text-[#12201a]">
+                Renter acknowledgment
+              </h2>
+              <p class="mt-0.5 text-sm text-[#5b6b64]">
+                Confirm each statement to continue.
+              </p>
+            </div>
+          </div>
+          <span
+            class="rounded-full px-2.5 py-1 text-xs font-medium tabular-nums"
+            :class="allAcknowledged ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f4f6f5] text-[#3b4a44]'"
           >
-          <span v-if="item.id === 'terms'">
-            I have read and agree to the
-            <NuxtLink
-              to="/terms"
-              target="_blank"
-              class="font-medium text-[#12201a] underline-offset-4 hover:underline"
-            >JRY Rentals Terms & Conditions</NuxtLink>.
+            {{ acknowledgedCount }} of {{ acknowledgments.length }} confirmed
           </span>
-          <span v-else-if="item.id === 'privacy'">
-            I acknowledge the
-            <NuxtLink
-              to="/privacy"
-              target="_blank"
-              class="font-medium text-[#12201a] underline-offset-4 hover:underline"
-            >JRY Rentals Privacy Policy</NuxtLink>.
-          </span>
-          <span v-else>{{ item.label }}</span>
-        </label>
+        </div>
+        <div class="mt-5 space-y-2">
+          <label
+            v-for="item in acknowledgments"
+            :key="item.id"
+            class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm leading-6 transition-colors"
+            :class="accepted[item.id]
+              ? 'border-[#12201a]/25 bg-[#f4f6f5] text-[#12201a]'
+              : 'border-[#12201a]/10 text-[#3b4a44] hover:border-[#12201a]/25'"
+          >
+            <input
+              v-model="accepted[item.id]"
+              type="checkbox"
+              class="mt-1 size-4 shrink-0 accent-[#12201a]"
+              :disabled="pending"
+            >
+            <span v-if="item.id === 'terms'">
+              I have read and agree to the
+              <NuxtLink
+                to="/terms"
+                target="_blank"
+                class="font-medium text-[#12201a] underline underline-offset-4"
+              >JRY Rentals Terms & Conditions</NuxtLink>.
+            </span>
+            <span v-else-if="item.id === 'privacy'">
+              I acknowledge the
+              <NuxtLink
+                to="/privacy"
+                target="_blank"
+                class="font-medium text-[#12201a] underline underline-offset-4"
+              >JRY Rentals Privacy Policy</NuxtLink>.
+            </span>
+            <span v-else>{{ item.label }}</span>
+          </label>
+        </div>
       </section>
 
-      <section class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-medium text-stone-900">
-          Digital signature
-        </h2>
-        <label class="mt-4 block text-sm">
-          <span class="mb-1.5 block text-stone-700">Full name</span>
+      <section class="storefront-card rounded-2xl p-5 sm:p-6">
+        <div class="flex items-start gap-3">
+          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">4</span>
+          <div class="min-w-0">
+            <h2 class="font-semibold text-[#12201a]">
+              Digital signature
+            </h2>
+            <p class="mt-0.5 text-sm text-[#5b6b64]">
+              Type your full legal name and sign inside the box with your finger or mouse.
+            </p>
+          </div>
+        </div>
+        <label class="mt-5 block text-sm sm:max-w-md">
+          <span class="mb-1.5 block text-xs font-medium text-[#5b6b64]">Full name</span>
           <UInput
             v-model="signerName"
+            size="lg"
+            class="w-full"
+            autocomplete="name"
             :disabled="pending"
           />
           <span
@@ -345,8 +433,8 @@ async function onSubmit() {
             class="mt-1 block text-xs text-red-700"
           >{{ errors.signerName }}</span>
         </label>
-        <div class="mt-4">
-          <span class="mb-1.5 block text-sm text-stone-700">Signature</span>
+        <div class="mt-5">
+          <span class="mb-1.5 block text-xs font-medium text-[#5b6b64]">Signature</span>
           <ClientOnly>
             <SignaturePad ref="pad" />
             <template #fallback>
@@ -358,25 +446,46 @@ async function onSubmit() {
             class="mt-1 block text-xs text-red-700"
           >{{ errors.signatureData }}</span>
         </div>
+        <p class="mt-4 flex items-start gap-2 text-xs leading-5 text-[#5b6b64]">
+          <UIcon
+            name="i-lucide-shield-check"
+            class="mt-0.5 size-4 shrink-0"
+          />
+          Your signature, name, and the time you sign are saved with this agreement as your record for {{ rental.code }}.
+        </p>
       </section>
 
-      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <UButton
-          type="submit"
-          class="w-full sm:w-auto"
-          :loading="pending"
-          :disabled="!allAcknowledged"
-        >
-          I agree and sign
-        </UButton>
-        <UButton
-          :to="`/rentals/${rental.code}`"
-          color="neutral"
-          variant="outline"
-          class="w-full sm:w-auto"
-        >
-          Back
-        </UButton>
+      <div class="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <UButton
+            :to="`/rentals/${rental.code}`"
+            color="neutral"
+            variant="ghost"
+            size="lg"
+            icon="i-lucide-arrow-left"
+            class="justify-center rounded-full sm:w-auto"
+          >
+            Back to rental
+          </UButton>
+          <UButton
+            type="submit"
+            size="lg"
+            trailing-icon="i-lucide-pen-line"
+            class="w-full justify-center rounded-full sm:w-auto sm:min-w-56"
+            :loading="pending"
+            :disabled="!allAcknowledged"
+          >
+            I agree and sign
+          </UButton>
+        </div>
+        <p class="mt-3 text-center text-xs leading-5 text-stone-500 sm:text-right">
+          <template v-if="allAcknowledged">
+            Signing records this agreement for {{ rental.code }}.
+          </template>
+          <template v-else>
+            Confirm all {{ acknowledgments.length }} statements above to sign · {{ acknowledgedCount }} done
+          </template>
+        </p>
       </div>
     </form>
   </section>
