@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
+import { customerRentalGroup, amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
@@ -255,6 +255,17 @@ describe('customer rental transitions', () => {
     })).toBe('Pay now')
   })
 
+  it('groups customer rentals into action needed, upcoming, and past', () => {
+    const signed = { uuid: 'w' } as never
+    const id = { submittedAt: '2026-10-01T00:00:00.000Z' }
+    expect(customerRentalGroup({ status: 'draft', waiver: null, identity: null })).toBe('action')
+    expect(customerRentalGroup({ status: 'awaiting_payment', waiver: signed, identity: id })).toBe('action')
+    expect(customerRentalGroup({ status: 'pending', waiver: signed, identity: id })).toBe('action')
+    expect(customerRentalGroup({ status: 'approved', waiver: signed, identity: id })).toBe('upcoming')
+    expect(customerRentalGroup({ status: 'completed', waiver: signed, identity: id })).toBe('past')
+    expect(customerRentalGroup({ status: 'cancelled', waiver: null, identity: null })).toBe('past')
+  })
+
   it('breaks a booking into rent, discounts, commission, and what the shop keeps', () => {
     const sales = rentalSalesBreakdown({
       startsOn: '2026-10-21',
@@ -274,6 +285,8 @@ describe('customer rental transitions', () => {
       voucherDiscount: 0,
       rent: 4700,
       commission: 500,
+      discounts: 300,
+      grossRent: 5000,
       shopKeeps: 4200,
     })
     expect(rentalSalesBreakdown({
@@ -315,7 +328,7 @@ describe('customer rental transitions', () => {
       totalAmount: 900,
       commissionAmount: 300,
       commissioner: null,
-    })).toMatchObject({ baseRateDiscount: 0, voucherDiscount: 100, rent: 900, commission: 0, shopKeeps: 900 })
+    })).toMatchObject({ baseRateDiscount: 0, voucherDiscount: 100, discounts: 100, grossRent: 1000, rent: 900, commission: 0, shopKeeps: 900 })
   })
 
   it('lets admins mark a signed rental paid so it is recorded as a sale', () => {

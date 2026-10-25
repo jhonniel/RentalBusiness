@@ -11,7 +11,6 @@ const props = defineProps<{
   amount?: boolean
 }>()
 
-const { formatMoney } = useCurrency()
 const firstItem = computed(() => props.rental.items[0])
 const name = computed(() => {
   const productName = firstItem.value?.product.name || props.rental.code
@@ -54,12 +53,10 @@ const nextLabel = computed(() => customerRentalNextLabel(props.rental))
     </div>
     <div class="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
       <AccountStatus :status="rental.status" />
-      <span
+      <PaymentStatusBadge
         v-if="amount"
-        class="text-sm font-semibold text-[#12201a]"
-      >
-        {{ formatMoney(rental.totalAmount) }}
-      </span>
+        :rental="rental"
+      />
       <span
         v-if="action && nextLabel"
         class="inline-flex rounded-lg bg-[#12201a] px-3 py-1.5 text-xs font-semibold text-white"

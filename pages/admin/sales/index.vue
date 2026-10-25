@@ -112,7 +112,18 @@ const csvHref = computed(() => {
       <div class="grid gap-3 sm:grid-cols-3">
         <article class="rounded-xl border border-stone-200 bg-white p-4">
           <p class="text-xs uppercase tracking-wider text-stone-500">
-            Paid sales
+            Actual sales
+          </p>
+          <p class="mt-3 text-2xl text-stone-900">
+            {{ formatMoney(data?.summary.total ?? 0) }}
+          </p>
+          <p class="mt-1 text-xs text-stone-500">
+            Payments minus deposits held and commissions
+          </p>
+        </article>
+        <article class="rounded-xl border border-stone-200 bg-white p-4">
+          <p class="text-xs uppercase tracking-wider text-stone-500">
+            Paid payments
           </p>
           <p class="mt-3 text-2xl text-stone-900">
             {{ data?.summary.count ?? 0 }}
@@ -120,15 +131,7 @@ const csvHref = computed(() => {
         </article>
         <article class="rounded-xl border border-stone-200 bg-white p-4">
           <p class="text-xs uppercase tracking-wider text-stone-500">
-            Total
-          </p>
-          <p class="mt-3 text-2xl text-stone-900">
-            {{ formatMoney(data?.summary.total ?? 0) }}
-          </p>
-        </article>
-        <article class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs uppercase tracking-wider text-stone-500">
-            Average payment
+            Average sale
           </p>
           <p class="mt-3 text-2xl text-stone-900">
             {{ formatMoney(data?.summary.average ?? 0) }}
@@ -142,7 +145,7 @@ const csvHref = computed(() => {
       >
         <section class="min-w-0 rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2">
           <h3 class="text-sm font-medium text-stone-900">
-            Sales {{ bucketLabel }}
+            Actual sales {{ bucketLabel }}
           </h3>
           <p class="mt-1 mb-4 text-xs text-stone-500">
             Hover a bar to see the amount.
@@ -214,7 +217,7 @@ const csvHref = computed(() => {
                 Method
               </th>
               <th class="px-4 py-3 font-medium">
-                Amount
+                Sale
               </th>
             </tr>
           </thead>

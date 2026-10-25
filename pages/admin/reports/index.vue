@@ -69,22 +69,22 @@ const summaryCards = computed<SummaryCard[]>(() => {
   if (report.type === 'overview') {
     const summary = report.summary
     return [
-      { label: 'Sales', value: formatMoney(summary.sales), hint: `${summary.paidCount} paid payment${summary.paidCount === 1 ? '' : 's'}` },
+      { label: 'Actual sales', value: formatMoney(summary.actualSales), hint: `${summary.paidCount} paid payment${summary.paidCount === 1 ? '' : 's'}, after commissions` },
       { label: 'Expenses', value: formatMoney(summary.otherExpenses), hint: 'Not counting commissions' },
-      { label: 'Commissions', value: formatMoney(summary.commissions), hint: `${formatMoney(summary.unclaimedCommissions)} unclaimed · ${formatMoney(summary.collectedCommissions)} collected` },
-      { label: 'Net profit', value: formatMoney(summary.profit), hint: `${percent(summary.margin)} of sales`, tone: profitTone(summary.profit) },
+      { label: 'Commissions', value: formatMoney(summary.commissions), hint: `Already taken off actual sales · ${formatMoney(summary.unclaimedCommissions)} unclaimed` },
+      { label: 'Net profit', value: formatMoney(summary.profit), hint: `Actual sales minus expenses · ${percent(summary.margin)}`, tone: profitTone(summary.profit) },
       { label: 'Bookings', value: String(summary.bookings), hint: 'Confirmed bookings starting in this range' },
       { label: 'Booking value', value: formatMoney(summary.bookedValue), hint: 'Rental totals, including unpaid extensions' },
       { label: 'Average booking', value: formatMoney(summary.averageBooking) },
-      { label: 'Total costs', value: formatMoney(summary.expenses), hint: 'Expenses plus commissions' },
     ]
   }
 
   if (report.type === 'sales') {
     return [
+      { label: 'Actual sales', value: formatMoney(report.summary.total), hint: 'Payments minus deposits held and commissions' },
       { label: 'Paid payments', value: String(report.summary.count) },
-      { label: 'Sales', value: formatMoney(report.summary.total) },
-      { label: 'Average payment', value: formatMoney(report.summary.average) },
+      { label: 'Commissions', value: formatMoney(report.summary.commissions) },
+      { label: 'Deposits held', value: formatMoney(report.summary.depositsHeld), hint: 'Not counted as sales' },
     ]
   }
 
@@ -109,10 +109,10 @@ const summaryCards = computed<SummaryCard[]>(() => {
 
   if (report.type === 'profit') {
     return [
-      { label: 'Sales', value: formatMoney(report.summary.sales) },
+      { label: 'Actual sales', value: formatMoney(report.summary.actualSales), hint: 'After commissions, deposits not counted' },
       { label: 'Expenses', value: formatMoney(report.summary.otherExpenses) },
-      { label: 'Commissions', value: formatMoney(report.summary.commissions) },
-      { label: 'Profit', value: formatMoney(report.summary.profit), hint: `${percent(report.summary.margin)} of sales`, tone: profitTone(report.summary.profit) },
+      { label: 'Profit', value: formatMoney(report.summary.profit), hint: `Actual sales minus expenses · ${percent(report.summary.margin)}`, tone: profitTone(report.summary.profit) },
+      { label: 'Commissions', value: formatMoney(report.summary.commissions), hint: 'Already taken off actual sales' },
     ]
   }
 
@@ -146,7 +146,7 @@ const trendSeries = computed(() => {
   if (data.value?.type === 'expenses') {
     return ['expenses', 'commissions'] as const
   }
-  return ['sales', 'expenses', 'commissions', 'profit'] as const
+  return ['sales', 'expenses', 'profit'] as const
 })
 const bucketLabel = computed(() => ({ day: 'per day', week: 'per week', month: 'per month' })[charts.value?.bucket ?? 'day'])
 
@@ -371,13 +371,13 @@ const mobileRows = computed(() => {
         >
           <h3 class="text-sm font-medium text-stone-900">
             <template v-if="data?.type === 'sales'">
-              Sales {{ bucketLabel }}
+              Actual sales {{ bucketLabel }}
             </template>
             <template v-else-if="data?.type === 'expenses'">
               Expenses and commissions {{ bucketLabel }}
             </template>
             <template v-else>
-              Sales, costs, and profit {{ bucketLabel }}
+              Actual sales, expenses, and profit {{ bucketLabel }}
             </template>
           </h3>
           <p class="mt-1 mb-4 text-xs text-stone-500">

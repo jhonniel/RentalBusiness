@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { adminRentalListQuerySchema } from '../../utils/admin-validation'
-import { buildKpis, commissionerRanks, isOngoingRental, lastCalendarDays, paidSalesOn, topRentedProducts } from '../../utils/analytics'
+import { actualSalesOn, buildKpis, commissionerRanks, isOngoingRental, lastCalendarDays, paidSalesOn, topRentedProducts } from '../../utils/analytics'
+import { paymentSaleAmount } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 
 describe('analytics dates and sales', () => {
@@ -134,5 +135,28 @@ describe('most-rented products', () => {
       search: 'LUM-20260913-00001',
       id: 9,
     }).success).toBe(false)
+  })
+})
+
+describe('actual sales', () => {
+  it('leaves out a deposit the shop still holds', () => {
+    expect(paymentSaleAmount({ amount: 3200, metadata: { includesDeposit: true, depositAmount: 500 } })).toBe(2700)
+    expect(paymentSaleAmount({ amount: 2700, metadata: { includesDeposit: true, depositAmount: 500, depositReturnedAt: '2026-10-26T00:00:00Z' } })).toBe(2700)
+    expect(paymentSaleAmount({ amount: 3200, metadata: { includesDeposit: true, depositAmount: 500, nonRefundable: true } })).toBe(3200)
+    expect(paymentSaleAmount({ amount: 1000, metadata: { kind: 'extension' } })).toBe(1000)
+  })
+
+  it('takes commissions off on the day they are recorded', () => {
+    const payments = [
+      { amount: 3200, status: 'paid' as const, paid_at: '2026-10-20T05:00:00.000Z', metadata: { includesDeposit: true, depositAmount: 500 } },
+      { amount: 1000, status: 'paid' as const, paid_at: '2026-10-24T05:00:00.000Z', metadata: { kind: 'extension' } },
+    ]
+    const expenses = [
+      { amount: 400, status: 'pending', category: 'commission', incurred_on: '2026-10-20' },
+      { amount: 999, status: 'void', category: 'commission', incurred_on: '2026-10-20' },
+      { amount: 1500, status: 'paid', category: 'internet', incurred_on: '2026-10-20' },
+    ]
+    expect(actualSalesOn(payments, expenses, '2026-10-01', '2026-10-31')).toBe(3300)
+    expect(actualSalesOn(payments, expenses, '2026-10-20', '2026-10-20')).toBe(2300)
   })
 })

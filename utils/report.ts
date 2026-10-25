@@ -20,6 +20,7 @@ import { calendarDateInZone, inclusiveDayCount, overlapDayCount } from './dateti
 import { addCalendarDays } from './expense'
 import { rentableCapacity } from './availability'
 import { rentalOccupiesInventory } from './rental-status'
+import { paymentDepositHeld, paymentSaleAmount } from './rental'
 import { toCsv } from './csv'
 
 export const REPORT_RANGE_MAX_DAYS = 366
@@ -31,6 +32,7 @@ export interface ReportPaymentRow {
   status: PaymentStatus
   payment_method: string | null
   paid_at: string | null
+  metadata?: unknown
   rental_requests?: {
     uuid: string
     code: string
@@ -122,10 +124,13 @@ export function toSalesRows(payments: ReportPaymentRow[], startsOn: string, ends
     }
 
     const rental = first(payment.rental_requests)
+    const depositHeld = paymentDepositHeld(payment.metadata)
     return [{
       uuid: payment.uuid,
       paidOn,
-      amount: Number(payment.amount),
+      amount: paymentSaleAmount(payment),
+      paidAmount: Number(payment.amount),
+      depositHeld,
       currency: payment.currency,
       method: payment.payment_method,
       rentalUuid: rental?.uuid ?? null,
@@ -327,14 +332,35 @@ export function financeSummary(sales: SalesReportRow[], expenses: ExpenseReportR
   const otherExpenses = roundMoney(active.filter(row => row.category !== 'commission').reduce((sum, row) => sum + row.amount, 0))
   const total = roundMoney(commissions + otherExpenses)
   const profit = roundMoney(salesTotal - total)
+  const actualSales = roundMoney(salesTotal - commissions)
   return {
     sales: salesTotal,
+    actualSales,
     otherExpenses,
     commissions,
     expenses: total,
     profit,
-    margin: salesTotal > 0 ? Number((profit / salesTotal).toFixed(4)) : 0,
+    margin: actualSales > 0 ? Number((profit / actualSales).toFixed(4)) : 0,
   }
+}
+
+export function toActualTrend(points: ReportTrendPoint[]): ReportTrendPoint[] {
+  return points.map(point => ({ ...point, sales: roundMoney(point.sales - point.commissions), commissions: 0 }))
+}
+
+export function toActualMonths(groups: ReportMonthGroup[]): ReportMonthGroup[] {
+  return groups.map(group => ({
+    ...group,
+    days: toActualTrend(group.days),
+    totals: {
+      ...group.totals,
+      sales: roundMoney(group.totals.sales - group.totals.commissions),
+      commissions: 0,
+      margin: group.totals.sales - group.totals.commissions > 0
+        ? Number((group.totals.profit / (group.totals.sales - group.totals.commissions)).toFixed(4))
+        : 0,
+    },
+  }))
 }
 
 export function toTrendPoints(
@@ -527,8 +553,8 @@ export function toReportCsv(report: AdminReport): string {
   switch (report.type) {
     case 'overview':
       return toCsv(
-        ['period', 'startsOn', 'endsOn', 'sales', 'expenses', 'commissions', 'profit'],
-        report.rows.map(row => [row.label, row.startsOn, row.endsOn, row.sales, row.expenses, row.commissions, row.profit]),
+        ['period', 'startsOn', 'endsOn', 'actualSales', 'expenses', 'profit'],
+        report.rows.map(row => [row.label, row.startsOn, row.endsOn, row.sales, row.expenses, row.profit]),
       )
     case 'commissions':
       return toCsv(

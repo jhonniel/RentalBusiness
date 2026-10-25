@@ -557,7 +557,7 @@ insert into public.business_profiles (
 select
   'JRY Rentals',
   'jryrentals@gmail.com',
-  '+63 2 8000 0000',
+  '+639695217476',
   'Davao City, Philippines',
   'PHP',
   'Asia/Manila',

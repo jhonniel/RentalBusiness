@@ -25,6 +25,8 @@ export interface SalesReportRow {
   uuid: string
   paidOn: string
   amount: number
+  paidAmount?: number
+  depositHeld?: number
   currency: string
   method: string | null
   rentalUuid: string | null
@@ -139,6 +141,7 @@ export interface ReportCharts {
 
 export interface FinanceSummary {
   sales: number
+  actualSales: number
   otherExpenses: number
   commissions: number
   expenses: number
@@ -173,7 +176,7 @@ export type AdminReport
   })
   | (ReportMeta & {
     type: 'sales'
-    summary: { count: number, total: number, average: number }
+    summary: { count: number, total: number, average: number, paid: number, depositsHeld: number, commissions: number }
     charts: ReportCharts
     rows: SalesReportRow[]
   })

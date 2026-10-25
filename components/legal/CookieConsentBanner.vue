@@ -36,7 +36,7 @@ function accept() {
 <template>
   <div
     v-if="!accepted"
-    class="pointer-events-none fixed bottom-24 left-4 z-[90] w-[min(calc(100%-2rem),24rem)] pb-[env(safe-area-inset-bottom)] sm:bottom-4 sm:left-6"
+    class="pointer-events-none fixed bottom-24 left-4 z-[90] print:hidden w-[min(calc(100%-2rem),24rem)] pb-[env(safe-area-inset-bottom)] sm:bottom-4 sm:left-6"
   >
     <section
       class="pointer-events-auto w-full rounded-2xl border border-[#12201a]/10 bg-white p-4 text-left shadow-[0_18px_40px_rgb(18_32_26_/_16%)]"

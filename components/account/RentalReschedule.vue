@@ -13,7 +13,6 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
-const { formatMoney } = useCurrency()
 const { authHeaders } = useAuth()
 const open = ref(false)
 const startsOn = ref(props.rental.startsOn)
@@ -184,38 +183,16 @@ async function save() {
         </div>
         <div class="flex justify-between gap-4">
           <dt class="text-stone-500">
-            {{ preview.days }} day{{ preview.days === 1 ? '' : 's' }}
+            Length
           </dt>
-          <dd>{{ formatMoney(preview.rentAmount) }}</dd>
+          <dd>{{ preview.days }} day{{ preview.days === 1 ? '' : 's' }}</dd>
         </div>
-        <div
-          v-if="preview.lessAmount > 0"
-          class="flex justify-between gap-4"
+        <p
+          v-if="preview.canFulfill"
+          class="pt-1 text-emerald-800"
         >
-          <dt class="text-stone-500">
-            Less
-          </dt>
-          <dd>−{{ formatMoney(preview.lessAmount) }}</dd>
-        </div>
-        <div
-          v-if="preview.discountAmount > 0"
-          class="flex justify-between gap-4"
-        >
-          <dt class="text-stone-500">
-            Voucher
-          </dt>
-          <dd>−{{ formatMoney(preview.discountAmount) }}</dd>
-        </div>
-        <div class="flex justify-between gap-4">
-          <dt class="text-stone-500">
-            Deposit
-          </dt>
-          <dd>{{ formatMoney(preview.depositAmount) }}</dd>
-        </div>
-        <div class="flex justify-between gap-4 font-medium text-stone-900">
-          <dt>Amount due</dt>
-          <dd>{{ formatMoney(preview.amountDue) }}</dd>
-        </div>
+          These dates are available. The payment page will show the updated amount.
+        </p>
         <p
           v-if="!preview.canFulfill"
           class="pt-1 text-red-800"

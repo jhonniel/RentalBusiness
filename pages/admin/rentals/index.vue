@@ -179,7 +179,10 @@ async function removeRental(uuid: string) {
             <span class="whitespace-nowrap">{{ formatBookingDateRange(rental.startsOn, rental.endsOn) }}</span>
             <span class="whitespace-nowrap"> · {{ formatPickupClock(rental.pickupTime) }}</span>
           </p>
-          <span class="text-sm font-medium text-stone-900">{{ formatMoney(rental.totalAmount) }}</span>
+          <span
+            class="text-sm font-medium tabular-nums text-stone-900"
+            title="Actual sale: rent after discounts, minus commissions and unpaid extensions. Deposit not included."
+          >{{ formatMoney(rental.actualSale ?? rental.totalAmount) }}</span>
           <StatusBadge
             class="hidden shrink-0 lg:inline-flex"
             :status="rental.status"

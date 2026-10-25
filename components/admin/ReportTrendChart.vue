@@ -100,7 +100,7 @@ function barDelay(index: number) {
 function pointTitle(point: ReportTrendPoint) {
   return [
     point.label,
-    showSales.value ? `Sales ${formatMoney(point.sales)}` : '',
+    showSales.value ? `Actual sales ${formatMoney(point.sales)}` : '',
     showExpenses.value ? `Expenses ${formatMoney(point.expenses)}` : '',
     showCommissions.value ? `Commissions ${formatMoney(point.commissions)}` : '',
     showProfit.value ? `Profit ${formatMoney(point.profit)}` : '',
@@ -116,7 +116,7 @@ function pointTitle(point: ReportTrendPoint) {
         class="flex items-center gap-1.5"
       >
         <span class="size-2.5 rounded-sm bg-lumen-600" />
-        Sales
+        Actual sales
       </li>
       <li
         v-if="showExpenses"

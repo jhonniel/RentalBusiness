@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
 import { receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
-import { isReceiptNumber, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
+import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptDiscounts, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
 const snapshot = {
@@ -71,6 +71,48 @@ describe('receipt mapper', () => {
     expect(receipt.receiptNumber).toBe('RCP-20260913-00001')
     expect(receipt.snapshot.receiptNumber).toBe('RCP-20260913-00001')
     expect(snapshotHasInternalId(receipt.snapshot)).toBe(false)
+  })
+})
+
+describe('receipt statement', () => {
+  it('labels payments by what they paid for', () => {
+    expect(paymentPurpose({ kind: 'extension' })).toBe('extension')
+    expect(paymentPurpose({ kind: 'late_fee' })).toBe('late_fee')
+    expect(paymentPurpose({ recordedBy: 'admin' })).toBe('booking')
+    expect(paymentPurpose(null)).toBe('booking')
+  })
+
+  it('shows the long-stay discount and voucher on the receipt', () => {
+    expect(receiptDiscounts({
+      startsOn: '2026-10-20',
+      endsOn: '2026-10-25',
+      discountAmount: 0,
+      voucher: null,
+      items: [{ dailyPrice: 1000, quantity: 1, lineTotal: 4600 }],
+    }, 5)).toEqual({ longStay: 400, voucher: 0, voucherCode: null })
+    expect(receiptDiscounts({
+      startsOn: '2026-10-20',
+      endsOn: '2026-10-22',
+      discountAmount: 100,
+      voucher: { code: 'JRY-SAVE100' },
+      items: [{ dailyPrice: 1000, quantity: 1, lineTotal: 2000 }],
+    }, 2)).toEqual({ longStay: 0, voucher: 100, voucherCode: 'JRY-SAVE100' })
+  })
+
+  it('lists every paid receipt on the booking with the total', () => {
+    const statement = buildReceiptStatement([
+      { receipt_number: 'RCP-20261024-2', issued_at: '2026-10-24T03:00:00Z', snapshot: {}, payment: { amount: '1000.00', status: 'paid', metadata: { kind: 'extension' } } },
+      { receipt_number: 'RCP-20261020-1', issued_at: '2026-10-20T03:00:00Z', snapshot: {}, payment: { amount: 4100, status: 'paid', metadata: {} } },
+      { receipt_number: 'RCP-20261026-3', issued_at: '2026-10-26T03:00:00Z', snapshot: { purpose: 'late_fee', description: 'Late fee · Waiver schedule' }, payment: { amount: 300, status: 'paid', metadata: { kind: 'late_fee' } } },
+      { receipt_number: 'RCP-20261026-4', issued_at: '2026-10-26T04:00:00Z', snapshot: {}, payment: { amount: 50, status: 'refunded', metadata: {} } },
+    ], 'RCP-20261020-1')
+
+    expect(statement.lines.map(line => [line.receiptNumber, line.label, line.amount, line.current])).toEqual([
+      ['RCP-20261020-1', 'Booking payment', 4100, true],
+      ['RCP-20261024-2', 'Booking extension', 1000, false],
+      ['RCP-20261026-3', 'Late fee · Waiver schedule', 300, false],
+    ])
+    expect(statement.totalPaid).toBe(5400)
   })
 })
 

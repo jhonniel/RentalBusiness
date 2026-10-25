@@ -62,7 +62,7 @@ export async function getAdminAnalytics(client: Client): Promise<AdminAnalytics>
       customerCount,
       today,
     }),
-    salesByDay: salesByDay(payments, days),
+    salesByDay: salesByDay(payments, days, expenses),
     rentalsByStatus: rentalsByStatus(rentals),
     topProducts,
     commissionerRanks: commissionerRanks(commissions.flatMap((row) => {

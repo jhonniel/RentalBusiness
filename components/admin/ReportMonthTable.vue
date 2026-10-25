@@ -73,8 +73,8 @@ function profitClass(profit: number) {
           :class="closedYears.has(yearGroup.year) ? '' : 'rotate-90'"
         />
         <span class="min-w-24 flex-1 text-lg font-medium text-stone-900">{{ yearGroup.year }}</span>
-        <span class="text-xs text-stone-500">Sales <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(yearGroup.totals.sales) }}</span></span>
-        <span class="text-xs text-stone-500">Costs <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(yearGroup.totals.expenses + yearGroup.totals.commissions) }}</span></span>
+        <span class="text-xs text-stone-500">Actual sales <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(yearGroup.totals.sales) }}</span></span>
+        <span class="text-xs text-stone-500">Expenses <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(yearGroup.totals.expenses) }}</span></span>
         <span
           class="rounded-full px-2.5 py-0.5 text-sm font-medium tabular-nums"
           :class="badgeClass(yearGroup.totals.profit)"
@@ -104,8 +104,8 @@ function profitClass(profit: number) {
               :class="openMonths.has(group.month) ? 'rotate-90' : ''"
             />
             <span class="min-w-32 flex-1 font-medium text-stone-900">{{ group.label }}</span>
-            <span class="text-xs text-stone-500">Sales <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(group.totals.sales) }}</span></span>
-            <span class="text-xs text-stone-500">Costs <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(group.totals.expenses + group.totals.commissions) }}</span></span>
+            <span class="text-xs text-stone-500">Actual sales <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(group.totals.sales) }}</span></span>
+            <span class="text-xs text-stone-500">Expenses <span class="text-sm text-stone-900 tabular-nums">{{ formatMoney(group.totals.expenses) }}</span></span>
             <span
               class="rounded-full px-2.5 py-0.5 text-sm font-medium tabular-nums"
               :class="badgeClass(group.totals.profit)"
@@ -125,13 +125,10 @@ function profitClass(profit: number) {
                     Date
                   </th>
                   <th class="px-4 py-2.5 text-right font-medium">
-                    Sales
+                    Actual sales
                   </th>
                   <th class="px-4 py-2.5 text-right font-medium">
                     Expenses
-                  </th>
-                  <th class="px-4 py-2.5 text-right font-medium">
-                    Commissions
                   </th>
                   <th class="px-4 py-2.5 text-right font-medium">
                     Profit
@@ -154,9 +151,6 @@ function profitClass(profit: number) {
                   <td class="px-4 py-2 text-right tabular-nums">
                     {{ day.expenses ? formatMoney(day.expenses) : '—' }}
                   </td>
-                  <td class="px-4 py-2 text-right tabular-nums">
-                    {{ day.commissions ? formatMoney(day.commissions) : '—' }}
-                  </td>
                   <td
                     class="px-4 py-2 text-right tabular-nums"
                     :class="day.profit ? profitClass(day.profit) : ''"
@@ -176,9 +170,6 @@ function profitClass(profit: number) {
                   <td class="px-4 py-3 text-right tabular-nums">
                     {{ formatMoney(group.totals.expenses) }}
                   </td>
-                  <td class="px-4 py-3 text-right tabular-nums">
-                    {{ formatMoney(group.totals.commissions) }}
-                  </td>
                   <td
                     class="px-4 py-3 text-right tabular-nums"
                     :class="profitClass(group.totals.profit)"
@@ -188,14 +179,14 @@ function profitClass(profit: number) {
                 </tr>
                 <tr>
                   <td
-                    colspan="5"
+                    colspan="4"
                     class="px-4 pb-3 text-xs font-normal text-stone-600"
                   >
                     <span :class="profitClass(group.totals.profit)">{{ resultLabel(group.totals.profit) }} this month</span>
                     <template v-if="group.totals.sales > 0">
                       · {{ Math.round(group.totals.margin * 1000) / 10 }}% of sales
                     </template>
-                    · Profit is sales minus expenses and commissions.
+                    · Profit is actual sales (after commissions) minus expenses.
                   </td>
                 </tr>
               </tfoot>

@@ -233,8 +233,41 @@ export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'start
     pendingExtension: fromMinorUnits(pendingExtension),
     confirmedRent: fromMinorUnits(confirmedRent),
     commission: fromMinorUnits(commission),
+    discounts: fromMinorUnits(Math.max(0, baseListRent - baseRent) + toMinorUnits(Math.max(0, rental.discountAmount))),
+    grossRent: fromMinorUnits(rent + Math.max(0, baseListRent - baseRent) + toMinorUnits(Math.max(0, rental.discountAmount))),
     shopKeeps: fromMinorUnits(confirmedRent - commission),
   }
+}
+
+export type CustomerPaymentTone = 'neutral' | 'info' | 'warning' | 'success' | 'muted'
+
+const PAID_RENTAL_STATUSES: readonly RentalStatus[] = ['paid', 'approved', 'ready_for_pickup', 'active', 'overdue', 'returned', 'completed']
+
+export function customerPaymentStatus(rental: {
+  status: RentalStatus
+  totalAmount: number
+  depositAmount?: number
+  payments?: Array<{ status: string }>
+}): { label: string, tone: CustomerPaymentTone } {
+  if (rental.status === 'cancelled' || rental.status === 'rejected') {
+    return { label: 'No payment needed', tone: 'muted' }
+  }
+  if (PAID_RENTAL_STATUSES.includes(rental.status) || rental.payments?.some(payment => payment.status === 'paid')) {
+    return { label: 'Paid', tone: 'success' }
+  }
+  if (Math.max(0, rental.totalAmount) + Math.max(0, rental.depositAmount ?? 0) === 0) {
+    return { label: 'Nothing to pay', tone: 'success' }
+  }
+  if (rental.payments?.some(payment => payment.status === 'processing')) {
+    return { label: 'Payment being confirmed', tone: 'info' }
+  }
+  if (rental.status === 'awaiting_payment') {
+    return { label: 'Ready to pay', tone: 'warning' }
+  }
+  if (rental.status === 'pending') {
+    return { label: 'Waiting for shop confirmation', tone: 'info' }
+  }
+  return { label: 'Not paid yet', tone: 'neutral' }
 }
 
 export function collectedPaymentFields(rental: { totalAmount: number, depositAmount?: number }) {
@@ -243,6 +276,22 @@ export function collectedPaymentFields(rental: { totalAmount: number, depositAmo
     depositAmount: Math.max(0, rental.depositAmount ?? 0),
     rentAmount: Math.max(0, rental.totalAmount),
   }
+}
+
+export function paymentDepositHeld(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return 0
+  }
+
+  const record = metadata as { includesDeposit?: unknown, depositReturnedAt?: unknown, nonRefundable?: unknown, depositAmount?: unknown }
+  if (record.includesDeposit !== true || record.depositReturnedAt || record.nonRefundable === true) {
+    return 0
+  }
+  return Math.max(0, Number(record.depositAmount ?? 0) || 0)
+}
+
+export function paymentSaleAmount(payment: { amount: number | string, metadata?: unknown }) {
+  return Math.max(0, Math.round((Number(payment.amount) - paymentDepositHeld(payment.metadata)) * 100) / 100)
 }
 
 export function paymentCollectedDeposit(metadata: unknown) {
@@ -312,6 +361,18 @@ export function customerRentalNextLabel(rental: Pick<PublicRental, 'status' | 'w
     return 'Waiting for confirmation'
   }
   return null
+}
+
+export type CustomerRentalGroup = 'action' | 'upcoming' | 'past'
+
+const PAST_RENTAL_STATUSES: readonly RentalStatus[] = ['returned', 'completed', 'cancelled', 'rejected']
+
+export function customerRentalGroup(rental: Pick<PublicRental, 'status' | 'waiver' | 'identity'>): CustomerRentalGroup {
+  if (PAST_RENTAL_STATUSES.includes(rental.status)) {
+    return 'past'
+  }
+  const next = customerRentalNextLabel(rental)
+  return next && next !== 'Waiting for confirmation' ? 'action' : 'upcoming'
 }
 
 export function customerRentalNextPath(rental: Pick<PublicRental, 'code' | 'status' | 'waiver' | 'identity'>) {

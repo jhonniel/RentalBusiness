@@ -76,6 +76,36 @@ export async function listRentalExtensions(client: Client, rentalId: number): Pr
   return (data ?? []) as unknown as ExtensionRow[]
 }
 
+export async function listExtensionAmountsByRentalIds(client: Client, rentalIds: number[]) {
+  if (!rentalIds.length) {
+    return []
+  }
+
+  const query = (select: string) => client
+    .from('rental_extensions')
+    .select(select)
+    .in('rental_id', rentalIds)
+
+  let { data, error } = await query('rental_id, uuid, added_amount, created_at, cancelled_at')
+  if (isMissingColumn(error)) {
+    ({ data, error } = await query('rental_id, uuid, added_amount, created_at'))
+  }
+  if (error) {
+    if (isMissingTable(error)) {
+      return []
+    }
+    throw new AppError('We could not load booking extensions.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return (data ?? []) as unknown as Array<{
+    rental_id: number
+    uuid: string
+    added_amount: number
+    created_at: string
+    cancelled_at?: string | null
+  }>
+}
+
 export async function listExtensionStartsByRentalIds(client: Client, rentalIds: number[]) {
   if (!rentalIds.length) {
     return []

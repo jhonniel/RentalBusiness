@@ -6,7 +6,10 @@ import type { RentalReminderInput } from '../../utils/receipt-validation'
 import { APP_NAME, BUSINESS_CURRENCY } from '../../utils/constants'
 import { EMAIL_TEMPLATES } from '../../utils/email'
 import { receiptIssuedEmail, rentalReminderEmail } from '../../utils/email-templates'
-import { isReceiptNumber, toPublicReceipt } from '../../utils/receipt'
+import { RECEIPT_PURPOSE_LABELS, buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptDiscounts, toPublicReceipt } from '../../utils/receipt'
+import { rentalPeriodDays } from '../../utils/rental-window'
+import { formatBookingDate } from '../../utils/datetime'
+import { LATE_FEE_TYPE_LABELS, type LateFeeType } from '../../utils/late-fee'
 import { isRentalCode, toPublicRental } from '../../utils/rental'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -15,7 +18,8 @@ import { getSupabaseAdminClient } from '../utils/supabase'
 import { findBusinessProfile } from '../repositories/business.repository'
 import { findProfileById } from '../repositories/profile.repository'
 import { findRentalByCode, findRentalByUuid, findRentalIdentity, findRentalIdentityById } from '../repositories/rental.repository'
-import { findReceiptByNumber, findReceiptByPaymentId, findReceiptByUuid, insertReceipt } from '../repositories/receipt.repository'
+import { findReceiptByNumber, findReceiptByPaymentId, findReceiptByUuid, insertReceipt, listReceiptsByRentalId } from '../repositories/receipt.repository'
+import { findRentalExtension } from '../repositories/rental-extension.repository'
 import { sendTemplatedEmail } from './email.service'
 
 type Client = SupabaseClient<Database>
@@ -42,6 +46,8 @@ function buildSnapshot(input: {
     provider: string
     paid_at: string | null
   }
+  purpose: ReturnType<typeof paymentPurpose>
+  description: string
   customerName: string
   customerEmail: string | null
   business: { name: string, email: string | null, phone: string | null, address: string | null, currency: string }
@@ -50,6 +56,8 @@ function buildSnapshot(input: {
     receiptNumber: '',
     issuedAt: new Date().toISOString(),
     currency: input.payment.currency || input.business.currency || BUSINESS_CURRENCY,
+    purpose: input.purpose,
+    description: input.description,
     rental: {
       uuid: input.rental.uuid,
       code: input.rental.code,
@@ -87,6 +95,20 @@ function buildSnapshot(input: {
   }
 }
 
+async function paymentDescription(admin: Client, purpose: ReturnType<typeof paymentPurpose>, metadata: unknown) {
+  const record = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {}
+  if (purpose === 'extension' && typeof record.extensionUuid === 'string') {
+    const extension = await findRentalExtension(admin, record.extensionUuid).catch(() => null)
+    if (extension) {
+      return `Booking extension · ${formatBookingDate(extension.previous_ends_on)} – ${formatBookingDate(extension.ends_on)}`
+    }
+  }
+  if (purpose === 'late_fee' && typeof record.lateFeeType === 'string' && record.lateFeeType in LATE_FEE_TYPE_LABELS) {
+    return `Late fee · ${LATE_FEE_TYPE_LABELS[record.lateFeeType as LateFeeType]}`
+  }
+  return RECEIPT_PURPOSE_LABELS[purpose]
+}
+
 export async function issueReceiptForPayment(
   event: H3Event,
   payment: {
@@ -99,6 +121,7 @@ export async function issueReceiptForPayment(
     rental_id: number
     customer_id: number
     status: string
+    metadata?: unknown
   },
 ) {
   if (payment.status !== 'paid') {
@@ -121,9 +144,12 @@ export async function issueReceiptForPayment(
   const email = await customerEmail(admin, profile.user_id)
   const business = await findBusinessProfile(admin)
   const rental = toPublicRental(rentalRow)
+  const purpose = paymentPurpose(payment.metadata)
   const snapshot = buildSnapshot({
     rental,
     payment,
+    purpose,
+    description: await paymentDescription(admin, purpose, payment.metadata),
     customerName: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Customer',
     customerEmail: email,
     business,
@@ -167,6 +193,11 @@ export async function issueReceiptForPayment(
   return receipt
 }
 
+function currentDiscounts(row: NonNullable<Awaited<ReturnType<typeof findRentalByUuid>>>) {
+  const rental = toPublicRental(row)
+  return receiptDiscounts(rental, rentalPeriodDays(rental.startsOn, rental.endsOn))
+}
+
 export async function getOwnReceipt(client: Client, identifier: string) {
   const row = isUuid(identifier)
     ? await findReceiptByUuid(client, identifier)
@@ -178,7 +209,25 @@ export async function getOwnReceipt(client: Client, identifier: string) {
     throw new AppError('Receipt not found.', 404, ERROR_CODES.NOT_FOUND)
   }
 
-  return toPublicReceipt(row)
+  const receipt = toPublicReceipt(row)
+  const admin = getSupabaseAdminClient()
+  const [related, business, rentalIdentity] = await Promise.all([
+    listReceiptsByRentalId(admin, row.rental_id).catch(() => []),
+    findBusinessProfile(admin).catch(() => null),
+    findRentalIdentityById(admin, row.rental_id).catch(() => null),
+  ])
+  const rentalRow = rentalIdentity ? await findRentalByUuid(admin, rentalIdentity.uuid).catch(() => null) : null
+  return {
+    ...receipt,
+    statement: buildReceiptStatement(related, receipt.receiptNumber),
+    business: business
+      ? { name: business.name, email: business.email, phone: business.phone, address: business.address }
+      : undefined,
+    rental: rentalRow
+      ? { startsOn: rentalRow.starts_on, endsOn: rentalRow.ends_on, pickupAt: rentalRow.pickup_at, returnAt: rentalRow.return_at }
+      : undefined,
+    discounts: rentalRow ? currentDiscounts(rentalRow) : undefined,
+  }
 }
 
 export async function sendRentalReminder(event: H3Event, input: RentalReminderInput) {

@@ -2,6 +2,8 @@
 
 The application deploys to **Vercel** as a Nuxt 3 / Nitro app. Data, auth, and storage run on **Supabase**. Email uses **Gmail SMTP**.
 
+Server functions run in Vercel region `icn1` (Seoul), set in `vercel.json`, because the Supabase project is in AWS `ap-northeast-2` (Seoul). Keep the two regions together: every page makes several database calls, and a far-away function region (such as the default `iad1`, US East) adds about 200 ms to each one.
+
 ## Environments
 
 | Name | Purpose |

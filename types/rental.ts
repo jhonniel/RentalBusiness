@@ -66,6 +66,7 @@ export interface PublicRental {
   pendingExtensionAmount?: number
   extensionLines?: RentalExtensionLine[]
   lateFee?: RentalLateFee | null
+  actualSale?: number
   createdAt: string
 }
 

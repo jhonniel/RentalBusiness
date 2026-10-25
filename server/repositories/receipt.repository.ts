@@ -52,6 +52,23 @@ export async function findReceiptByNumber(client: Client, receiptNumber: string)
   return data
 }
 
+export async function listReceiptsByRentalId(client: Client, rentalId: number) {
+  const { data, error } = await client
+    .from('receipts')
+    .select('receipt_number, issued_at, snapshot, payment:payment_transactions ( amount, status, metadata )')
+    .eq('rental_id', rentalId)
+    .order('issued_at', { ascending: true })
+
+  if (error) {
+    throw new AppError('We could not load the payments for this booking.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return (data ?? []).map(row => ({
+    ...row,
+    payment: Array.isArray(row.payment) ? row.payment[0] ?? null : row.payment,
+  }))
+}
+
 export async function findReceiptByPaymentId(client: Client, paymentId: number) {
   const { data, error } = await client
     .from('receipts')

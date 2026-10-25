@@ -107,7 +107,7 @@ const panelClass = computed(() => props.variant === 'float'
   >
     <div
       :class="variant === 'float'
-        ? 'pointer-events-none fixed right-4 bottom-4 z-[100] flex flex-col items-end gap-3 pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)]'
+        ? 'pointer-events-none fixed right-4 bottom-4 z-[100] flex flex-col items-end gap-3 pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] print:hidden'
         : 'w-full'"
     >
       <Transition

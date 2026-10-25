@@ -121,6 +121,28 @@ const commissionStatusLabel = computed(() => {
 const paidPayment = computed(() => rental.value?.payments.find(payment => payment.status === 'paid') ?? null)
 const hasPaidPayment = computed(() => Boolean(paidPayment.value))
 const paidAmount = computed(() => paidPayment.value?.amount ?? 0)
+const totalPaid = computed(() => Math.round((rental.value?.payments ?? [])
+  .filter(payment => payment.status === 'paid')
+  .reduce((sum, payment) => sum + Number(payment.amount), 0) * 100) / 100)
+const customerName = computed(() => rental.value?.customer
+  ? `${rental.value.customer.firstName} ${rental.value.customer.lastName}`.trim()
+  : 'Unknown customer')
+const customerInitials = computed(() => customerName.value
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map(part => part[0]?.toUpperCase())
+  .join('') || '?')
+const equipmentLabel = computed(() => (rental.value?.items ?? [])
+  .map(item => item.quantity > 1 ? `${item.product.name} × ${item.quantity}` : item.product.name)
+  .join(', '))
+const progress = computed(() => rental.value
+  ? [
+      { label: 'Waiver', done: Boolean(rental.value.waiver) },
+      { label: 'ID', done: Boolean(rental.value.identity) },
+      { label: 'Payment', done: hasPaidPayment.value || amountDue(rental.value) === 0 },
+    ]
+  : [])
 const sendWaiver = computed(() => route.hash === '#waiver')
 
 onMounted(() => {
@@ -341,101 +363,220 @@ async function removeRental() {
     />
 
     <template v-else-if="rental">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="text-xs uppercase tracking-wider text-lumen-700">
-            {{ rental.code }}
-          </p>
-          <h2 class="mt-2 text-2xl font-medium text-stone-900">
-            Rental request
-          </h2>
-          <div class="mt-3">
-            <StatusBadge :status="rental.status" />
+      <section class="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium uppercase tracking-wider text-stone-500">Rental request</span>
+              <span class="rounded-md bg-stone-100 px-2 py-0.5 font-mono text-xs font-medium text-stone-700">{{ rental.code }}</span>
+              <StatusBadge :status="rental.status" />
+            </div>
+            <h2 class="mt-2 text-2xl font-semibold tracking-tight break-words text-stone-900">
+              {{ equipmentLabel || 'Rental request' }}
+            </h2>
+            <p class="mt-1 text-sm text-stone-600">
+              {{ customerName }} · {{ formatBookingDateRange(rental.startsOn, rental.endsOn) }}<template v-if="sales">
+                · {{ sales.days }} day{{ sales.days === 1 ? '' : 's' }}
+              </template>
+            </p>
           </div>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <UButton
-            v-if="canOpenContinue"
-            :to="`/admin/rentals/${rental.uuid}/continue`"
-            color="neutral"
-            variant="outline"
-          >
-            {{ canModify && rental.status !== 'draft' ? 'Edit booking' : 'Continue form' }}
-          </UButton>
-          <UButton
-            v-if="canConfirm"
-            :loading="confirming"
-            @click="confirmBooking"
-          >
-            Confirm booking
-          </UButton>
-          <div
-            v-if="canMarkPaid"
-            class="flex flex-wrap items-center gap-2"
-          >
-            <select
-              v-model="paymentMethod"
-              class="h-9 rounded-md border border-stone-200 bg-white px-2 text-sm text-stone-800"
-              :disabled="paying"
-            >
-              <option
-                v-for="method in SHOP_PAYMENT_METHODS"
-                :key="method"
-                :value="method"
-              >
-                {{ method === 'gcash' ? 'GCash' : method === 'maya' ? 'Maya' : method === 'bank' ? 'Bank' : 'Cash' }}
-              </option>
-            </select>
+          <div class="flex flex-wrap items-center gap-2 lg:justify-end">
             <UButton
-              :loading="paying"
-              @click="markPaid"
+              v-if="rental.receipts[0]"
+              :to="`/receipts/${rental.receipts[0].receiptNumber}`"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-receipt"
             >
-              Mark as paid
+              Receipt
+            </UButton>
+            <UButton
+              v-if="canOpenContinue"
+              :to="`/admin/rentals/${rental.uuid}/continue`"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-pencil"
+            >
+              {{ canModify && rental.status !== 'draft' ? 'Edit booking' : 'Continue form' }}
+            </UButton>
+            <UButton
+              v-if="canConfirm"
+              icon="i-lucide-check"
+              :loading="confirming"
+              @click="confirmBooking"
+            >
+              Confirm booking
+            </UButton>
+            <div
+              v-if="canMarkPaid"
+              class="flex items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 p-1"
+            >
+              <select
+                v-model="paymentMethod"
+                class="h-8 rounded-md border-0 bg-transparent px-2 text-sm text-stone-800 focus:ring-0"
+                aria-label="Payment method"
+                :disabled="paying"
+              >
+                <option
+                  v-for="method in SHOP_PAYMENT_METHODS"
+                  :key="method"
+                  :value="method"
+                >
+                  {{ method === 'gcash' ? 'GCash' : method === 'maya' ? 'Maya' : method === 'bank' ? 'Bank' : 'Cash' }}
+                </option>
+              </select>
+              <UButton
+                size="sm"
+                icon="i-lucide-wallet"
+                :loading="paying"
+                @click="markPaid"
+              >
+                Mark as paid
+              </UButton>
+            </div>
+            <UButton
+              v-if="canApprove"
+              icon="i-lucide-badge-check"
+              :loading="approving"
+              @click="approve"
+            >
+              Approve
+            </UButton>
+            <UButton
+              v-if="canFinish"
+              icon="i-lucide-flag"
+              :loading="completing"
+              @click="finishRental"
+            >
+              Mark rental done
             </UButton>
           </div>
-          <UButton
-            v-if="canFinish"
-            :loading="completing"
-            @click="finishRental"
-          >
-            Mark rental done
-          </UButton>
-          <UButton
-            v-if="canApprove"
-            :loading="approving"
-            @click="approve"
-          >
-            Approve
-          </UButton>
-          <UButton
-            v-if="rental.receipts[0]"
-            :to="`/receipts/${rental.receipts[0].receiptNumber}`"
-            color="neutral"
-            variant="outline"
-          >
-            Receipt
-          </UButton>
         </div>
-      </div>
+
+        <dl class="mt-5 grid gap-4 border-t border-stone-100 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div class="flex items-start gap-3">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+              <UIcon
+                name="i-lucide-calendar-arrow-up"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <dt class="text-xs text-stone-500">
+                Pickup
+              </dt>
+              <dd class="mt-0.5 font-medium text-stone-900">
+                {{ formatBusinessDateTime(rental.pickupAt) }}
+              </dd>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+              <UIcon
+                name="i-lucide-calendar-arrow-down"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <dt class="text-xs text-stone-500">
+                Return
+              </dt>
+              <dd class="mt-0.5 font-medium text-stone-900">
+                {{ formatBusinessDateTime(rental.returnAt) }}
+              </dd>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+              <UIcon
+                name="i-lucide-wallet"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <dt class="text-xs text-stone-500">
+                {{ sales ? 'Actual sale' : 'Amount due' }}
+              </dt>
+              <dd class="mt-0.5 font-medium tabular-nums text-stone-900">
+                {{ formatMoney(sales ? sales.shopKeeps : amountDue(rental)) }}
+              </dd>
+              <dd class="mt-0.5 text-xs tabular-nums text-stone-500">
+                <template v-if="totalPaid > 0">
+                  {{ formatMoney(totalPaid) }} paid in total
+                </template>
+                <template v-else>
+                  Not paid yet · {{ formatMoney(amountDue(rental)) }} due
+                </template>
+              </dd>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+              <UIcon
+                name="i-lucide-list-checks"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <dt class="text-xs text-stone-500">
+                Progress
+              </dt>
+              <dd class="mt-1 flex flex-wrap gap-1.5">
+                <span
+                  v-for="step in progress"
+                  :key="step.label"
+                  class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="step.done ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'"
+                >
+                  <UIcon
+                    :name="step.done ? 'i-lucide-check' : 'i-lucide-circle-dashed'"
+                    class="size-3"
+                  />
+                  {{ step.label }}
+                </span>
+              </dd>
+            </div>
+          </div>
+        </dl>
+      </section>
 
       <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
         <div class="space-y-6">
-          <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
-            <h3 class="font-medium text-stone-900">
+          <section class="rounded-2xl border border-stone-200 bg-white p-5 text-sm">
+            <h3 class="flex items-center gap-2 font-medium text-stone-900">
+              <UIcon
+                name="i-lucide-user"
+                class="size-4 text-stone-500"
+              />
               Customer
             </h3>
-            <p class="mt-2 text-stone-600">
-              {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Unknown customer' }}
-            </p>
-            <p class="break-all text-stone-500">
-              {{ rental.customer?.email || 'No account email' }}
-            </p>
-            <p
-              v-if="rental.customer?.phone"
-              class="text-stone-500"
-            >
-              {{ rental.customer.phone }}
-            </p>
+            <div class="mt-4 flex items-start gap-3">
+              <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-sm font-semibold text-white">
+                {{ customerInitials }}
+              </span>
+              <div class="min-w-0 space-y-1">
+                <p class="font-medium text-stone-900">
+                  {{ customerName }}
+                </p>
+                <p class="flex items-center gap-1.5 break-all text-stone-600">
+                  <UIcon
+                    name="i-lucide-mail"
+                    class="size-3.5 shrink-0 text-stone-400"
+                  />
+                  {{ rental.customer?.email || 'No account email' }}
+                </p>
+                <p
+                  v-if="rental.customer?.phone"
+                  class="flex items-center gap-1.5 text-stone-600"
+                >
+                  <UIcon
+                    name="i-lucide-phone"
+                    class="size-3.5 shrink-0 text-stone-400"
+                  />
+                  {{ rental.customer.phone }}
+                </p>
+              </div>
+            </div>
             <p
               v-if="rental.commissioner && !canModify"
               class="mt-3 text-stone-700"
@@ -445,7 +586,7 @@ async function removeRental() {
             </p>
             <div
               v-if="canModify"
-              class="mt-4 space-y-2"
+              class="mt-5 space-y-2 border-t border-stone-100 pt-4"
             >
               <label class="block">
                 <span class="mb-1.5 block text-stone-700">Commissioner</span>
@@ -497,15 +638,6 @@ async function removeRental() {
             </div>
           </section>
 
-          <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
-            <h3 class="font-medium text-stone-900">
-              Schedule
-            </h3>
-            <p class="mt-2 text-stone-600">
-              {{ formatBusinessDateTime(rental.pickupAt) }} – {{ formatBusinessDateTime(rental.returnAt) }}
-            </p>
-          </section>
-
           <AdminRentalLateFee
             v-if="showLateFee"
             :rental="rental"
@@ -517,10 +649,72 @@ async function removeRental() {
             @extended="refresh"
           />
 
-          <section class="rounded-xl border border-stone-200 bg-white p-5">
-            <h3 class="text-sm font-medium text-stone-900">
+          <section class="rounded-2xl border border-stone-200 bg-white p-5">
+            <h3 class="flex items-center gap-2 text-sm font-medium text-stone-900">
+              <UIcon
+                name="i-lucide-package"
+                class="size-4 text-stone-500"
+              />
               Equipment
             </h3>
+            <div
+              v-if="sales"
+              class="mt-3 rounded-xl bg-[#12201a] p-4 text-white sm:p-5"
+            >
+              <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p class="text-xs font-medium uppercase tracking-wider text-white/60">
+                    Actual sale
+                  </p>
+                  <p class="mt-1 text-3xl font-semibold tabular-nums">
+                    {{ formatMoney(sales.shopKeeps) }}
+                  </p>
+                </div>
+                <p class="text-xs text-white/60">
+                  What the shop keeps from this booking
+                </p>
+              </div>
+              <dl class="mt-4 grid gap-2 border-t border-white/10 pt-3 text-xs sm:grid-cols-4">
+                <div>
+                  <dt class="text-white/60">
+                    Rent before discounts
+                  </dt>
+                  <dd class="mt-0.5 text-sm font-medium tabular-nums">
+                    {{ formatMoney(sales.grossRent) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-white/60">
+                    Discounts
+                  </dt>
+                  <dd class="mt-0.5 text-sm font-medium tabular-nums">
+                    −{{ formatMoney(sales.discounts) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-white/60">
+                    Commissions
+                  </dt>
+                  <dd class="mt-0.5 text-sm font-medium tabular-nums">
+                    −{{ formatMoney(sales.commission) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-white/60">
+                    Deposit (not a sale)
+                  </dt>
+                  <dd class="mt-0.5 text-sm font-medium tabular-nums text-white/70">
+                    {{ formatMoney(rental.depositAmount) }} excluded
+                  </dd>
+                </div>
+              </dl>
+              <p
+                v-if="sales.pendingExtension > 0"
+                class="mt-3 text-xs text-amber-200"
+              >
+                Unpaid extension of {{ formatMoney(sales.pendingExtension) }} is not counted until it is paid.
+              </p>
+            </div>
             <ul class="mt-3 divide-y divide-stone-100">
               <li
                 v-for="item in rental.items"
@@ -660,298 +854,348 @@ async function removeRental() {
         <div class="space-y-6">
           <section
             id="waiver"
-            class="rounded-xl border border-stone-200 bg-white p-5 text-sm"
+            class="rounded-2xl border border-stone-200 bg-white p-5 text-sm"
           >
-            <h3 class="font-medium text-stone-900">
-              Rental agreement
-            </h3>
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="flex items-center gap-2 font-medium text-stone-900">
+                <UIcon
+                  name="i-lucide-file-signature"
+                  class="size-4 text-stone-500"
+                />
+                Rental agreement
+              </h3>
+              <span
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="rental.waiver ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+              >
+                <UIcon
+                  :name="rental.waiver ? 'i-lucide-check' : 'i-lucide-clock'"
+                  class="size-3"
+                />
+                {{ rental.waiver ? 'Signed' : 'Not signed' }}
+              </span>
+            </div>
             <p
               v-if="sendWaiver && canInvite"
               class="mt-2 text-stone-600"
             >
               This booking is saved. Copy the waiver link from the confirmation, or create one here. The customer fills any missing name, email, phone, and ID photos before they can sign.
             </p>
-        <template v-if="rental.waiver">
-          <dl class="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <dt class="text-stone-500">Agreement</dt>
-              <dd class="mt-0.5 text-stone-800">
-                {{ rental.waiver.version.version }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-stone-500">Status</dt>
-              <dd class="mt-0.5 text-stone-800">
-                Accepted
-              </dd>
-              <div
-                v-if="canResetWaiver"
-                class="mt-3 flex flex-wrap items-center gap-2"
-              >
-                <template v-if="!resetOpen">
-                  <UButton
-                    color="neutral"
-                    variant="outline"
-                    size="sm"
-                    :disabled="resetting"
-                    @click="resetOpen = true"
+            <template v-if="rental.waiver">
+              <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt class="text-stone-500">
+                    Agreement
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.version.version }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Status
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    Accepted
+                  </dd>
+                  <div
+                    v-if="canResetWaiver"
+                    class="mt-3 flex flex-wrap items-center gap-2"
                   >
-                    Change status to unsigned
-                  </UButton>
-                </template>
-                <template v-else>
-                  <p class="text-sm text-stone-600">
-                    Remove this signature so they can agree and sign again?
-                  </p>
-                  <UButton
-                    color="error"
-                    size="sm"
-                    :loading="resetting"
-                    @click="resetWaiver"
-                  >
-                    Confirm unsigned
-                  </UButton>
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="resetting"
-                    @click="resetOpen = false"
-                  >
-                    Cancel
-                  </UButton>
-                </template>
-              </div>
+                    <template v-if="!resetOpen">
+                      <UButton
+                        color="neutral"
+                        variant="outline"
+                        size="sm"
+                        :disabled="resetting"
+                        @click="resetOpen = true"
+                      >
+                        Change status to unsigned
+                      </UButton>
+                    </template>
+                    <template v-else>
+                      <p class="text-sm text-stone-600">
+                        Remove this signature so they can agree and sign again?
+                      </p>
+                      <UButton
+                        color="error"
+                        size="sm"
+                        :loading="resetting"
+                        @click="resetWaiver"
+                      >
+                        Confirm unsigned
+                      </UButton>
+                      <UButton
+                        color="neutral"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="resetting"
+                        @click="resetOpen = false"
+                      >
+                        Cancel
+                      </UButton>
+                    </template>
+                  </div>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Accepted by
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.signerName }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Email
+                  </dt>
+                  <dd class="mt-0.5 break-all text-stone-800">
+                    {{ rental.waiver.signerEmail || 'Not recorded' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Mobile
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.signerPhone || rental.customer?.phone || 'Not recorded' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Accepted
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ formatBusinessDateTime(rental.waiver.acceptedAt) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Privacy Policy
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.privacyPolicyVersion || 'Not recorded' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Terms & Conditions
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.termsVersion || 'Not recorded' }}
+                  </dd>
+                </div>
+              </dl>
+              <details class="mt-4">
+                <summary class="cursor-pointer text-sm font-medium text-lumen-700">
+                  View agreement snapshot
+                </summary>
+                <WaiverAgreementText
+                  class="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs leading-5 text-stone-700"
+                  :text="waiverSnapshot"
+                />
+              </details>
+              <AdminSignedWaiverLink
+                class="mt-4"
+                :rental-uuid="rental.uuid"
+              />
+            </template>
+            <div
+              v-else
+              class="mt-2"
+            >
+              <p class="text-stone-600">
+                No waiver has been accepted on this rental yet.
+              </p>
+              <AdminWaiverLink
+                v-if="canInvite"
+                class="mt-4"
+                plain
+                :rental-uuid="rental.uuid"
+                :can-invite="canInvite"
+                :waiver="rental.waiver"
+              />
             </div>
-            <div>
-              <dt class="text-stone-500">Accepted by</dt>
-              <dd class="mt-0.5 text-stone-800">
-                {{ rental.waiver.signerName }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-stone-500">Email</dt>
-              <dd class="mt-0.5 break-all text-stone-800">
-                {{ rental.waiver.signerEmail || 'Not recorded' }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-stone-500">Mobile</dt>
-              <dd class="mt-0.5 text-stone-800">
-                {{ rental.waiver.signerPhone || rental.customer?.phone || 'Not recorded' }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-stone-500">Accepted</dt>
-              <dd class="mt-0.5 text-stone-800">
-                {{ formatBusinessDateTime(rental.waiver.acceptedAt) }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-stone-500">Privacy Policy</dt>
-              <dd class="mt-0.5 text-stone-800">
-                {{ rental.waiver.privacyPolicyVersion || 'Not recorded' }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-stone-500">Terms & Conditions</dt>
-              <dd class="mt-0.5 text-stone-800">
-                {{ rental.waiver.termsVersion || 'Not recorded' }}
-              </dd>
-            </div>
-          </dl>
-          <details class="mt-4">
-            <summary class="cursor-pointer text-sm font-medium text-lumen-700">
-              View agreement snapshot
-            </summary>
-            <WaiverAgreementText
-              class="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs leading-5 text-stone-700"
-              :text="waiverSnapshot"
-            />
-          </details>
-          <AdminSignedWaiverLink
-            class="mt-4"
-            :rental-uuid="rental.uuid"
-          />
-        </template>
-        <div
-          v-else
-          class="mt-2"
-        >
-          <p class="text-stone-600">
-            No waiver has been accepted on this rental yet.
-          </p>
-          <AdminWaiverLink
-            v-if="canInvite"
-            class="mt-4"
-            plain
-            :rental-uuid="rental.uuid"
-            :can-invite="canInvite"
-            :waiver="rental.waiver"
-          />
-        </div>
-      </section>
+          </section>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5 text-sm">
-        <h3 class="font-medium text-stone-900">
-          Identity documents
-        </h3>
-        <template v-if="rental.identity">
-          <p class="mt-2 text-stone-600">
-            Submitted for this rental.
-          </p>
-          <div class="mt-4 grid gap-4 sm:grid-cols-2">
-            <figure>
-              <figcaption class="mb-2 text-stone-500">
-                Government ID
-              </figcaption>
-              <img
-                v-if="rental.identity.governmentIdUrl"
-                :src="rental.identity.governmentIdUrl"
-                alt="Government ID"
-                class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
+          <section class="rounded-2xl border border-stone-200 bg-white p-5 text-sm">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="flex items-center gap-2 font-medium text-stone-900">
+                <UIcon
+                  name="i-lucide-id-card"
+                  class="size-4 text-stone-500"
+                />
+                Identity documents
+              </h3>
+              <span
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="rental.identity ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
               >
-              <p
-                v-else
-                class="text-stone-500"
-              >
-                Image is not available.
+                <UIcon
+                  :name="rental.identity ? 'i-lucide-check' : 'i-lucide-clock'"
+                  class="size-3"
+                />
+                {{ rental.identity ? 'Submitted' : 'Missing' }}
+              </span>
+            </div>
+            <template v-if="rental.identity">
+              <p class="mt-2 text-stone-600">
+                Submitted for this rental.
               </p>
-            </figure>
-            <figure>
-              <figcaption class="mb-2 text-stone-500">
-                Selfie with ID
-              </figcaption>
-              <img
-                v-if="rental.identity.selfieUrl"
-                :src="rental.identity.selfieUrl"
-                alt="Selfie holding government ID"
-                class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
-              >
-              <p
-                v-else
-                class="text-stone-500"
-              >
-                Image is not available.
-              </p>
-            </figure>
-          </div>
-        </template>
-        <p
-          v-else
-          class="mt-2 text-stone-600"
-        >
-          No government ID or selfie has been submitted yet.
-        </p>
-        <AdminIdentityUpload
-          class="mt-4"
-          plain
-          :rental="rental"
-          @uploaded="refresh"
-        />
-      </section>
+              <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <figure>
+                  <figcaption class="mb-2 text-stone-500">
+                    Government ID
+                  </figcaption>
+                  <img
+                    v-if="rental.identity.governmentIdUrl"
+                    :src="rental.identity.governmentIdUrl"
+                    alt="Government ID"
+                    class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
+                  >
+                  <p
+                    v-else
+                    class="text-stone-500"
+                  >
+                    Image is not available.
+                  </p>
+                </figure>
+                <figure>
+                  <figcaption class="mb-2 text-stone-500">
+                    Selfie with ID
+                  </figcaption>
+                  <img
+                    v-if="rental.identity.selfieUrl"
+                    :src="rental.identity.selfieUrl"
+                    alt="Selfie holding government ID"
+                    class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
+                  >
+                  <p
+                    v-else
+                    class="text-stone-500"
+                  >
+                    Image is not available.
+                  </p>
+                </figure>
+              </div>
+            </template>
+            <p
+              v-else
+              class="mt-2 text-stone-600"
+            >
+              No government ID or selfie has been submitted yet.
+            </p>
+            <AdminIdentityUpload
+              class="mt-4"
+              plain
+              :rental="rental"
+              @uploaded="refresh"
+            />
+          </section>
         </div>
       </div>
 
-      <section
-        v-if="canCancel"
-        class="rounded-xl border border-amber-200 bg-amber-50 p-5"
-      >
-        <h3 class="text-sm font-medium text-amber-900">
-          Cancel booking
-        </h3>
-        <p class="mt-1 text-sm text-amber-900">
-          Releases the dates and keeps this booking on record.
-          <template v-if="hasPaidPayment">
-            The {{ formatMoney(paidAmount) }} already paid, including the deposit and down payment, is not refunded and stays in sales.
-          </template>
-        </p>
-        <UButton
-          v-if="!cancelOpen"
-          class="mt-4"
-          color="warning"
-          variant="outline"
-          @click="cancelOpen = true"
+      <div class="grid gap-4 lg:grid-cols-2 lg:items-start">
+        <section
+          v-if="canCancel"
+          class="rounded-xl border border-amber-200 bg-amber-50 p-5"
         >
-          Cancel booking
-        </UButton>
-        <div
-          v-else
-          class="mt-4 space-y-3"
-        >
-          <label class="block text-sm">
-            <span class="mb-1.5 block text-amber-900">Reason (optional)</span>
-            <UTextarea
-              v-model="cancelReason"
-              :rows="2"
-              class="w-full"
-              :disabled="cancelling"
-            />
-          </label>
-          <div class="flex flex-wrap items-center gap-2">
+          <h3 class="text-sm font-medium text-amber-900">
+            Cancel booking
+          </h3>
+          <p class="mt-1 text-sm text-amber-900">
+            Releases the dates and keeps this booking on record.
+            <template v-if="hasPaidPayment">
+              The {{ formatMoney(paidAmount) }} already paid, including the deposit and down payment, is not refunded and stays in sales.
+            </template>
+          </p>
+          <UButton
+            v-if="!cancelOpen"
+            class="mt-4"
+            color="warning"
+            variant="outline"
+            @click="cancelOpen = true"
+          >
+            Cancel booking
+          </UButton>
+          <div
+            v-else
+            class="mt-4 space-y-3"
+          >
+            <label class="block text-sm">
+              <span class="mb-1.5 block text-amber-900">Reason (optional)</span>
+              <UTextarea
+                v-model="cancelReason"
+                :rows="2"
+                class="w-full"
+                :disabled="cancelling"
+              />
+            </label>
+            <div class="flex flex-wrap items-center gap-2">
+              <UButton
+                color="warning"
+                class="w-full justify-center sm:w-auto"
+                :loading="cancelling"
+                @click="cancelBooking"
+              >
+                Confirm cancel
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                class="w-full justify-center sm:w-auto"
+                :disabled="cancelling"
+                @click="cancelOpen = false"
+              >
+                Keep booking
+              </UButton>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-red-200 bg-red-50 p-5">
+          <h3 class="text-sm font-medium text-red-900">
+            Delete
+          </h3>
+          <p class="mt-1 text-sm text-red-800">
+            Permanently removes this rental, its payments, receipts, waiver, and ID files.
+            <template v-if="hasPaidPayment">
+              Its {{ formatMoney(paidAmount) }} payment will also leave sales. Cancel the booking instead to keep the non-refundable deposit and down payment recorded.
+            </template>
+          </p>
+          <UButton
+            v-if="!deleteOpen"
+            class="mt-4"
+            color="error"
+            @click="deleteOpen = true"
+          >
+            Delete rental
+          </UButton>
+          <div
+            v-else
+            class="mt-4 flex flex-wrap items-center gap-2"
+          >
+            <p class="text-sm text-red-800">
+              Delete {{ rental.code }} forever?
+            </p>
             <UButton
-              color="warning"
-              class="w-full justify-center sm:w-auto"
-              :loading="cancelling"
-              @click="cancelBooking"
+              color="error"
+              :loading="deletePending"
+              @click="removeRental"
             >
-              Confirm cancel
+              Confirm delete
             </UButton>
             <UButton
               color="neutral"
               variant="ghost"
-              class="w-full justify-center sm:w-auto"
-              :disabled="cancelling"
-              @click="cancelOpen = false"
+              :disabled="deletePending"
+              @click="deleteOpen = false"
             >
-              Keep booking
+              Cancel
             </UButton>
           </div>
-        </div>
-      </section>
-
-      <section class="rounded-xl border border-red-200 bg-red-50 p-5">
-        <h3 class="text-sm font-medium text-red-900">
-          Delete
-        </h3>
-        <p class="mt-1 text-sm text-red-800">
-          Permanently removes this rental, its payments, receipts, waiver, and ID files.
-          <template v-if="hasPaidPayment">
-            Its {{ formatMoney(paidAmount) }} payment will also leave sales. Cancel the booking instead to keep the non-refundable deposit and down payment recorded.
-          </template>
-        </p>
-        <UButton
-          v-if="!deleteOpen"
-          class="mt-4"
-          color="error"
-          @click="deleteOpen = true"
-        >
-          Delete rental
-        </UButton>
-        <div
-          v-else
-          class="mt-4 flex flex-wrap items-center gap-2"
-        >
-          <p class="text-sm text-red-800">
-            Delete {{ rental.code }} forever?
-          </p>
-          <UButton
-            color="error"
-            :loading="deletePending"
-            @click="removeRental"
-          >
-            Confirm delete
-          </UButton>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :disabled="deletePending"
-            @click="deleteOpen = false"
-          >
-            Cancel
-          </UButton>
-        </div>
-      </section>
+        </section>
+      </div>
     </template>
   </div>
 </template>

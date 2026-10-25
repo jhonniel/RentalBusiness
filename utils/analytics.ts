@@ -2,11 +2,13 @@ import type { AnalyticsKpis, AnalyticsPoint, CommissionerRank, TopProduct } from
 import type { PaymentStatus, RentalStatus } from './constants'
 import { isCommissionEarned } from './commission'
 import { calendarDateInZone } from './datetime'
+import { paymentSaleAmount } from './rental'
 
 export interface AnalyticsPaymentRow {
   amount: number
   status: PaymentStatus
   paid_at: string | null
+  metadata?: unknown
 }
 
 export interface AnalyticsRentalRow {
@@ -20,6 +22,8 @@ export interface AnalyticsRentalRow {
 export interface AnalyticsExpenseRow {
   amount: number
   status: string
+  category?: string
+  incurred_on?: string
 }
 
 export interface AnalyticsProductRow {
@@ -96,6 +100,28 @@ export function isOngoingRental(row: AnalyticsRentalRow, now = new Date()): bool
   return window.start <= instant && instant < window.end
 }
 
+export function actualSalesOn(
+  payments: AnalyticsPaymentRow[],
+  expenses: AnalyticsExpenseRow[],
+  startOn: string,
+  endOn: string,
+): number {
+  const sales = payments.reduce((sum, payment) => {
+    if (payment.status !== 'paid' || !payment.paid_at) {
+      return sum
+    }
+    const paidOn = calendarDateInZone(payment.paid_at)
+    return paidOn < startOn || paidOn > endOn ? sum : sum + Math.round(paymentSaleAmount(payment) * 100)
+  }, 0)
+  const commissions = expenses.reduce((sum, expense) => {
+    if (expense.category !== 'commission' || expense.status === 'void' || !expense.incurred_on) {
+      return sum
+    }
+    return expense.incurred_on < startOn || expense.incurred_on > endOn ? sum : sum + Math.round(Number(expense.amount) * 100)
+  }, 0)
+  return (sales - commissions) / 100
+}
+
 export function buildKpis(input: {
   payments: AnalyticsPaymentRow[]
   rentals: AnalyticsRentalRow[]
@@ -107,11 +133,11 @@ export function buildKpis(input: {
 }): AnalyticsKpis {
   const today = input.today ?? calendarDateInZone()
   const now = input.now ?? new Date()
-  const totalSales = paidSalesOn(input.payments, '1970-01-01', today)
-  const todaySales = paidSalesOn(input.payments, today, today)
-  const monthSales = paidSalesOn(input.payments, monthStart(today), today)
+  const totalSales = actualSalesOn(input.payments, input.expenses, '1970-01-01', today)
+  const todaySales = actualSalesOn(input.payments, input.expenses, today, today)
+  const monthSales = actualSalesOn(input.payments, input.expenses, monthStart(today), today)
   const totalExpenses = input.expenses
-    .filter(expense => expense.status !== 'void')
+    .filter(expense => expense.status !== 'void' && expense.category !== 'commission')
     .reduce((sum, expense) => sum + Number(expense.amount), 0)
 
   return {
@@ -135,10 +161,10 @@ export function buildKpis(input: {
   }
 }
 
-export function salesByDay(payments: AnalyticsPaymentRow[], days: string[]): AnalyticsPoint[] {
+export function salesByDay(payments: AnalyticsPaymentRow[], days: string[], expenses: AnalyticsExpenseRow[] = []): AnalyticsPoint[] {
   return days.map(label => ({
     label,
-    value: paidSalesOn(payments, label, label),
+    value: actualSalesOn(payments, expenses, label, label),
   }))
 }
 

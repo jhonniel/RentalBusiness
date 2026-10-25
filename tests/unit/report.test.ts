@@ -19,6 +19,7 @@ import {
   toMonthGroups,
   toReportCsv,
   toSalesRows,
+  toActualTrend,
   toTrendPoints,
   toUtilizationRows,
 } from '../../utils/report'
@@ -156,12 +157,14 @@ describe('report charts and commissions', () => {
   it('splits profit into expenses and commissions, ignoring void entries', () => {
     expect(financeSummary(sales, expenses)).toEqual({
       sales: 5000,
+      actualSales: 4500,
       otherExpenses: 1500,
       commissions: 500,
       expenses: 2000,
       profit: 3000,
-      margin: 0.6,
+      margin: 0.6667,
     })
+    expect(toActualTrend(toTrendPoints(sales, expenses, '2026-10-01', '2026-10-31', 'week'))[2]).toMatchObject({ sales: 1500, commissions: 0, profit: 1500 })
   })
 
   it('groups the trend by day, week, or month based on the range', () => {
@@ -261,7 +264,7 @@ describe('report csv and validation', () => {
       endsOn: '2026-09-13',
       timezone: 'Asia/Manila',
       currency: 'PHP',
-      summary: { sales: 10, otherExpenses: 4, commissions: 0, expenses: 4, profit: 6, margin: 0.6 },
+      summary: { sales: 10, actualSales: 10, otherExpenses: 4, commissions: 0, expenses: 4, profit: 6, margin: 0.6 },
       charts: { bucket: 'day' },
       months: [],
       rows: [{ date: '2026-09-13', sales: 10, expenses: 4, profit: 6 }],
@@ -272,7 +275,7 @@ describe('report csv and validation', () => {
       endsOn: '2026-09-13',
       timezone: 'Asia/Manila',
       currency: 'PHP',
-      summary: { sales: 10, otherExpenses: 4, commissions: 0, expenses: 4, profit: 6, margin: 0.6 },
+      summary: { sales: 10, actualSales: 10, otherExpenses: 4, commissions: 0, expenses: 4, profit: 6, margin: 0.6 },
       charts: { bucket: 'day' },
       months: [],
       rows: [{ date: '2026-09-13', sales: 10, expenses: 4, profit: 6 }],

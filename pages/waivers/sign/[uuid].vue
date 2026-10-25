@@ -11,8 +11,6 @@ import { acceptWaiverInviteSchema, completeWaiverInviteContactSchema } from '~/u
 import { updateWaiverInviteScheduleSchema } from '~/utils/rental-validation'
 import { defaultRentalReturnOn, formatPickupClock, formatRentalReturnLabel } from '~/utils/rental-window'
 
-const { formatMoney } = useCurrency()
-
 definePageMeta({
   layout: 'blank',
 })
@@ -479,18 +477,19 @@ async function onUploadIdentity() {
           <div class="flex flex-col gap-3 border-t border-[#12201a]/8 px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6">
             <div class="min-w-0">
               <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#5b6b64]">
-                Amount to pay
+                Payment
               </p>
               <p class="mt-1 break-words text-sm text-[#4a5a54]">
-                Rent {{ formatMoney(invite.rental.totalAmount) }}
-                <template v-if="invite.rental.depositAmount > 0">
-                  · Deposit {{ formatMoney(invite.rental.depositAmount) }}
-                </template>
+                The shop shares the payment details after your booking is reviewed.
               </p>
             </div>
-            <p class="text-lg font-medium text-[#12201a]">
-              {{ formatMoney(invite.rental.amountDue) }}
-            </p>
+            <span class="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700">
+              <UIcon
+                name="i-lucide-circle-dashed"
+                class="size-3.5"
+              />
+              Not paid yet
+            </span>
           </div>
         </section>
 

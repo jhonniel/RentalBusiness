@@ -7,7 +7,7 @@ type Client = SupabaseClient<Database>
 export async function listAnalyticsPayments(client: Client) {
   const { data, error } = await client
     .from('payment_transactions')
-    .select('amount, status, paid_at')
+    .select('amount, status, paid_at, metadata')
     .eq('status', 'paid')
 
   if (error) {
@@ -32,7 +32,7 @@ export async function listAnalyticsRentals(client: Client) {
 export async function listAnalyticsExpenses(client: Client) {
   const { data, error } = await client
     .from('expenses')
-    .select('uuid, name, amount, status, incurred_on')
+    .select('uuid, name, category, amount, status, incurred_on')
     .order('incurred_on', { ascending: false })
     .order('created_at', { ascending: false })
 

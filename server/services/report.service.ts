@@ -19,6 +19,8 @@ import {
   toCommissionRows,
   toExpenseRows,
   toInventoryRows,
+  toActualMonths,
+  toActualTrend,
   toMonthGroups,
   toProfitRows,
   toRentalRows,
@@ -62,7 +64,7 @@ export async function getAdminReport(client: Client, type: ReportType, query: Re
     const expenseRows = toExpenseRows(expenses, startsOn, endsOn)
     const commissionRows = toCommissionRows(expenseRows)
     const stats = bookingStats(bookings, startsOn, endsOn)
-    const trend = toTrendPoints(sales, expenseRows, startsOn, endsOn, bucket)
+    const trend = toActualTrend(toTrendPoints(sales, expenseRows, startsOn, endsOn, bucket))
     return {
       ...meta,
       type,
@@ -84,21 +86,37 @@ export async function getAdminReport(client: Client, type: ReportType, query: Re
         topEquipment: stats.topEquipment,
         rentalsByStatus: stats.rentalsByStatus,
       },
-      months: toMonthGroups(sales, expenseRows, startsOn, endsOn),
+      months: toActualMonths(toMonthGroups(sales, expenseRows, startsOn, endsOn)),
       rows: trend,
     }
   }
 
   if (type === 'sales') {
-    const rows = toSalesRows(await listReportPayments(client), startsOn, endsOn)
-    const total = rows.reduce((sum, row) => sum + row.amount, 0)
+    const [payments, expenses] = await Promise.all([
+      listReportPayments(client),
+      listReportExpenses(client, startsOn, endsOn),
+    ])
+    const rows = toSalesRows(payments, startsOn, endsOn)
+    const commissionRows = toExpenseRows(expenses, startsOn, endsOn).filter(row => row.category === 'commission')
+    const totals = financeSummary(rows, commissionRows)
+    const total = Math.round((totals.sales - totals.commissions) * 100) / 100
     return {
       ...meta,
       type,
-      summary: { count: rows.length, total, average: rows.length ? Math.round((total / rows.length) * 100) / 100 : 0 },
+      summary: {
+        count: rows.length,
+        total,
+        average: rows.length ? Math.round((total / rows.length) * 100) / 100 : 0,
+        paid: Math.round(rows.reduce((sum, row) => sum + (row.paidAmount ?? row.amount), 0) * 100) / 100,
+        depositsHeld: Math.round(rows.reduce((sum, row) => sum + (row.depositHeld ?? 0), 0) * 100) / 100,
+        commissions: totals.commissions,
+      },
       charts: {
         bucket,
-        trend: toTrendPoints(rows, [], startsOn, endsOn, bucket),
+        trend: toTrendPoints(rows, commissionRows, startsOn, endsOn, bucket).map(point => ({
+          ...point,
+          sales: Math.round((point.sales - point.commissions) * 100) / 100,
+        })),
         salesByMethod: salesByMethod(rows),
       },
       rows,
@@ -157,9 +175,9 @@ export async function getAdminReport(client: Client, type: ReportType, query: Re
       summary: financeSummary(sales, expenseRows),
       charts: {
         bucket,
-        trend: toTrendPoints(sales, expenseRows, startsOn, endsOn, bucket),
+        trend: toActualTrend(toTrendPoints(sales, expenseRows, startsOn, endsOn, bucket)),
       },
-      months: toMonthGroups(sales, expenseRows, startsOn, endsOn),
+      months: toActualMonths(toMonthGroups(sales, expenseRows, startsOn, endsOn)),
       rows: toProfitRows(sales, expenseRows, startsOn, endsOn),
     }
   }

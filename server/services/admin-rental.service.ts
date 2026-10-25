@@ -14,7 +14,7 @@ import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { rentalPeriodDays, resolveRentalWindow } from '../../utils/rental-window'
 import { addMoney, quoteExtensionLine } from '../../utils/pricing'
-import { extensionPaymentStatus, separatelyBilledExtensionTotal } from '../../utils/rental-extension'
+import { rentalActualSale, extensionPaymentStatus, separatelyBilledExtensionTotal } from '../../utils/rental-extension'
 import { findProductByUuid } from '../repositories/product.repository'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -38,7 +38,7 @@ import {
   updateRentalItemByRentalId,
   updateRentalStatus,
 } from '../repositories/rental.repository'
-import { findRentalExtension, insertRentalExtension, listExtensionStartsByRentalIds, listRentalExtensions, markRentalExtensionCancelled, updateRentalExtension } from '../repositories/rental-extension.repository'
+import { findRentalExtension, insertRentalExtension, listExtensionAmountsByRentalIds, listExtensionStartsByRentalIds, listRentalExtensions, markRentalExtensionCancelled, updateRentalExtension } from '../repositories/rental-extension.repository'
 import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
 import { reconcileCommissionExpense, syncAssignedCommission } from './commissioner.service'
@@ -116,8 +116,21 @@ export async function listAdminRentals(client: Client, query: {
     to: from + query.pageSize - 1,
   })
 
+  const extensions = await listExtensionAmountsByRentalIds(client, rows.map(row => row.id)).catch(() => [])
   return {
-    items: rows.map(toShopRental),
+    items: rows.map((row) => {
+      const rental = toShopRental(row)
+      const payments = Array.isArray(row.payment_transactions) ? row.payment_transactions : row.payment_transactions ? [row.payment_transactions] : []
+      return {
+        ...rental,
+        actualSale: rentalActualSale({
+          totalAmount: rental.totalAmount,
+          commissionAmount: rental.commissioner ? rental.commissionAmount ?? 0 : 0,
+          payments,
+          extensions: extensions.filter(extension => extension.rental_id === row.id),
+        }),
+      }
+    }),
     page: query.page,
     pageSize: query.pageSize,
     total,
@@ -1423,10 +1436,10 @@ export async function markAdminRentalPaid(
       amountDue(rental) <= 0
         ? 'That rental has no amount due.'
         : !rental.waiver
-          ? 'The customer must sign the waiver before payment can be recorded.'
-          : !rental.identity
-            ? 'Upload identity documents before payment can be recorded.'
-            : 'That rental cannot be marked paid yet.',
+            ? 'The customer must sign the waiver before payment can be recorded.'
+            : !rental.identity
+                ? 'Upload identity documents before payment can be recorded.'
+                : 'That rental cannot be marked paid yet.',
       409,
       ERROR_CODES.CONFLICT,
     )

@@ -6,10 +6,23 @@ export interface ReceiptSnapshotItem {
   lineTotal: number
 }
 
+export type ReceiptPurpose = 'booking' | 'extension' | 'late_fee'
+
+export interface ReceiptStatementLine {
+  receiptNumber: string
+  issuedAt: string
+  purpose: ReceiptPurpose
+  label: string
+  amount: number
+  current: boolean
+}
+
 export interface ReceiptSnapshot {
   receiptNumber: string
   issuedAt: string
   currency: string
+  purpose?: ReceiptPurpose
+  description?: string
   rental: {
     uuid: string
     code: string
@@ -45,4 +58,25 @@ export interface PublicReceipt {
   receiptNumber: string
   issuedAt: string
   snapshot: ReceiptSnapshot
+  statement?: {
+    lines: ReceiptStatementLine[]
+    totalPaid: number
+  }
+  business?: {
+    name: string
+    email: string | null
+    phone: string | null
+    address: string | null
+  }
+  rental?: {
+    startsOn: string
+    endsOn: string
+    pickupAt?: string | null
+    returnAt?: string | null
+  }
+  discounts?: {
+    longStay: number
+    voucher: number
+    voucherCode: string | null
+  }
 }

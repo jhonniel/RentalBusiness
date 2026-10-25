@@ -7,7 +7,7 @@ type Client = SupabaseClient<Database>
 export async function listReportPayments(client: Client) {
   const { data, error } = await client
     .from('payment_transactions')
-    .select('uuid, amount, currency, status, payment_method, paid_at, rental_requests ( uuid, code )')
+    .select('uuid, amount, currency, status, payment_method, paid_at, metadata, rental_requests ( uuid, code )')
     .eq('status', 'paid')
     .order('paid_at', { ascending: false })
 
