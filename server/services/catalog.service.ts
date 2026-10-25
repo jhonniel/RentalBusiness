@@ -475,6 +475,7 @@ export async function getPublicProducts(client: Client, query: {
   const { rows, total } = await listProducts(client, {
     search: sanitizeSearch(query.search),
     statuses: [...PUBLIC_CATALOG_PRODUCT_STATUSES],
+    availableFirst: true,
     categoryId,
     featured: query.featured,
     from,

@@ -53,12 +53,19 @@ export async function listProducts(client: Client, filters: {
   statuses?: ProductStatus[]
   categoryId?: number
   featured?: boolean
+  availableFirst?: boolean
   from: number
   to: number
 }) {
   let query = client
     .from('products')
     .select(PRODUCT_SELECT, { count: 'exact' })
+
+  if (filters.availableFirst) {
+    query = query.order('status', { ascending: true })
+  }
+
+  query = query
     .order('is_featured', { ascending: false })
     .order('name')
     .range(filters.from, filters.to)
