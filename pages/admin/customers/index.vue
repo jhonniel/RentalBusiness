@@ -84,6 +84,35 @@ async function deleteAccount(person: { uuid: string, firstName: string, lastName
   }
 }
 
+const linkingUuid = ref<string | null>(null)
+
+async function linkCommissioner(customer: AdminCustomer, commissionerUuid: string) {
+  linkingUuid.value = customer.uuid
+  try {
+    const result = await $fetch<{ linkedCommissioner: AdminCustomer['linkedCommissioner'] }>(`/api/admin/customers/${customer.uuid}/assigned-commissioner`, {
+      method: 'PATCH',
+      body: { commissionerUuid },
+    })
+    toast.add({
+      title: result.linkedCommissioner
+        ? `${displayName(customer)} is linked to ${result.linkedCommissioner.firstName} ${result.linkedCommissioner.lastName}`
+        : `${displayName(customer)} is no longer linked to a commissioner`,
+      color: 'success',
+    })
+    await refresh()
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({ title: payload?.message || 'We could not link that commissioner.', color: 'error' })
+    await refresh()
+  }
+  finally {
+    linkingUuid.value = null
+  }
+}
+
 async function promote(customer: AdminCustomer) {
   if (!confirmRole.value) {
     return
@@ -300,6 +329,45 @@ async function promote(customer: AdminCustomer) {
               {{ customer.walkIn ? 'Walk-in, no email given' : (customer.email || 'No account email') }}
               · {{ customer.phone || 'No phone' }}
               · joined {{ formatBusinessDate(customer.createdAt) }}
+            </p>
+            <label
+              v-if="data.commissionerLinksAvailable !== false"
+              class="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-600"
+            >
+              <UIcon
+                name="i-lucide-handshake"
+                class="size-3.5 shrink-0 text-stone-400"
+              />
+              <span>Commissioner</span>
+              <select
+                class="h-8 max-w-56 rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800"
+                :value="customer.linkedCommissioner?.uuid || ''"
+                :disabled="linkingUuid === customer.uuid"
+                @change="linkCommissioner(customer, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">
+                  Not linked
+                </option>
+                <option
+                  v-for="person in commissioners"
+                  :key="person.uuid"
+                  :value="person.uuid"
+                >
+                  {{ displayName(person) }}
+                </option>
+              </select>
+              <span
+                v-if="customer.linkedCommissioner"
+                class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700"
+              >
+                Earns commission on new bookings
+              </span>
+            </label>
+            <p
+              v-else
+              class="mt-2 text-xs text-stone-500"
+            >
+              Paste 20261026000000_customer_commissioner_binding.sql in Supabase to link customers to commissioners.
             </p>
           </div>
           <div class="flex flex-wrap items-center justify-end gap-3">

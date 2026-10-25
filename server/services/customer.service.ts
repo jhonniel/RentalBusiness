@@ -5,10 +5,12 @@ import { canPromoteProfile } from '../../utils/auth'
 import { accountEmails } from '../utils/account-email'
 import { isPlaceholderBookingEmail } from '../utils/placeholder-booking-email'
 import { countOpenRentalsForProfile, listCustomers } from '../repositories/customer.repository'
+import { listLinkedCommissioners, setLinkedCommissioner } from '../repositories/customer-commissioner.repository'
 import {
   countActiveAdmins,
   findProfileByUuid,
   findProfileForDeletion,
+  findProfileKeyByUuid,
   listAdminProfiles,
   markProfileDeleted,
   listCommissionerProfiles,
@@ -42,12 +44,16 @@ export async function listAdminCustomers(client: Client, query: {
     from,
     to: from + query.pageSize - 1,
   })
-  const emails = await accountEmails(rows.map(row => row.user_id))
+  const [emails, links] = await Promise.all([
+    accountEmails(rows.map(row => row.user_id)),
+    listLinkedCommissioners(client, rows.map(row => row.uuid)).catch(() => ({ linked: new Map(), available: false })),
+  ])
 
   return {
     items: rows.map((row) => {
       const email = emails.get(row.user_id) || null
       const walkIn = isPlaceholderBookingEmail(email)
+      const commissioner = links.linked.get(row.uuid)
       return {
         uuid: row.uuid,
         firstName: row.first_name,
@@ -57,8 +63,12 @@ export async function listAdminCustomers(client: Client, query: {
         phone: row.phone,
         rentalCount: rentalCount(row.rental_requests),
         createdAt: row.created_at,
+        linkedCommissioner: commissioner
+          ? { uuid: commissioner.uuid, firstName: commissioner.first_name, lastName: commissioner.last_name }
+          : null,
       }
     }),
+    commissionerLinksAvailable: links.available,
     page: query.page,
     pageSize: query.pageSize,
     total,
@@ -177,6 +187,44 @@ export async function deleteAdminProfile(
   })
 
   return { deleted: true, uuid: target.uuid }
+}
+
+export async function linkCustomerCommissioner(
+  event: H3Event,
+  client: Client,
+  actorProfileId: number,
+  customerUuid: string,
+  commissionerUuid: string,
+) {
+  const customer = await findProfileKeyByUuid(client, customerUuid)
+  if (!customer || customer.role !== 'customer') {
+    throw new AppError('Customer not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const commissioner = commissionerUuid ? await findProfileKeyByUuid(client, commissionerUuid) : null
+  if (commissionerUuid && (!commissioner || commissioner.role !== 'commissioner')) {
+    throw new AppError('Choose a commissioner.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+
+  const before = (await listLinkedCommissioners(client, [customer.uuid])).linked.get(customer.uuid) ?? null
+  await setLinkedCommissioner(client, customer.uuid, {
+    commissionerId: commissioner?.id ?? null,
+    linkedBy: actorProfileId,
+  })
+  await recordAudit(event, client, {
+    action: commissioner ? 'profile.commissioner_link' : 'profile.commissioner_unlink',
+    entity: 'profiles',
+    entityId: customer.uuid,
+    previous: { commissionerUuid: before?.uuid ?? null },
+    next: { commissionerUuid: commissioner?.uuid ?? null },
+  })
+
+  return {
+    uuid: customer.uuid,
+    linkedCommissioner: commissioner
+      ? { uuid: commissioner.uuid, firstName: commissioner.first_name, lastName: commissioner.last_name }
+      : null,
+  }
 }
 
 export async function promoteCommissionerCustomer(

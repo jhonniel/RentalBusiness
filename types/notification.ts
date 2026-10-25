@@ -23,10 +23,12 @@ export interface AdminCustomer {
   phone: string | null
   rentalCount: number
   createdAt: string
+  linkedCommissioner?: { uuid: string, firstName: string, lastName: string } | null
 }
 
 export interface AdminCustomerListResponse {
   items: AdminCustomer[]
+  commissionerLinksAvailable?: boolean
   page: number
   pageSize: number
   total: number

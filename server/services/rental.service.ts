@@ -264,6 +264,28 @@ export async function createRental(
     throw error
   }
 
+  try {
+    const { applyLinkedCommissioner } = await import('./commissioner.service')
+    await applyLinkedCommissioner(getSupabaseAdminClient(), {
+      id: created.id,
+      uuid: created.uuid,
+      code: created.code,
+      status: 'draft',
+    }, profile.profileId, {
+      productUuid: quote.product.uuid,
+      productName: quote.product.name,
+      startsOn: quote.startsOn,
+      endsOn: quote.endsOn,
+      quantity: quote.quantity,
+    })
+  }
+  catch (error) {
+    logger.warn('Linked commissioner was not applied to a new booking', {
+      rentalCode: created.code,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
   const row = await findRentalByUuid(client, created.uuid)
   if (!row) {
     throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)

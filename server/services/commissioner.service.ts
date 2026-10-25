@@ -3,8 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { PublicProfile } from '../../types/auth'
 import { commissionAmount, commissionStillToRecord, canReleaseCommissionerBooking, isCommissionEarned } from '../../utils/commission'
-import type { CreateCommissionerRentalInput } from '../../utils/rental-validation'
-import { rentalQuoteQuerySchema } from '../../utils/rental-validation'
+import type { CreateCommissionerRentalInput, rentalQuoteQuerySchema } from '../../utils/rental-validation'
 import type { z } from 'zod'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { isRentalCode, toShopRental } from '../../utils/rental'
@@ -13,6 +12,8 @@ import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
 import { insertExpense, listRecordedCommissionExpenses, updateExpenseByUuid, voidCommissionExpenses } from '../repositories/expense.repository'
 import { calendarDateInZone } from '../../utils/datetime'
+import { rentalPeriodDays } from '../../utils/rental-window'
+import { findLinkedCommissionerUuid } from '../repositories/customer-commissioner.repository'
 import { findProductByUuid, listBookableProducts } from '../repositories/product.repository'
 import { findProfileKeyByUuid } from '../repositories/profile.repository'
 import {
@@ -116,6 +117,28 @@ export async function assignedCommission(
     commissionPerDay,
     commissionAmount: commissionAmount(commissionPerDay, window.startsOn, window.endsOn, window.quantity),
   }
+}
+
+export async function applyLinkedCommissioner(
+  client: Client,
+  rental: { id: number, uuid: string, code: string, status: string },
+  customerProfileId: number,
+  booking: { productUuid: string, productName: string, startsOn: string, endsOn: string, quantity: number },
+) {
+  const commissionerUuid = await findLinkedCommissionerUuid(client, customerProfileId)
+  if (!commissionerUuid) {
+    return null
+  }
+
+  return syncAssignedCommission(client, rental, {
+    commissionerUuid,
+    productUuid: booking.productUuid,
+    productName: booking.productName,
+    startsOn: booking.startsOn,
+    endsOn: booking.endsOn,
+    days: rentalPeriodDays(booking.startsOn, booking.endsOn),
+    quantity: booking.quantity,
+  })
 }
 
 export async function syncAssignedCommission(

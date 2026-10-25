@@ -41,7 +41,7 @@ import {
 import { findRentalExtension, insertRentalExtension, listExtensionAmountsByRentalIds, listExtensionStartsByRentalIds, listRentalExtensions, markRentalExtensionCancelled, updateRentalExtension } from '../repositories/rental-extension.repository'
 import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
-import { reconcileCommissionExpense, syncAssignedCommission } from './commissioner.service'
+import { applyLinkedCommissioner, reconcileCommissionExpense, syncAssignedCommission } from './commissioner.service'
 import { rentalLateFee, stopLateFeeClock } from './late-fee.service'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
@@ -313,6 +313,19 @@ export async function createAdminRental(
     await deleteRentalById(client, created.id)
     throw error
   }
+
+  await applyLinkedCommissioner(client, {
+    id: created.id,
+    uuid: created.uuid,
+    code: created.code,
+    status: 'draft',
+  }, customerId, {
+    productUuid: quote.product.uuid,
+    productName: quote.product.name,
+    startsOn: quote.startsOn,
+    endsOn: quote.endsOn,
+    quantity: quote.quantity,
+  }).catch(() => null)
 
   const row = await findRentalByUuid(client, created.uuid)
   if (!row) {

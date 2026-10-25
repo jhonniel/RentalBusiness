@@ -10,6 +10,10 @@ export const adminRentalListQuerySchema = z.object({
 
 export const profileUuidSchema = z.string().uuid('Choose a customer.')
 
+export const linkCustomerCommissionerSchema = z.object({
+  commissionerUuid: z.string().uuid('Choose a commissioner.').or(z.literal('')),
+}).strict()
+
 export const adminCustomerListQuerySchema = z.object({
   search: z.string().trim().max(80).optional(),
   page: z.coerce.number().int().min(1).default(1),

@@ -14,6 +14,8 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 **profiles**
 
+- `assigned_commissioner_id`, `assigned_commissioner_at`, `assigned_commissioner_by` (added in `20261026000000_customer_commissioner_binding.sql`): the commissioner a customer is linked to. Set only by administrators through the server; customers have no update grant on these columns.
+
 | Column | Type | Notes |
 | --- | --- | --- |
 | id | bigint | Internal PK |
