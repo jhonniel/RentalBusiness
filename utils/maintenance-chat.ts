@@ -18,6 +18,7 @@ export interface MaintenanceChatContext {
   catalogFacts?: string
   policyFacts?: string
   today?: string
+  buttons?: string[]
 }
 
 interface KnowledgeEntry {
@@ -109,7 +110,10 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
       : '',
     'Mention how many units the shop has only when the visitor asks how many or wants more than one; never in lists or general answers. Never mention long-stay discounts, or weekly and monthly prices. Rent is charged per day.',
     'Write plain text only. No markdown, asterisks, bullet lists, or headings.',
-    'When you suggest booking, say they can tap the Book button under your reply; it opens the booking form with their details filled in. Do not paste booking links.',
+    context.buttons?.length
+      ? `Buttons shown under your reply: ${context.buttons.join(', ')}. You may tell the visitor to tap them; a Book button opens the booking form with their details filled in. Do not repeat the button labels as a separate line.`
+      : 'No buttons are shown under your reply, so never mention a button. To book, the visitor opens a kit from the equipment page and taps Book.',
+    'If the visitor asks for a link, say "Here is the link:" and stop; the system adds the exact link after your reply. Never write URLs yourself and never say you cannot share links.',
     `Contact: ${BUSINESS_EMAIL} and Facebook ${FACEBOOK_URL}.`,
     'Booking: choose gear, pick dates, sign the waiver, upload ID and selfie, pay by QR, then pickup, meetup, or delivery.',
     'Refund: the down payment paid to confirm a booking is not refundable once the rental is booked. A security deposit is separate from the down payment.',

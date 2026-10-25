@@ -43,13 +43,21 @@ watch(pending, (value) => {
 
 onBeforeUnmount(() => clearTimeout(slowReplyTimer))
 
+const siteOrigin = useRequestURL().origin
+
 function messageParts(content: string) {
   return content.split(/(https?:\/\/[^\s]+)/g)
     .filter(Boolean)
     .map((text) => {
       const link = /^https?:\/\//.test(text)
       const href = link ? text.replace(/[.,!?)]+$/, '') : ''
-      return { text: link ? href : text, href, trailing: link ? text.slice(href.length) : '' }
+      const internal = link && (href === siteOrigin || href.startsWith(`${siteOrigin}/`))
+      return {
+        text: link ? href : text,
+        href,
+        to: internal ? href.slice(siteOrigin.length) || '/' : '',
+        trailing: link ? text.slice(href.length) : '',
+      }
     })
 }
 
@@ -122,9 +130,53 @@ async function send(text = draft.value) {
   }
 }
 
-const panelClass = computed(() => props.variant === 'float'
-  ? 'h-[min(42rem,calc(100dvh-6rem))] w-[min(calc(100vw-1.5rem),28rem)]'
-  : 'h-[40rem] w-full')
+const isPhone = useMediaQuery('(max-width: 639px)')
+const fullScreen = computed(() => props.variant === 'float' && open.value && isPhone.value)
+const scrollLock = useScrollLock(import.meta.client ? document.body : null)
+const viewport = reactive({ height: 0, top: 0 })
+
+function syncViewport() {
+  const visual = window.visualViewport
+  viewport.height = visual?.height ?? window.innerHeight
+  viewport.top = visual?.offsetTop ?? 0
+  scrollToEnd()
+}
+
+watch(fullScreen, (value) => {
+  scrollLock.value = value
+  if (!import.meta.client) {
+    return
+  }
+  const visual = window.visualViewport
+  if (value) {
+    syncViewport()
+    visual?.addEventListener('resize', syncViewport)
+    visual?.addEventListener('scroll', syncViewport)
+  }
+  else {
+    visual?.removeEventListener('resize', syncViewport)
+    visual?.removeEventListener('scroll', syncViewport)
+  }
+})
+
+onBeforeUnmount(() => {
+  scrollLock.value = false
+  window.visualViewport?.removeEventListener('resize', syncViewport)
+  window.visualViewport?.removeEventListener('scroll', syncViewport)
+})
+
+const panelStyle = computed(() => fullScreen.value && viewport.height
+  ? { height: `${viewport.height}px`, top: `${viewport.top}px` }
+  : undefined)
+
+const panelClass = computed(() => {
+  if (props.variant !== 'float') {
+    return 'h-[min(40rem,calc(100dvh-8rem))] min-h-[26rem] w-full rounded-2xl border'
+  }
+  return fullScreen.value
+    ? 'fixed inset-x-0 top-0 h-dvh w-full rounded-none border-0'
+    : 'h-[min(42rem,calc(100dvh-6rem))] w-[min(calc(100vw-1.5rem),28rem)] rounded-2xl border'
+})
 </script>
 
 <template>
@@ -143,10 +195,18 @@ const panelClass = computed(() => props.variant === 'float'
       >
         <section
           v-if="variant === 'panel' || open"
-          class="chat-support-panel pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[#12201a]/10 bg-white text-left shadow-[0_18px_50px_rgb(18_32_26_/_18%)]"
+          class="chat-support-panel pointer-events-auto flex flex-col overflow-hidden border-[#12201a]/10 bg-white text-left shadow-[0_18px_50px_rgb(18_32_26_/_18%)]"
           :class="panelClass"
+          :style="panelStyle"
+          role="dialog"
+          :aria-modal="fullScreen ? 'true' : undefined"
+          aria-label="Chat support"
+          @keydown.esc="variant === 'float' && (open = false)"
         >
-          <header class="flex items-center justify-between gap-3 bg-[#12201a] px-4 py-3 text-white">
+          <header
+            class="flex shrink-0 items-center justify-between gap-3 bg-[#12201a] px-4 py-3 text-white"
+            :class="fullScreen ? 'pt-[calc(env(safe-area-inset-top)+0.75rem)]' : ''"
+          >
             <div>
               <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
                 Chat support
@@ -158,20 +218,20 @@ const panelClass = computed(() => props.variant === 'float'
             <button
               v-if="variant === 'float'"
               type="button"
-              class="rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white"
+              class="-mr-1.5 flex size-10 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white sm:size-8"
               aria-label="Close chat"
               @click="open = false"
             >
               <UIcon
-                name="i-lucide-x"
-                class="size-4"
+                :name="fullScreen ? 'i-lucide-chevron-down' : 'i-lucide-x'"
+                class="size-5 sm:size-4"
               />
             </button>
           </header>
 
           <div
             ref="list"
-            class="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
+            class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
           >
             <div
               v-for="(item, index) in messages"
@@ -189,8 +249,14 @@ const panelClass = computed(() => props.variant === 'float'
                   v-for="(part, partIndex) in messageParts(item.content)"
                   :key="partIndex"
                 >
-                  <a
-                    v-if="part.href"
+                  <NuxtLink
+                    v-if="part.to"
+                    :to="part.to"
+                    class="font-medium break-all underline underline-offset-2"
+                    :class="item.role === 'user' ? 'text-white' : 'text-[#1877f2]'"
+                    @click="followAction"
+                  >{{ part.text }}</NuxtLink><a
+                    v-else-if="part.href"
                     :href="part.href"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -236,18 +302,21 @@ const panelClass = computed(() => props.variant === 'float'
                 v-if="slowReply"
                 class="px-1 text-[11px] text-[#5b6b64]"
               >
-                Checking live availability and prices…
+                Just a moment, getting your answer…
               </span>
             </div>
           </div>
 
-          <div class="border-t border-[#12201a]/8 px-3 py-3">
-            <div class="mb-3 flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            class="shrink-0 border-t border-[#12201a]/8 px-3 py-3"
+            :class="fullScreen ? 'pb-[calc(env(safe-area-inset-bottom)+0.75rem)]' : ''"
+          >
+            <div class="-mx-3 mb-3 flex gap-2 overflow-x-auto overscroll-x-contain px-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <a
                 :href="FACEBOOK_MESSENGER_URL"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#1877f2]/30 bg-[#f4f8ff] px-2.5 py-1 text-[11px] font-medium text-[#1877f2] hover:bg-[#eaf2ff]"
+                class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#1877f2]/30 bg-[#f4f8ff] px-3 py-1.5 text-xs font-medium text-[#1877f2] hover:bg-[#eaf2ff] sm:px-2.5 sm:py-1 sm:text-[11px]"
               >
                 <UIcon
                   name="i-lucide-facebook"
@@ -259,7 +328,7 @@ const panelClass = computed(() => props.variant === 'float'
                 v-for="suggestion in suggestions"
                 :key="suggestion"
                 type="button"
-                class="shrink-0 whitespace-nowrap rounded-full border border-[#12201a]/10 px-2.5 py-1 text-[11px] text-[#3b4a44] hover:bg-[#f3f5f4]"
+                class="shrink-0 whitespace-nowrap rounded-full border border-[#12201a]/10 px-3 py-1.5 text-xs text-[#3b4a44] hover:bg-[#f3f5f4] sm:px-2.5 sm:py-1 sm:text-[11px]"
                 :disabled="pending"
                 @click="send(suggestion)"
               >
@@ -279,17 +348,22 @@ const panelClass = computed(() => props.variant === 'float'
             >
               <input
                 v-model="draft"
-                class="min-w-0 flex-1 rounded-full border border-[#12201a]/12 px-3 py-2 text-sm text-[#12201a]"
+                class="min-w-0 flex-1 rounded-full border border-[#12201a]/12 px-4 py-2.5 text-base text-[#12201a] sm:px-3 sm:py-2 sm:text-sm"
                 maxlength="500"
                 placeholder="Ask a question"
-                :disabled="pending"
+                enterkeyhint="send"
+                autocomplete="off"
+                aria-label="Message"
               >
               <UButton
                 type="submit"
                 :disabled="!canSend"
                 :loading="pending"
+                icon="i-lucide-send-horizontal"
+                class="shrink-0 justify-center rounded-full max-sm:size-11"
+                aria-label="Send message"
               >
-                Send
+                <span class="hidden sm:inline">Send</span>
               </UButton>
             </form>
           </div>
@@ -300,7 +374,7 @@ const panelClass = computed(() => props.variant === 'float'
         v-if="variant === 'float'"
         type="button"
         class="chat-support-launcher pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#12201a] text-white shadow-[0_12px_30px_rgb(18_32_26_/_32%)]"
-        :class="open ? 'chat-support-launcher-open' : ''"
+        :class="[open ? 'chat-support-launcher-open' : '', fullScreen ? 'hidden' : '']"
         :aria-expanded="open"
         :aria-label="open ? 'Close chat support' : 'Open chat support'"
         @click="toggleOpen"

@@ -676,7 +676,19 @@ function unitsLabel(count: number) {
   return count === 1 ? '1 unit' : `${count} units`
 }
 
-export function formatChatQuoteAnswer(quote: RentalQuote) {
+const CHAT_LINK_RE = /\b(links?|url|web\s?address|website address)\b|\bsend (me )?(the )?(page|site)\b/i
+
+export function wantsChatLink(text: string) {
+  return CHAT_LINK_RE.test(text)
+}
+
+export function chatActionLinks(actions: ChatBookingAction[], origin: string) {
+  const base = origin.replace(/\/$/, '')
+  return actions.map(action => `${action.label}: ${base}${action.to}`).join('\n')
+}
+
+export function formatChatQuoteAnswer(quote: RentalQuote, cta: 'button' | 'link' = 'button') {
+  const below = cta === 'link' ? 'link' : 'button'
   const start = formatBookingDate(quote.startsOn)
   const end = formatBookingDate(quote.endsOn)
   const clock = formatPickupClock(quote.pickupTime)
@@ -688,14 +700,14 @@ export function formatChatQuoteAnswer(quote: RentalQuote) {
   const units = quote.quantity > 1 ? ` for ${unitsLabel(quote.quantity)}` : ''
 
   if (quote.canFulfill) {
-    return `${quote.product.name} is available${units} from ${window} (${dayLabel}) — those dates are not booked. You can book it. The rental is ${rental}. The amount to pay is ${due}, including a ${deposit} deposit. Tap the button below to book with these details.`
+    return `${quote.product.name} is available${units} from ${window} (${dayLabel}) — those dates are not booked. You can book it. The rental is ${rental}. The amount to pay is ${due}, including a ${deposit} deposit. ${cta === 'link' ? 'Open the link below' : 'Tap the button below'} to book with these details.`
   }
 
   if (quote.quantity > 1 && quote.available > 0) {
-    return `Only ${unitsLabel(quote.available)} of ${quote.product.name} ${quote.available === 1 ? 'is' : 'are'} free from ${window} (${dayLabel}); you asked for ${unitsLabel(quote.quantity)}. You can book ${quote.available === 1 ? 'that unit' : 'those units'} with the button below or try other dates.`
+    return `Only ${unitsLabel(quote.available)} of ${quote.product.name} ${quote.available === 1 ? 'is' : 'are'} free from ${window} (${dayLabel}); you asked for ${unitsLabel(quote.quantity)}. You can book ${quote.available === 1 ? 'that unit' : 'those units'} with the ${below} below or try other dates.`
   }
 
-  return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}. The amount to pay would be ${due}, including a ${deposit} deposit. Choose other dates with the button below.`
+  return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}. The amount to pay would be ${due}, including a ${deposit} deposit. Choose other dates with the ${below} below.`
 }
 
 export function formatLiveAvailabilityFacts(kits: Array<{

@@ -17,7 +17,9 @@ import {
   chatNoPickupLeftTodayReply,
   chatPastDateReply,
   chatPickupTime,
+  chatActionLinks,
   chatQuoteActions,
+  wantsChatLink,
   type ChatBookingAction,
   type ChatKit,
 } from '../../utils/chat-quote'
@@ -25,7 +27,7 @@ import { addCalendarDays } from '../../utils/expense'
 import { AppError } from '../utils/errors'
 import { getPublicSupabaseClient, getSupabaseAdminClient } from '../utils/supabase'
 import type { CatalogProduct } from '../../types/catalog'
-import { answerFromCatalog, catalogActions, catalogFacts, policyFacts, type ChatShopPolicies } from '../../utils/chat-knowledge'
+import { answerFromCatalog, catalogActions, catalogFacts, policyFacts, productActions, type ChatShopPolicies } from '../../utils/chat-knowledge'
 import { chatFollowUpSuggestions, type ChatTopic } from '../../utils/chat-suggestions'
 import { listPublicProductNames } from '../repositories/product.repository'
 import { getPublicProducts } from './catalog.service'
@@ -41,6 +43,11 @@ interface ChatCompletionResponse {
       content?: string | null
     }
   }>
+}
+
+function siteOrigin() {
+  const config = useRuntimeConfig()
+  return String(config.public.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
 }
 
 function groqConfig() {
@@ -235,6 +242,7 @@ async function answerLiveQuote(
   question: string,
   catalog: ChatKit[],
   comingSoonSlugs: Set<string>,
+  cta: 'button' | 'link' = 'button',
 ): Promise<LiveQuoteAnswer | null> {
   const today = calendarDateInZone()
   const intent = parseChatQuoteIntent(question, today, catalog)
@@ -295,7 +303,7 @@ async function answerLiveQuote(
         pickupTime: range.pickupTime,
         quantity: range.quantity,
       })
-      replies.push(formatChatQuoteAnswer(quoted))
+      replies.push(formatChatQuoteAnswer(quoted, cta))
       actions.push(...chatQuoteActions(quoted))
       anyAvailable ||= quoted.canFulfill
       quotedName ??= quoted.product.name
@@ -338,6 +346,20 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
     products: knowledge?.products ?? [],
     productName,
   })
+  const linkMode = wantsChatLink(lastMessage)
+  const withLinks = (answer: { reply: string, actions: ChatBookingAction[], suggestions: string[] }) => {
+    if (!linkMode || status.enabled) {
+      return answer
+    }
+    const links = answer.actions.length
+      ? answer.actions
+      : [{ kind: 'view' as const, label: 'Browse equipment', to: '/products' }]
+    return {
+      ...answer,
+      reply: `${answer.reply}\n\n${chatActionLinks(links, siteOrigin())}`,
+      actions: [],
+    }
+  }
 
   try {
     const client = await getPublicSupabaseClient(event)
@@ -346,13 +368,13 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
       ? knowledge.products.map(product => ({ slug: product.slug, name: product.name }))
       : await loadChatKits(client)
     const comingSoonSlugs = new Set(knowledge?.products.filter(product => product.comingSoon).map(product => product.slug) ?? [])
-    const quoted = await answerLiveQuote(client, question, catalog, comingSoonSlugs)
+    const quoted = await answerLiveQuote(client, question, catalog, comingSoonSlugs, linkMode ? 'link' : 'button')
     if (quoted) {
-      return {
+      return withLinks({
         reply: quoted.reply,
         actions: status.enabled ? [] : quoted.actions,
         suggestions: followUps(quoted.topic, quoted.productName),
-      }
+      })
     }
     liveFacts = await liveAvailabilityFacts(client, question, catalog)
   }
@@ -369,15 +391,50 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
     policyFacts: knowledge ? policyFacts(knowledge.policies, knowledge.paymentMethods) : '',
     today: calendarDateInZone(),
   }
+  const actions = status.enabled ? [] : generalActions(lastMessage, question, knowledge?.products ?? [], linkMode)
   const catalogAnswer = knowledge
     ? answerFromCatalog(lastMessage, knowledge.products, knowledge.policies, knowledge.paymentMethods)
     : null
   const fallback = catalogAnswer || answerFromKnowledge(lastMessage, context)
-  const reply = await completeWithFreeAi(input, maintenanceAssistantPrompt(context))
+  const reply = await completeWithFreeAi(input, maintenanceAssistantPrompt({
+    ...context,
+    buttons: linkMode ? [] : actions.map(action => action.label),
+  }))
 
-  return {
-    reply: reply || fallback,
-    actions: knowledge && !status.enabled ? catalogActions(lastMessage, knowledge.products) : [],
+  return withLinks({
+    reply: reply ? withoutEchoedLabels(reply, actions) : fallback,
+    actions,
     suggestions: followUps('general'),
+  })
+}
+
+function withoutEchoedLabels(reply: string, actions: ChatBookingAction[]) {
+  const labels = new Set(actions.map(action => action.label.toLowerCase()))
+  const cleaned = reply
+    .split('\n')
+    .filter(line => !labels.has(line.trim().replace(/^[•\-*\s"“[]+|[\s.!"”\]]+$/g, '').toLowerCase()))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  return cleaned || reply
+}
+
+const BOOKING_HELP_RE = /\b(book|booking|reserve|reservation|rent|renting)\b/i
+
+function generalActions(lastMessage: string, question: string, products: CatalogProduct[], linkMode: boolean): ChatBookingAction[] {
+  const fromLast = catalogActions(lastMessage, products)
+  if (fromLast.length) {
+    return fromLast
   }
+  if (!linkMode && !BOOKING_HELP_RE.test(lastMessage)) {
+    return []
+  }
+  const fromConversation = catalogActions(question, products)
+  if (fromConversation.length) {
+    return fromConversation
+  }
+  const bookable = products.filter(product => !product.comingSoon)
+  return bookable.length === 1
+    ? productActions(bookable)
+    : [{ kind: 'view', label: 'Choose equipment to book', to: '/products' }]
 }

@@ -3,7 +3,9 @@ import {
   CHAT_KIT_PROMPT,
   chatDatesPrompt,
   chatQuestionContext,
+  chatActionLinks,
   chatPastDateReply,
+  wantsChatLink,
   chatPickupTime,
   chatQuoteActions,
   chatQuoteRange,
@@ -210,6 +212,24 @@ describe('chat dates with typos and follow-ups', () => {
       { role: 'user', content: 'for 3 days' },
     ])
     expect(chatQuoteRange(parseChatQuoteIntent(question, monday), monday)).toMatchObject({ startsOn: '2026-10-27', endsOn: '2026-10-30' })
+  })
+})
+
+describe('chat links on request', () => {
+  it('knows when the visitor asks for a link instead of a button', () => {
+    expect(wantsChatLink('can you give me the link?')).toBe(true)
+    expect(wantsChatLink('send me the url pls')).toBe(true)
+    expect(wantsChatLink('Is Starlink free tomorrow?')).toBe(false)
+  })
+
+  it('writes full booking links and says link instead of button', () => {
+    const actions = chatQuoteActions(quote())
+    expect(chatActionLinks(actions, 'https://jryrentals.com/')).toBe(
+      'Book Starlink Mini: https://jryrentals.com/rentals/new?product=starlink-mini&startsOn=2026-09-20&endsOn=2026-09-22&pickupTime=09%3A00&quantity=1',
+    )
+    expect(formatChatQuoteAnswer(quote(), 'link')).toContain('Open the link below to book')
+    expect(formatChatQuoteAnswer(quote(), 'link')).not.toContain('button')
+    expect(formatChatQuoteAnswer(quote({ canFulfill: false, available: 0 }), 'link')).toContain('with the link below')
   })
 })
 
