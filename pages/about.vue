@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, FACEBOOK_MESSENGER_URL } from '~/utils/constants'
 import { aboutPageJsonLd } from '~/utils/seo'
+import { ABOUT_INTRO, ABOUT_JOURNEY, ABOUT_MISSION, ABOUT_TAGLINE, ABOUT_VALUES, ABOUT_WHO_WE_ARE } from '~/utils/site-content'
 
 useSiteMeta({
   title: 'About',
@@ -19,35 +20,8 @@ useHead({
   ],
 })
 
-const values = [
-  {
-    title: 'Simple',
-    icon: 'i-lucide-sparkles',
-    copy: 'A straightforward rental process without unnecessary complications.',
-  },
-  {
-    title: 'Reliable',
-    icon: 'i-lucide-badge-check',
-    copy: 'We focus on providing a dependable experience and properly maintained rental equipment.',
-  },
-  {
-    title: 'Convenient',
-    icon: 'i-lucide-calendar-check',
-    copy: 'Browse, book, manage your rental, and make payments with ease.',
-  },
-  {
-    title: 'Secure',
-    icon: 'i-lucide-shield-check',
-    copy: 'We prioritize secure bookings, payments, and responsible handling of customer information.',
-  },
-]
-
-const journey = [
-  { title: 'Browse', copy: 'Find the equipment you need and check live availability.', icon: 'i-lucide-search' },
-  { title: 'Book', copy: 'Pick your dates, sign the rental agreement, and verify your ID online.', icon: 'i-lucide-calendar-plus' },
-  { title: 'Pay', copy: 'Pay securely through the payment methods listed at checkout.', icon: 'i-lucide-wallet' },
-  { title: 'Return', copy: 'Use the equipment, then return it on the agreed date and time.', icon: 'i-lucide-rotate-ccw' },
-]
+const values = ABOUT_VALUES
+const journey = ABOUT_JOURNEY
 
 const policies = [
   { title: 'Terms & Conditions', copy: 'Rules for using the website and rental service.', to: '/terms', icon: 'i-lucide-file-text' },
@@ -70,10 +44,10 @@ const policies = [
           Based in {{ BUSINESS_ADDRESS }}
         </p>
         <h1 class="font-display mt-5 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-          Rent. Create. Explore.
+          {{ ABOUT_TAGLINE }}
         </h1>
         <p class="mt-5 max-w-2xl text-base leading-7 text-white/75 sm:text-lg">
-          <strong class="font-semibold text-white">{{ APP_NAME }}</strong> is a modern rental service designed to make renting simple, convenient, and accessible.
+          <strong class="font-semibold text-white">{{ APP_NAME }}</strong> {{ ABOUT_INTRO }}
         </p>
         <div class="mt-8 flex flex-col gap-3 sm:flex-row">
           <UButton
@@ -104,10 +78,10 @@ const policies = [
             Who we are
           </p>
           <h2 class="mt-3 text-2xl font-semibold tracking-tight text-[#12201a] sm:text-3xl">
-            Get what you need, without the cost of buying it.
+            {{ ABOUT_WHO_WE_ARE.title }}
           </h2>
           <p class="mt-4 text-sm leading-7 text-[#4a5a54] sm:text-base sm:leading-8">
-            We believe customers should be able to get what they need without the commitment and cost of purchasing. Our goal is to provide a smooth rental experience—from browsing and booking to payment and return.
+            {{ ABOUT_WHO_WE_ARE.body }}
           </p>
         </div>
         <ol class="grid gap-3 sm:grid-cols-2">
@@ -178,11 +152,11 @@ const policies = [
         Our mission
       </p>
       <p class="mt-4 text-2xl font-semibold leading-snug tracking-tight text-[#12201a] sm:text-3xl">
-        To make renting easier, more accessible, and more convenient for everyone.
+        {{ ABOUT_MISSION.statement }}
       </p>
       <p class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-[#4a5a54] sm:text-base sm:leading-8">
-        Whether you're preparing for an adventure, working on a project, creating content, or simply need something for a short period,
-        <strong class="font-semibold text-[#12201a]">{{ APP_NAME }} is here to make the process easier.</strong>
+        {{ ABOUT_MISSION.body }}
+        <strong class="font-semibold text-[#12201a]">{{ ABOUT_MISSION.closing }}</strong>
       </p>
     </section>
 
@@ -200,21 +174,21 @@ const policies = [
             >{{ BUSINESS_EMAIL }}</a>.
           </p>
         </div>
-        <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+        <div class="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row">
           <UButton
             :to="FACEBOOK_MESSENGER_URL"
             target="_blank"
             rel="noopener"
             size="lg"
             icon="i-lucide-facebook"
-            class="justify-center rounded-full bg-[#1877f2] hover:bg-[#166fe5]"
+            class="justify-center whitespace-nowrap rounded-full bg-[#1877f2] hover:bg-[#166fe5]"
           >
             Message us on Facebook
           </UButton>
           <UButton
             to="/products"
             size="lg"
-            class="justify-center rounded-full bg-white text-[#12201a] hover:bg-white/90"
+            class="justify-center whitespace-nowrap rounded-full bg-white text-[#12201a] hover:bg-white/90"
           >
             Browse equipment
           </UButton>

@@ -34,7 +34,7 @@ describe('organization JSON-LD', () => {
     expect(json.address.addressLocality).toBe('Davao City')
     expect(json.sameAs).toContain('https://www.facebook.com/jryrentals/')
     expect(defaultOgImage('https://lumen.test')).toBe('https://lumen.test/og.png')
-    expect(publicSitemapPaths()).toEqual(['/', '/products', '/about', '/privacy', '/terms', '/cookies'])
+    expect(publicSitemapPaths()).toEqual(['/', '/products', '/about', '/faq', '/privacy', '/terms', '/cookies'])
     expect(websiteJsonLd('https://lumen.test').potentialAction['query-input']).toBe('required name=search_term_string')
   })
 

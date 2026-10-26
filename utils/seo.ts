@@ -33,6 +33,7 @@ const PUBLIC_SITEMAP_PATHS = [
   '/',
   '/products',
   '/about',
+  '/faq',
   '/privacy',
   '/terms',
   '/cookies',
@@ -208,6 +209,23 @@ export function collectionJsonLd(origin: string, products: Array<{ slug: string,
         'name': product.name,
       })),
     },
+  }
+}
+
+export function faqPageJsonLd(origin: string, faqs: Array<{ question: string, answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    'name': `${APP_NAME} FAQs`,
+    'url': siteCanonical(origin, '/faq'),
+    'mainEntity': faqs.map(faq => ({
+      '@type': 'Question',
+      'name': faq.question,
+      'acceptedAnswer': {
+        '@type': 'Answer',
+        'text': faq.answer,
+      },
+    })),
   }
 }
 

@@ -75,6 +75,14 @@ const { isAuthenticated } = useAuth()
           </li>
           <li>
             <NuxtLink
+              to="/faq"
+              class="hover:text-white"
+            >
+              FAQs
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink
               to="/terms"
               class="hover:text-white"
             >

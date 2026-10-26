@@ -207,6 +207,14 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 
 `sync_rental_request_totals` keeps `discount_amount` and sets `total_amount = greatest(0, subtotal - discount)`.
 
+
+**faqs** (`20261026010000_faqs.sql`)
+
+- `id`, `uuid` (unique), `question` (3–200 chars), `answer` (1–2000 chars)
+- `sort_order`, `is_active`, `created_at`, `updated_at`
+- Anyone may select active rows; admins see all rows and are the only writers. The migration seeds nine starter FAQs when the table is empty.
+- Active FAQs show on `/faq` and teach the chat support. Hidden rows stay for admins only. Create, update, and delete are written to the audit log with the previous content.
+
 ### Payments and receipts
 
 **payment_methods**

@@ -35,6 +35,7 @@ export const adminNavItems: NavItem[] = [
   { label: 'Reports', to: '/admin/reports', icon: 'i-lucide-bar-chart-3', enabled: true },
   { label: 'Notifications', to: '/notifications', icon: 'i-lucide-bell', enabled: true },
   { label: 'Waivers', to: '/admin/waivers', icon: 'i-lucide-file-pen-line', enabled: true },
+  { label: 'FAQs', to: '/admin/faqs', icon: 'i-lucide-circle-help', enabled: true },
   { label: 'Settings', to: '/admin/settings', icon: 'i-lucide-settings', enabled: true },
   { label: 'Account', to: '/admin/account', icon: 'i-lucide-user-cog', enabled: true },
   { label: 'Audit Logs', to: '/admin/audit-logs', icon: 'i-lucide-scroll-text', enabled: true },

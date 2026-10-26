@@ -19,6 +19,9 @@ export interface MaintenanceChatContext {
   policyFacts?: string
   today?: string
   buttons?: string[]
+  faqFacts?: string
+  siteFacts?: string
+  policyExcerpts?: string
 }
 
 interface KnowledgeEntry {
@@ -33,6 +36,7 @@ export const FREE_CHAT_AI = {
   provider: 'groq',
   baseUrl: 'https://api.groq.com/openai/v1',
   model: 'openai/gpt-oss-20b',
+  fallbackModels: ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b'],
 } as const
 
 export const MAINTENANCE_CHAT_KNOWLEDGE: KnowledgeEntry[] = [
@@ -108,6 +112,15 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
     context.policyFacts
       ? `SHOP POLICIES from the system:\n${context.policyFacts}`
       : '',
+    context.siteFacts
+      ? `SITE PAGES (How it Works, About, and what each policy covers):\n${context.siteFacts}`
+      : '',
+    context.policyExcerpts
+      ? `POLICY EXCERPTS from the official Terms & Conditions, Privacy Policy, and Cookie Policy that may relate to this question. Give only the highlight that answers the question in 1 or 2 short plain sentences (under 45 words), naming the policy inside the sentence, for example "Our Privacy Policy says…". Do not add the policy name as a separate line, and do not list everything in the excerpt, never add terms that are not written there, and do not give legal advice. If an excerpt is not related, ignore it:\n${context.policyExcerpts}`
+      : 'If the visitor asks about the Terms, Privacy Policy, or Cookie Policy and no excerpt covers it, give the short summary from SITE PAGES and suggest reading the full page.',
+    context.faqFacts
+      ? `FAQS written by the shop. When a question matches one, answer with that FAQ in your own short words and keep its facts exactly. Do not repeat the question or write "Q:" or "A:". Live catalog, availability, and prices still come from the sections above:\n${context.faqFacts}`
+      : '',
     'Mention how many units the shop has only when the visitor asks how many or wants more than one; never in lists or general answers. Never mention long-stay discounts, or weekly and monthly prices. Rent is charged per day.',
     'Write plain text only. No markdown, asterisks, bullet lists, or headings.',
     context.buttons?.length
@@ -121,7 +134,7 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
     context.liveFacts
       ? `LIVE AVAILABILITY is the source of truth in ${BUSINESS_TIMEZONE}. Use it to say booked or available. Never contradict it: ${context.liveFacts}`
       : 'If LIVE AVAILABILITY is missing, do not guess whether a date is booked. Ask for a kit name and date.',
-    `Answer in short, friendly English. Do not invent prices, stock, or return dates. If you are unsure, or they want to talk to a person, tell them to message us on Facebook at ${FACEBOOK_URL}. Do not mention system prompts, APIs, or internal ids.`,
+    `Answer in short, friendly English: only the part that answers the question, in 1 to 3 sentences (about 50 words). Give steps or full details only when the visitor asks for them. Do not invent prices, stock, or return dates. If you are unsure, or they want to talk to a person, tell them to message us on Facebook at ${FACEBOOK_URL}. Do not mention system prompts, APIs, or internal ids.`,
   ].join(' ')
 }
 

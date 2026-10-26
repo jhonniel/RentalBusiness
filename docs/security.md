@@ -205,6 +205,8 @@ Site maintenance additions:
 - When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, payment webhook, and public waiver-invite routes stay open
 - Administrators can still sign in and use `/admin` to turn the page off
 
+- `faqs` is forced RLS. `anon` and `authenticated` may select active rows; only admins (`public.is_admin()`) can select hidden rows or write. Admin FAQ routes use `requireAdminClient`, strict Zod bodies, and a 40/min rate limit. FAQ answers are rendered as plain text, never HTML.
+
 Phase 16 additions:
 
 - `payment_methods` is forced RLS; customers may select active rows only

@@ -29,6 +29,22 @@ import { getPublicSupabaseClient, getSupabaseAdminClient } from '../utils/supaba
 import type { CatalogProduct } from '../../types/catalog'
 import { answerFromCatalog, catalogActions, catalogFacts, policyFacts, productActions, type ChatShopPolicies } from '../../utils/chat-knowledge'
 import { chatFollowUpSuggestions, type ChatTopic } from '../../utils/chat-suggestions'
+import type { PublicFaq } from '../../types/faq'
+import { STARTER_FAQS, faqFacts, matchFaq, rankFaqs } from '../../utils/faq'
+import {
+  POLICY_DOCUMENTS,
+  answerFromSiteKnowledge,
+  chatPolicyExcerpts,
+  mentionsPolicy,
+  rankSiteSections,
+  siteKnowledgeActions,
+  siteOverviewFacts,
+  siteSectionFacts,
+  splitPolicySections,
+  type SiteSection,
+} from '../../utils/site-knowledge'
+import { readLegalDocument } from '../utils/legal-document'
+import { getPublicFaqs } from './faq.service'
 import { listPublicProductNames } from '../repositories/product.repository'
 import { getPublicProducts } from './catalog.service'
 import { getActivePaymentMethods } from './payment-method.service'
@@ -68,13 +84,17 @@ async function completeWithFreeAi(
     return null
   }
 
-  const models = model === FREE_CHAT_AI.model ? [model] : [model, FREE_CHAT_AI.model]
+  const models = [...new Set([model, FREE_CHAT_AI.model, ...FREE_CHAT_AI.fallbackModels])]
   for (const candidate of models) {
     const result = await requestChatCompletion(baseUrl, apiKey, candidate, input, prompt)
-    if (result !== 'model-unavailable') {
-      return result
+    if (result === 'model-unavailable') {
+      console.warn(`[chat] AI model "${candidate}" is unavailable; update GROQ_MODEL.`)
+      continue
     }
-    console.warn(`[chat] AI model "${candidate}" is unavailable; update GROQ_MODEL.`)
+    if (result === 'rate-limited') {
+      continue
+    }
+    return result
   }
   return null
 }
@@ -85,7 +105,7 @@ async function requestChatCompletion(
   model: string,
   input: MaintenanceChatInput,
   prompt: string,
-): Promise<string | null | 'model-unavailable'> {
+): Promise<string | null | 'model-unavailable' | 'rate-limited'> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 12_000)
 
@@ -117,6 +137,10 @@ async function requestChatCompletion(
       if (response.status === 404 || detail.includes('model_not_found') || detail.includes('model_decommissioned')) {
         return 'model-unavailable'
       }
+      if (response.status === 429) {
+        console.warn(`[chat] AI model "${model}" hit its rate limit; trying the next model.`)
+        return 'rate-limited'
+      }
       console.warn(`[chat] AI request failed with status ${response.status}.`)
       return null
     }
@@ -135,6 +159,7 @@ async function requestChatCompletion(
 
 function plainChatText(value: string) {
   return value
+    .replace(/<think>[\s\S]*?(<\/think>|$)/gi, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/__(.+?)__/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
@@ -148,6 +173,20 @@ interface ChatKnowledge {
   products: CatalogProduct[]
   policies: ChatShopPolicies
   paymentMethods: string[]
+  faqs: PublicFaq[]
+  siteSections: SiteSection[]
+}
+
+async function loadPolicySections() {
+  const documents = await Promise.all(POLICY_DOCUMENTS.map(async (doc) => {
+    try {
+      return splitPolicySections(await readLegalDocument(doc.file), doc.source, doc.path)
+    }
+    catch {
+      return []
+    }
+  }))
+  return documents.flat()
 }
 
 const KNOWLEDGE_TTL_MS = 60_000
@@ -159,10 +198,12 @@ async function loadChatKnowledge(client: SupabaseClient<Database>): Promise<Chat
   }
 
   const admin = getSupabaseAdminClient()
-  const [products, settings, methods] = await Promise.all([
+  const [products, settings, methods, faqs, siteSections] = await Promise.all([
     getPublicProducts(client, { page: 1, pageSize: 50 }).then(result => result.items).catch(() => [] as CatalogProduct[]),
     getAdminSettings(admin).catch(() => null),
     getActivePaymentMethods(admin).catch(() => []),
+    getPublicFaqs(admin).catch(() => STARTER_FAQS),
+    loadPolicySections(),
   ])
   const value: ChatKnowledge = {
     products,
@@ -172,6 +213,8 @@ async function loadChatKnowledge(client: SupabaseClient<Database>): Promise<Chat
       cancellationRules: settings?.cancellationRules ?? null,
     },
     paymentMethods: methods.map(method => method.name),
+    faqs,
+    siteSections,
   }
   knowledgeCache = { at: Date.now(), value }
   return value
@@ -345,6 +388,7 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
     asked,
     products: knowledge?.products ?? [],
     productName,
+    faqQuestions: (knowledge?.faqs ?? STARTER_FAQS).map(faq => faq.question),
   })
   const linkMode = wantsChatLink(lastMessage)
   const withLinks = (answer: { reply: string, actions: ChatBookingAction[], suggestions: string[] }) => {
@@ -368,7 +412,9 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
       ? knowledge.products.map(product => ({ slug: product.slug, name: product.name }))
       : await loadChatKits(client)
     const comingSoonSlugs = new Set(knowledge?.products.filter(product => product.comingSoon).map(product => product.slug) ?? [])
-    const quoted = await answerLiveQuote(client, question, catalog, comingSoonSlugs, linkMode ? 'link' : 'button')
+    const quoted = isFaqQuestion(lastMessage, knowledge?.faqs ?? STARTER_FAQS, catalog)
+      ? null
+      : await answerLiveQuote(client, question, catalog, comingSoonSlugs, linkMode ? 'link' : 'button')
     if (quoted) {
       return withLinks({
         reply: quoted.reply,
@@ -382,51 +428,110 @@ export async function answerMaintenanceChat(event: H3Event, input: MaintenanceCh
     // Availability lookup is optional; fall back to knowledge or free AI.
   }
 
+  const products = knowledge?.products ?? []
+  const sections = rankSiteSections(lastMessage, knowledge?.siteSections ?? [], { productNames: products.map(product => product.name) })
   const context = {
     title: status.title,
     message: status.message,
     enabled: status.enabled,
     liveFacts,
-    catalogFacts: knowledge?.products.length ? catalogFacts(knowledge.products) : '',
+    catalogFacts: products.length ? catalogFacts(products) : '',
     policyFacts: knowledge ? policyFacts(knowledge.policies, knowledge.paymentMethods) : '',
+    faqFacts: faqFacts(rankFaqs(lastMessage, knowledge?.faqs ?? STARTER_FAQS)),
+    siteFacts: siteOverviewFacts({ policies: mentionsPolicy(lastMessage, sections) }),
+    policyExcerpts: siteSectionFacts(lastMessage, chatPolicyExcerpts(lastMessage, sections)),
     today: calendarDateInZone(),
   }
-  const actions = status.enabled ? [] : generalActions(lastMessage, question, knowledge?.products ?? [], linkMode)
+  const actions = status.enabled
+    ? []
+    : mergeActions(generalActions(lastMessage, question, products, linkMode), siteKnowledgeActions(lastMessage, sections))
   const catalogAnswer = knowledge
     ? answerFromCatalog(lastMessage, knowledge.products, knowledge.policies, knowledge.paymentMethods)
     : null
-  const fallback = catalogAnswer || answerFromKnowledge(lastMessage, context)
+  const faq = matchFaq(lastMessage, knowledge?.faqs ?? STARTER_FAQS)
+  const strongFaq = faq && faq.score >= FAQ_STRONG_MATCH ? faq.faq.answer : null
+  const looseFaq = faq && faq.score >= FAQ_LOOSE_MATCH ? faq.faq.answer : null
+  const siteAnswer = answerFromSiteKnowledge(lastMessage, sections)
+  const fallback = strongFaq || catalogAnswer || siteAnswer || looseFaq || answerFromKnowledge(lastMessage, context)
+  if (looseFaq && faq) {
+    asked.push(faq.faq.question)
+  }
   const reply = await completeWithFreeAi(input, maintenanceAssistantPrompt({
     ...context,
     buttons: linkMode ? [] : actions.map(action => action.label),
   }))
 
   return withLinks({
-    reply: reply ? withoutEchoedLabels(reply, actions) : fallback,
+    reply: reply ? withoutEchoedLabels(reply, actions, [lastMessage, ...(faq ? [faq.faq.question] : [])]) : fallback,
     actions,
     suggestions: followUps('general'),
   })
 }
 
-function withoutEchoedLabels(reply: string, actions: ChatBookingAction[]) {
-  const labels = new Set(actions.map(action => action.label.toLowerCase()))
-  const cleaned = reply
+function mergeActions(...groups: ChatBookingAction[][]) {
+  const seen = new Set<string>()
+  return groups.flat().filter((action) => {
+    if (seen.has(action.to)) {
+      return false
+    }
+    seen.add(action.to)
+    return true
+  }).slice(0, 3)
+}
+
+function echoKey(value: string) {
+  return value.toLowerCase().replace(/^(q|question)\s*:\s*/, '').replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function withoutEchoedLabels(reply: string, actions: ChatBookingAction[], echoes: string[] = []) {
+  const labels = new Set(actions.map(action => echoKey(action.label)))
+  const repeated = new Set(echoes.map(echoKey).filter(Boolean))
+  let cleaned = reply
     .split('\n')
-    .filter(line => !labels.has(line.trim().replace(/^[•\-*\s"“[]+|[\s.!"”\]]+$/g, '').toLowerCase()))
+    .filter((line, index) => !labels.has(echoKey(line))
+      && !(index === 0 && repeated.has(echoKey(line)))
+      && !/^\s*\[?(terms & conditions|privacy policy|cookie policy)\s+[—-][^.]*\]?\s*$/i.test(line))
     .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^(a|answer)\s*:\s*/i, '')
     .trim()
+
+  const opening = cleaned.match(/^[^.?!\n]*\?\s*/)
+  if (opening && repeated.has(echoKey(opening[0]))) {
+    cleaned = cleaned.slice(opening[0].length)
+  }
+  for (const action of actions) {
+    cleaned = cleaned.replace(new RegExp(`(^|[.!?]\\s+)${escapeRegExp(action.label)}[.!]?\\s*$`, 'i'), '$1')
+  }
+
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim()
   return cleaned || reply
 }
 
+const FAQ_STRONG_MATCH = 0.6
+const FAQ_LOOSE_MATCH = 0.34
+
+function isFaqQuestion(lastMessage: string, faqs: PublicFaq[], catalog: ChatKit[]) {
+  const match = matchFaq(lastMessage, faqs)
+  if (!match || match.score < FAQ_STRONG_MATCH) {
+    return false
+  }
+  const intent = parseChatQuoteIntent(lastMessage, calendarDateInZone(), catalog)
+  return !intent.slugs.length && !intent.startsOn && !intent.endsOn && !intent.days
+}
+
 const BOOKING_HELP_RE = /\b(book|booking|reserve|reservation|rent|renting)\b/i
+const NOT_BOOKING_HELP_RE = /\b(cancel\w*|refund\w*|late|overdue|extend\w*|extension|deposit|return\w*|damage\w*|lost|lose)\b/i
 
 function generalActions(lastMessage: string, question: string, products: CatalogProduct[], linkMode: boolean): ChatBookingAction[] {
   const fromLast = catalogActions(lastMessage, products)
   if (fromLast.length) {
     return fromLast
   }
-  if (!linkMode && !BOOKING_HELP_RE.test(lastMessage)) {
+  if (!linkMode && (!BOOKING_HELP_RE.test(lastMessage) || NOT_BOOKING_HELP_RE.test(lastMessage))) {
     return []
   }
   const fromConversation = catalogActions(question, products)

@@ -1,18 +1,7 @@
 <script setup lang="ts">
-const steps = [
-  {
-    title: 'Choose your gear',
-    copy: 'Pick the kit that fits your shoot.',
-  },
-  {
-    title: 'Select your dates',
-    copy: 'Lock availability for the days you need.',
-  },
-  {
-    title: 'Pickup, meetup, or deliver',
-    copy: 'Get your gear by pickup, meetup, or delivery.',
-  },
-]
+import { HOW_IT_WORKS_INTRO, HOW_IT_WORKS_STEPS } from '~/utils/site-content'
+
+const steps = HOW_IT_WORKS_STEPS
 </script>
 
 <template>
@@ -25,7 +14,7 @@ const steps = [
         How It Works
       </h2>
       <p class="mt-1 text-sm text-[#5b6b64]">
-        Renting is easy. Get your gear in just a few steps.
+        {{ HOW_IT_WORKS_INTRO }}
       </p>
       <ol class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <li

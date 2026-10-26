@@ -60,6 +60,7 @@ export function chatFollowUpSuggestions(input: {
   asked: string[]
   products: CatalogProduct[]
   productName?: string | null
+  faqQuestions?: string[]
 }) {
   const bookable = input.products.filter(product => !product.comingSoon)
   const mentioned = mentionedProduct(input.question, input.products)
@@ -85,7 +86,9 @@ export function chatFollowUpSuggestions(input: {
     'list': [...bookable.slice(0, 2).map(product => `Tell me about ${product.name}`), 'How do I book?'],
     'product': [about(name => `Is ${name} free tomorrow?`), about(name => `How much is ${name} for 3 days?`), about(name => `What's included with ${name}?`)],
     'location': ['How do I book?', 'What equipment is available?', about(name => `Is ${name} free tomorrow?`)],
-    'general': ['What equipment is available?', about(name => `Is ${name} free tomorrow?`), 'How do I book?'],
+    'general': input.faqQuestions?.length
+      ? ['What equipment is available?', ...input.faqQuestions]
+      : ['What equipment is available?', about(name => `Is ${name} free tomorrow?`), 'How do I book?'],
   }
 
   const asked = new Set(input.asked.map(normalize))
