@@ -205,6 +205,7 @@ Site maintenance additions:
 - When maintenance is enabled, public storefront APIs return 503. Admin, auth, health, cron, Terms, Privacy, Cookie Policy, maintenance chat, payment webhook, and public waiver-invite routes stay open
 - Administrators can still sign in and use `/admin` to turn the page off
 
+- `rental_feedback_requests` is forced RLS with service-role grants only. Only admins can create feedback links (`requireAdminClient`, 20/min). Links carry a 32-byte random token; only its sha256 hash is stored and it is compared in constant time. Public feedback routes look up by `uuid`, never expose database ids or customer contact details, accept a strict body with 1–5 integer ratings for exactly the saved questions, and allow one submission per link and per booking (10/min/IP). A database trigger rejects any change to an answered row, and rows cannot be deleted. Comments are rendered as plain text. Sending and submitting are written to the audit log. Thank-you voucher codes are given only by the server, at most once per answered booking, and only while the admin-chosen voucher is active and has codes left; reward settings are admin-only and audited.
 - `faqs` is forced RLS. `anon` and `authenticated` may select active rows; only admins (`public.is_admin()`) can select hidden rows or write. Admin FAQ routes use `requireAdminClient`, strict Zod bodies, and a 40/min rate limit. FAQ answers are rendered as plain text, never HTML.
 
 Phase 16 additions:

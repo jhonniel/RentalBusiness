@@ -22,6 +22,7 @@ const PAGE_BYPASS_PREFIXES = [
   '/accept-policies',
   '/maintenance',
   '/waivers',
+  '/feedback',
 ]
 
 const API_BYPASS_PREFIXES = [
@@ -36,6 +37,7 @@ const API_BYPASS_PREFIXES = [
   '/api/privacy',
   '/api/cookie-policy',
   '/api/waivers/invites',
+  '/api/feedback',
 ]
 
 export interface MaintenanceRow {

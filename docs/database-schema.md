@@ -208,6 +208,18 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 `sync_rental_request_totals` keeps `discount_amount` and sets `total_amount = greatest(0, subtotal - discount)`.
 
 
+**rental_feedback_requests** (`20261028000000_rental_feedback.sql`)
+
+- `id`, `uuid` (unique), `rental_id` → `rental_requests`, `token_hash` (sha256, unique; the raw token is never stored), `email`
+- `questions` (jsonb snapshot of `{ key, text, product }`), `expires_at`, `created_by`, `created_at`
+- `submitted_at`, `answers` (jsonb `{ key, rating }`), `comment` (≤ 2000), `average_rating` (1–5)
+- One submission per booking (partial unique index on `rental_id` where `submitted_at` is not null). Resending only expires unanswered links; submitted rows are never overwritten.
+- `20261028010000_rental_feedback_lock.sql` adds trigger `rental_feedback_requests_lock_submitted`: once `submitted_at` is set, any update raises an error (even for the service role), delete is revoked, and trigger `rental_feedback_requests_block_after_submission` rejects new links for a booking that already has an answer, so each booking records exactly one answer.
+- `reward_eligible` (`20261028030000_feedback_reward_eligible.sql`, default true): set by the admin when sending; false means this feedback cannot earn the thank-you voucher.
+- `reward_voucher_id` → `vouchers` (`20261028020000_feedback_reward_voucher.sql`): the customer's own single-use thank-you voucher.
+- `reward_source_voucher_id` → `vouchers` (`20261028030000_feedback_reward_eligible.sql`): the template voucher the code was copied from. Trigger `rental_feedback_requests_limit_reward_codes` locks the template and refuses a new code once the count of rows for it reaches the template Max uses.
+- Service role only; no anon or authenticated grants.
+
 **faqs** (`20261026010000_faqs.sql`)
 
 - `id`, `uuid` (unique), `question` (3–200 chars), `answer` (1–2000 chars)

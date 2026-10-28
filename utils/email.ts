@@ -5,6 +5,8 @@ export const EMAIL_TEMPLATES = {
   AUTH_SIGNUP_CONFIRM: 'auth.signup.confirm',
   RENTAL_SUBMITTED: 'rental.submitted',
   RENTAL_WAIVER_INVITE: 'rental.waiver.invite',
+  RENTAL_FEEDBACK_REQUEST: 'rental.feedback.request',
+  FEEDBACK_REWARD: 'rental.feedback.reward',
 } as const
 
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[keyof typeof EMAIL_TEMPLATES]

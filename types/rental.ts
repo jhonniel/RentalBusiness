@@ -1,3 +1,4 @@
+import type { RentalFeedbackSummary } from '~/types/feedback'
 import type { PublicPayment } from '~/types/payment'
 import type { PublicReceipt } from '~/types/receipt'
 import type { PublicRentalVoucher } from '~/types/voucher'
@@ -67,6 +68,7 @@ export interface PublicRental {
   extensionLines?: RentalExtensionLine[]
   lateFee?: RentalLateFee | null
   actualSale?: number
+  feedback?: RentalFeedbackSummary | null
   createdAt: string
 }
 

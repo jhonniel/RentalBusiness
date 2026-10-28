@@ -161,6 +161,65 @@ export function waiverInviteEmail(input: {
   }
 }
 
+export function feedbackRequestEmail(input: {
+  customerName: string
+  rentalCode: string
+  products: string[]
+  feedbackUrl: string
+}) {
+  const gear = input.products.length ? input.products.join(', ') : 'your rental'
+  const html = layout(`How was ${gear}?`, `
+    <p style="margin:0 0 16px;font-size:16px;">Hi ${escapeHtml(input.customerName)},</p>
+    <p style="margin:0 0 16px;color:#57534e;line-height:1.6;">
+      Thank you for renting ${escapeHtml(gear)} with ${escapeHtml(APP_NAME)} (booking ${escapeHtml(input.rentalCode)}).
+      Please rate your experience from 1 to 5 stars and leave a comment. It takes about a minute.
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="${escapeHtml(input.feedbackUrl)}" style="display:inline-block;background:#0f1c17;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;">
+        Rate your rental
+      </a>
+    </p>
+    <p style="margin:0 0 16px;color:#57534e;font-size:14px;line-height:1.6;">
+      If the button does not work, copy this address:
+    </p>
+    <p style="margin:0;color:#325348;font-size:13px;word-break:break-all;">${escapeHtml(input.feedbackUrl)}</p>
+  `)
+
+  return {
+    subject: `How was your ${APP_NAME} rental? (${input.rentalCode})`,
+    html,
+  }
+}
+
+export function feedbackRewardEmail(input: {
+  rentalCode: string
+  code: string
+  label: string
+  minSubtotal: number
+  endsOn: string | null
+}) {
+  const terms = [
+    input.endsOn ? `Valid until ${formatBusinessDate(input.endsOn)}.` : null,
+    input.minSubtotal > 0 ? `For rentals of ${formatMoney(input.minSubtotal)} or more.` : null,
+    'Save this email or take a screenshot so you can use the code on your next rental.',
+  ].filter(Boolean).join(' ')
+  const html = layout('Your thank-you voucher', `
+    <p style="margin:0 0 16px;font-size:16px;">Thank you for your feedback on booking ${escapeHtml(input.rentalCode)}!</p>
+    <p style="margin:0 0 16px;color:#57534e;line-height:1.6;">Here is your voucher for ${escapeHtml(input.label)}:</p>
+    <p style="margin:0 0 16px;">
+      <span style="display:inline-block;border:2px dashed #0f1c17;border-radius:10px;padding:12px 20px;font-size:22px;font-weight:700;letter-spacing:2px;color:#0f1c17;">${escapeHtml(input.code)}</span>
+    </p>
+    <p style="margin:0 0 16px;color:#57534e;font-size:14px;line-height:1.6;">
+      This code is only for you and works once. Enter it on the Request a rental page before you pay. ${escapeHtml(terms)}
+    </p>
+  `)
+
+  return {
+    subject: `Your ${APP_NAME} thank-you voucher: ${input.code}`,
+    html,
+  }
+}
+
 export function rentalSubmittedStaffEmail(input: {
   rentalCode: string
   customerName: string

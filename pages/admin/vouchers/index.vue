@@ -3,6 +3,7 @@ import type { PublicVoucher, VoucherListResponse } from '~/types/voucher'
 import { VOUCHER_DISCOUNT_TYPES, VOUCHER_STATUSES } from '~/utils/constants'
 import { generateVoucherCode } from '~/utils/voucher'
 import { voucherInputSchema } from '~/utils/voucher-validation'
+import AdminFeedbackReward from '~/components/admin/AdminFeedbackReward.vue'
 
 definePageMeta({
   layout: 'admin',
@@ -175,6 +176,8 @@ async function disableVoucher(voucher: PublicVoucher) {
     />
 
     <template v-else>
+      <AdminFeedbackReward />
+
       <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
         <form
           class="rounded-xl border border-stone-200 bg-white p-5"

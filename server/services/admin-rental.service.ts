@@ -43,6 +43,9 @@ import { ensureBookingCustomer } from './booking-customer'
 import { buildQuote } from './rental.service'
 import { applyLinkedCommissioner, reconcileCommissionExpense, syncAssignedCommission } from './commissioner.service'
 import { rentalLateFee, stopLateFeeClock } from './late-fee.service'
+import { listLatestFeedbackByRentalIds, type FeedbackRequestRow } from '../repositories/feedback.repository'
+import { canSendFeedback, feedbackRequestStatus } from '../../utils/feedback'
+import type { RentalFeedbackSummary } from '../../types/feedback'
 import { findIdentityByRentalId } from '../repositories/identity.repository'
 import { insertNotification } from '../repositories/notification.repository'
 import {
@@ -102,6 +105,12 @@ async function loadAdminRental(client: Client, identifier: string) {
   return enrichAdminRental(client, rental, row)
 }
 
+function feedbackSummary(row: FeedbackRequestRow | undefined): RentalFeedbackSummary {
+  return row
+    ? { status: feedbackRequestStatus(row), averageRating: row.average_rating === null ? null : Number(row.average_rating) }
+    : { status: 'not_sent', averageRating: null }
+}
+
 export async function listAdminRentals(client: Client, query: {
   status?: RentalStatus
   search?: string
@@ -116,13 +125,20 @@ export async function listAdminRentals(client: Client, query: {
     to: from + query.pageSize - 1,
   })
 
-  const extensions = await listExtensionAmountsByRentalIds(client, rows.map(row => row.id)).catch(() => [])
+  const doneIds = rows.filter(row => canSendFeedback(row.status as RentalStatus)).map(row => row.id)
+  const [extensions, feedback] = await Promise.all([
+    listExtensionAmountsByRentalIds(client, rows.map(row => row.id)).catch(() => []),
+    listLatestFeedbackByRentalIds(client, doneIds).catch(() => new Map<number, FeedbackRequestRow>()),
+  ])
   return {
     items: rows.map((row) => {
       const rental = toShopRental(row)
       const payments = Array.isArray(row.payment_transactions) ? row.payment_transactions : row.payment_transactions ? [row.payment_transactions] : []
       return {
         ...rental,
+        feedback: canSendFeedback(rental.status)
+          ? feedbackSummary(feedback.get(row.id))
+          : null,
         actualSale: rentalActualSale({
           totalAmount: rental.totalAmount,
           commissionAmount: rental.commissioner ? rental.commissionAmount ?? 0 : 0,

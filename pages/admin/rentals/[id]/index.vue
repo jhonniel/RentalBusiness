@@ -3,6 +3,7 @@ import type { PublicRental } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
 import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, rentalSalesBreakdown, SHOP_PAYMENT_METHODS } from '~/utils/rental'
+import { canSendFeedback } from '~/utils/feedback'
 import { LATE_FEE_OUT_STATUSES } from '~/utils/late-fee'
 import { renderWaiverBody } from '~/utils/waiver'
 import { canModifyAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
@@ -108,6 +109,7 @@ const showLateFee = computed(() => {
   const fee = rental.value?.lateFee
   return Boolean(fee && (fee.status !== 'none' || fee.uuid || LATE_FEE_OUT_STATUSES.includes(rental.value!.status)))
 })
+const showFeedback = computed(() => Boolean(rental.value && canSendFeedback(rental.value.status)))
 const sales = computed(() => rental.value ? rentalSalesBreakdown(rental.value) : null)
 const commissionStatusLabel = computed(() => {
   if (rental.value?.commissionStatus === 'collected') {
@@ -647,6 +649,11 @@ async function removeRental() {
           <AdminRentalExtensions
             :rental="rental"
             @extended="refresh"
+          />
+
+          <AdminRentalFeedback
+            v-if="showFeedback"
+            :rental="rental"
           />
 
           <section class="rounded-2xl border border-stone-200 bg-white p-5">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { RentalListResponse } from '~/types/rental'
+import type { PublicRental, RentalListResponse } from '~/types/rental'
+import type { SentFeedbackLink } from '~/types/feedback'
 import { RENTAL_STATUSES } from '~/utils/constants'
 import { formatBookingDateRange } from '~/utils/datetime'
 import { formatPickupClock } from '~/utils/rental-window'
@@ -43,6 +44,56 @@ const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0)
 watch([search, status], () => {
   page.value = 1
 })
+
+const feedbackBusy = ref('')
+const feedbackLink = ref<SentFeedbackLink | null>(null)
+const feedbackTarget = ref<PublicRental | null>(null)
+const feedbackEarns = ref(true)
+const feedbackOpen = ref(false)
+
+function openFeedback(rental: PublicRental) {
+  feedbackTarget.value = rental
+  feedbackLink.value = null
+  feedbackEarns.value = true
+  feedbackOpen.value = true
+}
+
+async function createFeedbackLink() {
+  const rental = feedbackTarget.value
+  if (!rental) {
+    return
+  }
+  feedbackBusy.value = rental.uuid
+  try {
+    feedbackLink.value = await $fetch<SentFeedbackLink>(`/api/admin/rentals/${rental.uuid}/feedback`, {
+      method: 'POST',
+      body: { earnsReward: feedbackEarns.value },
+    })
+    await refresh()
+  }
+  catch (caught) {
+    const payload = typeof caught === 'object' && caught && 'data' in caught
+      ? (caught as { data?: { message?: string } }).data
+      : null
+    toast.add({ title: payload?.message || 'We could not create the feedback link.', color: 'error' })
+  }
+  finally {
+    feedbackBusy.value = ''
+  }
+}
+
+async function copyFeedbackLink() {
+  if (!feedbackLink.value) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(feedbackLink.value.feedbackUrl)
+    toast.add({ title: 'Feedback link copied', color: 'success' })
+  }
+  catch {
+    toast.add({ title: 'Select the link and copy it manually.', color: 'error' })
+  }
+}
 
 async function removeRental(uuid: string) {
   deletePending.value = true
@@ -189,6 +240,33 @@ async function removeRental(uuid: string) {
           />
         </NuxtLink>
         <div class="flex flex-wrap gap-2 lg:shrink-0 lg:justify-end">
+          <NuxtLink
+            v-if="rental.feedback?.status === 'submitted'"
+            :to="`/admin/rentals/${rental.code}#feedback`"
+            class="inline-flex min-w-[8rem] flex-1 items-center justify-center gap-1.5 rounded-md bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 lg:flex-none"
+            :title="`Customer rated this booking ${rental.feedback.averageRating?.toFixed(1)} of 5`"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              class="size-4 fill-amber-400"
+              aria-hidden="true"
+            ><path d="M12 2.5l2.94 5.96 6.56.95-4.75 4.63 1.12 6.53L12 17.5l-5.87 3.07 1.12-6.53L2.5 9.41l6.56-.95L12 2.5z" /></svg>
+            {{ rental.feedback.averageRating?.toFixed(1) }} feedback
+          </NuxtLink>
+          <UButton
+            v-else-if="rental.feedback"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-star"
+            class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+            :loading="feedbackBusy === rental.uuid"
+            :disabled="Boolean(feedbackBusy) && feedbackBusy !== rental.uuid"
+            :title="rental.feedback.status === 'sent' ? 'A link was sent. Create a new one (the old link stops working).' : 'Create a feedback link for this customer'"
+            @click="openFeedback(rental)"
+          >
+            {{ rental.feedback.status === 'sent' ? 'New feedback link' : 'Feedback link' }}
+          </UButton>
           <UButton
             v-if="canOpenAdminContinue(rental)"
             :to="`/admin/rentals/${rental.uuid}/continue`"
@@ -233,6 +311,79 @@ async function removeRental(uuid: string) {
         </div>
       </li>
     </ul>
+
+    <UModal
+      v-model:open="feedbackOpen"
+      :title="feedbackTarget ? `Feedback link for ${feedbackTarget.code}` : 'Feedback link'"
+      :description="!feedbackLink
+        ? 'Choose if this feedback earns the thank-you voucher, then create the link.'
+        : feedbackLink.sent ? 'We emailed this link to the customer. You can also copy it and send it on Messenger.' : 'No email was sent. Copy this link and send it to the customer.'"
+      :ui="{ content: 'sm:max-w-lg' }"
+    >
+      <template #body>
+        <div
+          v-if="!feedbackLink"
+          class="space-y-4"
+        >
+          <label class="flex items-start gap-3 rounded-lg border border-stone-200 p-3 text-sm">
+            <UCheckbox
+              v-model="feedbackEarns"
+              :disabled="Boolean(feedbackBusy)"
+              class="mt-0.5"
+            />
+            <span>
+              <span class="block font-medium text-stone-900">Earns the thank-you voucher</span>
+              <span class="block text-stone-600">If the customer rates every question and leaves a comment, they get the voucher set in Vouchers (while codes last). Turn off to only collect feedback.</span>
+            </span>
+          </label>
+          <p
+            v-if="feedbackTarget?.feedback?.status === 'sent'"
+            class="text-xs text-amber-700"
+          >
+            A link was already sent. Creating a new one turns off the old link.
+          </p>
+          <div class="flex justify-end gap-2">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              :disabled="Boolean(feedbackBusy)"
+              @click="feedbackOpen = false"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              icon="i-lucide-send"
+              :loading="Boolean(feedbackBusy)"
+              @click="createFeedbackLink"
+            >
+              Create link
+            </UButton>
+          </div>
+        </div>
+        <div
+          v-else
+          class="space-y-3"
+        >
+          <div class="flex gap-2">
+            <UInput
+              :model-value="feedbackLink.feedbackUrl"
+              readonly
+              class="min-w-0 flex-1"
+              @focus="($event.target as HTMLInputElement).select()"
+            />
+            <UButton
+              icon="i-lucide-copy"
+              @click="copyFeedbackLink"
+            >
+              Copy
+            </UButton>
+          </div>
+          <p class="text-xs text-stone-500">
+            The link works for 30 days. Only the customer with this link can answer, once. {{ feedbackLink.earnsReward ? 'This feedback earns the thank-you voucher.' : 'This feedback does not earn a voucher.' }}
+          </p>
+        </div>
+      </template>
+    </UModal>
 
     <div
       v-if="totalPages > 1"
