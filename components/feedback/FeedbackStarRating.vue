@@ -27,7 +27,14 @@ function filled(star: number) {
   return star <= (props.readOnly ? Math.round(props.modelValue) : shown.value)
 }
 
+function previewStar(event: PointerEvent, star: number) {
+  if (event.pointerType === 'mouse') {
+    hover.value = star
+  }
+}
+
 function choose(value: number) {
+  hover.value = 0
   if (!props.readOnly) {
     emit('update:modelValue', value)
   }
@@ -79,7 +86,7 @@ function onKey(event: KeyboardEvent) {
         :aria-label="`${star} star${star === 1 ? '' : 's'}, ${FEEDBACK_RATING_LABELS[star]}`"
         :tabindex="(modelValue || 1) === star ? 0 : -1"
         class="rounded-md p-0.5 transition-transform duration-150 hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 active:scale-95"
-        @mouseenter="hover = star"
+        @pointerenter="previewStar($event, star)"
         @click="choose(star)"
       >
         <svg

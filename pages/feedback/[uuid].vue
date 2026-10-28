@@ -135,10 +135,10 @@ async function submit() {
         v-else-if="done || form?.submitted"
         class="rounded-3xl border border-[#12201a]/8 bg-white p-8 text-center shadow-[0_18px_50px_rgb(18_32_26_/_8%)] sm:p-12"
       >
-        <span class="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+        <span class="feedback-handshake-ring relative mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
           <UIcon
             name="i-lucide-heart-handshake"
-            class="size-7"
+            class="feedback-handshake inline-block size-7"
           />
         </span>
         <h1 class="font-display mt-5 text-3xl font-semibold tracking-tight">
