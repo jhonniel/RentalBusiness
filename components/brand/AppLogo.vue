@@ -13,7 +13,7 @@ withDefaults(defineProps<{
 <template>
   <NuxtLink
     to="/"
-    class="inline-flex w-fit shrink-0 items-center bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+    class="inline-flex w-fit shrink-0 items-center bg-transparent max-sm:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
     :class="onDark ? 'focus-visible:ring-white focus-visible:ring-offset-[#0f1c17]' : 'focus-visible:ring-[#12201a] focus-visible:ring-offset-white'"
   >
     <img

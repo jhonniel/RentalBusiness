@@ -57,7 +57,8 @@ function onKey(event: KeyboardEvent) {
 
 <template>
   <div
-    class="inline-flex items-center gap-0.5"
+    class="inline-flex items-center"
+    :class="readOnly ? 'gap-0.5' : 'gap-0 sm:gap-0.5'"
     :role="readOnly ? 'img' : 'radiogroup'"
     :aria-label="readOnly ? `${label}: ${modelValue} out of ${FEEDBACK_RATING_MAX}` : label"
     @mouseleave="hover = 0"
@@ -85,7 +86,7 @@ function onKey(event: KeyboardEvent) {
         :aria-checked="modelValue === star"
         :aria-label="`${star} star${star === 1 ? '' : 's'}, ${FEEDBACK_RATING_LABELS[star]}`"
         :tabindex="(modelValue || 1) === star ? 0 : -1"
-        class="rounded-md p-0.5 transition-transform duration-150 hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 active:scale-95"
+        class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-transform duration-150 hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 active:scale-95 sm:min-h-0 sm:min-w-0 sm:p-0.5"
         @pointerenter="previewStar($event, star)"
         @click="choose(star)"
       >

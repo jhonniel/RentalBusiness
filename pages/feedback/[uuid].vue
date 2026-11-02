@@ -114,7 +114,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-[#f3f5f4] text-[#12201a]">
+  <div class="flex min-h-dvh max-w-full flex-col overflow-x-clip bg-[#f3f5f4] text-[#12201a]">
     <header class="border-b border-[#12201a]/10 bg-white">
       <div class="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <AppLogo />
@@ -124,7 +124,7 @@ async function submit() {
       </div>
     </header>
 
-    <main class="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-12">
+    <main class="mx-auto w-full min-w-0 max-w-2xl flex-1 break-words px-4 py-6 sm:px-6 sm:py-12">
       <CatalogNotice
         v-if="invalid"
         title="This feedback link is invalid"
@@ -133,7 +133,7 @@ async function submit() {
 
       <section
         v-else-if="done || form?.submitted"
-        class="rounded-3xl border border-[#12201a]/8 bg-white p-8 text-center shadow-[0_18px_50px_rgb(18_32_26_/_8%)] sm:p-12"
+        class="rounded-3xl border border-[#12201a]/8 bg-white px-5 py-8 text-center shadow-[0_18px_50px_rgb(18_32_26_/_8%)] sm:p-12"
       >
         <span class="feedback-handshake-ring relative mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
           <UIcon
@@ -141,7 +141,7 @@ async function submit() {
             class="feedback-handshake inline-block size-7"
           />
         </span>
-        <h1 class="font-display mt-5 text-3xl font-semibold tracking-tight">
+        <h1 class="font-display mt-5 text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-3xl">
           Thank you{{ form?.customerFirstName ? `, ${form.customerFirstName}` : '' }}!
         </h1>
         <p class="mx-auto mt-3 max-w-md text-sm leading-7 text-[#4a5a54]">
@@ -163,7 +163,7 @@ async function submit() {
         </div>
         <div
           v-if="shownReward"
-          class="mx-auto mt-8 max-w-sm rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-5"
+          class="mx-auto mt-8 w-full max-w-sm rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-4 sm:p-5"
         >
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">
             Your thank-you voucher
@@ -171,12 +171,14 @@ async function submit() {
           <p class="mt-1 text-sm text-emerald-900">
             {{ shownReward.label }}
           </p>
-          <div class="mt-3 flex items-center justify-center gap-2">
-            <span class="select-all rounded-lg bg-white px-4 py-2 font-mono text-xl font-bold tracking-[0.2em] text-[#12201a] shadow-sm">{{ shownReward.code }}</span>
+          <div class="mt-3 flex min-w-0 items-center justify-center gap-2">
+            <span class="min-w-0 select-all break-all rounded-lg bg-white px-3 py-2 font-mono text-lg font-bold tracking-[0.12em] text-[#12201a] shadow-sm sm:px-4 sm:text-xl sm:tracking-[0.2em]">{{ shownReward.code }}</span>
             <UButton
               color="neutral"
               variant="outline"
               icon="i-lucide-copy"
+              size="lg"
+              class="size-11 shrink-0 justify-center"
               aria-label="Copy voucher code"
               @click="copyReward"
             />
@@ -202,7 +204,7 @@ async function submit() {
         </div>
         <UButton
           to="/products"
-          class="mt-8 justify-center rounded-full"
+          class="mt-8 min-h-11 w-full justify-center rounded-full sm:w-auto"
           size="lg"
         >
           {{ shownReward ? 'Book your next rental' : 'Browse equipment' }}
@@ -266,13 +268,13 @@ async function submit() {
                 <p class="text-sm leading-6 text-[#3b4a44]">
                   {{ question.text }}
                 </p>
-                <div class="flex shrink-0 items-center gap-2">
+                <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   <FeedbackStarRating
                     v-model="ratings[question.key]"
                     :label="question.text"
                     :read-only="pending"
                   />
-                  <span class="w-16 text-xs font-medium text-[#5b6b64]">
+                  <span class="min-w-16 text-xs font-medium text-[#5b6b64]">
                     {{ ratings[question.key] ? FEEDBACK_RATING_LABELS[ratings[question.key]!] : '' }}
                   </span>
                 </div>
@@ -291,6 +293,7 @@ async function submit() {
               id="feedback-comment"
               v-model="comment"
               class="mt-3 w-full"
+              :ui="{ base: 'text-base sm:text-sm' }"
               :rows="4"
               autoresize
               maxlength="2000"
@@ -317,11 +320,11 @@ async function submit() {
             :description="formError"
           />
 
-          <div class="sticky bottom-0 -mx-4 flex flex-col gap-3 border-t border-[#12201a]/8 bg-[#f3f5f4]/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+          <div class="sticky bottom-0 -mx-4 flex flex-col gap-3 border-t border-[#12201a]/8 bg-[#f3f5f4]/95 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
             <UButton
               type="submit"
               size="lg"
-              class="justify-center rounded-full"
+              class="min-h-11 justify-center rounded-full"
               :loading="pending"
               :disabled="!ready"
             >

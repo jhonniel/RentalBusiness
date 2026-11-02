@@ -41,16 +41,9 @@
     max-width: 100%;
   }
 
-  @media (max-width: 639px) {
-    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
-    select,
-    textarea {
-      font-size: 1rem;
-    }
-  }
-
   body {
     @apply text-[#12201a] antialiased;
+    overflow-wrap: break-word;
     font-family: var(--font-sans);
     letter-spacing: 0;
     word-spacing: 0.22em;
@@ -76,6 +69,37 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+/* Phone rules live outside @layer so they win over Tailwind utilities like text-sm and h-8. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
+  select {
+    min-height: 44px;
+  }
+
+  button:not([role="switch"]):not([role="checkbox"]):not([role="radio"]):not([data-compact]),
+  [role="button"]:not([data-compact]),
+  summary {
+    min-height: 44px;
+  }
+
+  .site-footer a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  button:not([role="switch"]):not([role="checkbox"]):not([data-compact]):has(> svg:only-child),
+  button:not([role="switch"]):not([role="checkbox"]):not([data-compact]):has(> .iconify:only-child) {
+    min-width: 44px;
   }
 }
 

@@ -6,7 +6,7 @@ const { isAuthenticated } = useAuth()
 </script>
 
 <template>
-  <footer class="bg-[#0f1c17] text-white">
+  <footer class="site-footer bg-[#0f1c17] text-white">
     <div class="mx-auto grid max-w-7xl gap-10 px-4 py-14 text-center sm:grid-cols-2 sm:px-6 sm:text-left lg:grid-cols-5 lg:px-8">
       <div class="flex justify-center sm:justify-start">
         <AppLogo on-dark />
@@ -134,7 +134,7 @@ const { isAuthenticated } = useAuth()
             :href="FACEBOOK_URL"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex size-9 items-center justify-center rounded-full border border-white/15 hover:border-white/40 hover:text-white"
+            class="inline-flex size-9 items-center justify-center rounded-full border border-white/15 hover:border-white/40 hover:text-white max-sm:size-11"
             aria-label="JRY Rentals on Facebook"
           >
             <UIcon

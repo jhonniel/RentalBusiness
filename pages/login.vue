@@ -141,7 +141,7 @@ async function onGoogle() {
       <div class="flex justify-end">
         <NuxtLink
           to="/forgot-password"
-          class="text-sm font-medium text-[#12201a] underline-offset-4 hover:underline"
+          class="inline-flex items-center text-sm font-medium text-[#12201a] underline-offset-4 hover:underline max-sm:min-h-11"
         >
           Forgot password?
         </NuxtLink>
