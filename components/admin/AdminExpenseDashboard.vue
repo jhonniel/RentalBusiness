@@ -76,37 +76,43 @@ const statusItems = computed<ReportBarItem[]>(() => summary.value
 
     <div
       v-if="loading && !report"
-      class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
+      class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-6"
       role="status"
       aria-busy="true"
     >
       <USkeleton
         v-for="index in 5"
         :key="index"
-        class="h-24 w-full"
+        class="h-28 w-full rounded-2xl"
+        :class="index === 1 ? 'col-span-2' : 'col-span-1'"
       />
     </div>
 
     <template v-else-if="report">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div class="grid grid-flow-row-dense grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-6">
         <article
           v-for="(card, index) in cards"
           :key="card.label"
-          class="chart-fade min-w-0 rounded-xl border border-stone-200 bg-white p-4"
+          class="chart-fade flex min-w-0 flex-col justify-between gap-3 rounded-2xl border p-4 sm:p-5"
+          :class="index === 0 ? 'col-span-2 border-transparent bg-[#12201a] text-white' : 'col-span-1 border-stone-200 bg-white'"
           :style="{ animationDelay: `${index * 60}ms` }"
         >
-          <p class="text-xs uppercase tracking-wider text-stone-500">
+          <p
+            class="text-[11px] font-medium uppercase tracking-wider"
+            :class="index === 0 ? 'text-white/60' : 'text-stone-500'"
+          >
             {{ card.label }}
           </p>
           <p
-            class="mt-3 text-2xl"
-            :class="card.tone || 'text-stone-900'"
+            class="truncate font-semibold tabular-nums tracking-tight"
+            :class="index === 0 ? 'text-3xl sm:text-4xl' : ['text-xl sm:text-2xl', card.tone || 'text-stone-900']"
           >
             {{ card.value }}
           </p>
           <p
             v-if="card.hint"
-            class="mt-1 text-xs text-stone-500"
+            class="-mt-2 text-xs"
+            :class="index === 0 ? 'text-white/60' : 'text-stone-500'"
           >
             {{ card.hint }}
           </p>

@@ -85,9 +85,13 @@
     min-height: 44px;
   }
 
-  button:not([role="switch"]):not([role="checkbox"]):not([role="radio"]):not([data-compact]),
+  button:not([role="switch"]):not([role="checkbox"]):not([role="radio"]):not([data-compact]):not(:empty),
   [role="button"]:not([data-compact]),
   summary {
+    min-height: 44px;
+  }
+
+  input[type="file"]::file-selector-button {
     min-height: 44px;
   }
 

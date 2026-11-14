@@ -280,7 +280,7 @@ async function onSubmit() {
       <div>
         <NuxtLink
           to="/admin/rentals"
-          class="text-sm text-stone-500 hover:text-stone-800"
+          class="inline-flex items-center text-sm text-stone-500 hover:text-stone-800 max-sm:min-h-11"
         >
           Rentals
         </NuxtLink>
@@ -710,7 +710,9 @@ async function onSubmit() {
             class="mt-4 space-y-3 text-sm"
           >
             <div class="flex justify-between gap-4">
-              <dt class="text-stone-500">Equipment</dt>
+              <dt class="text-stone-500">
+                Equipment
+              </dt>
               <dd class="max-w-[12rem] truncate text-right text-stone-800">
                 {{ selectedProduct?.name }}
               </dd>
@@ -725,11 +727,15 @@ async function onSubmit() {
               v-if="quote.lessAmount > 0"
               class="flex justify-between gap-4"
             >
-              <dt class="text-stone-500">Less</dt>
+              <dt class="text-stone-500">
+                Less
+              </dt>
               <dd>−{{ formatMoney(quote.lessAmount) }}</dd>
             </div>
             <div class="flex justify-between gap-4">
-              <dt class="text-stone-500">Deposit</dt>
+              <dt class="text-stone-500">
+                Deposit
+              </dt>
               <dd>{{ formatMoney(quote.depositAmount) }}</dd>
             </div>
             <div class="flex justify-between gap-4 border-t border-stone-100 pt-3 font-medium text-stone-900">

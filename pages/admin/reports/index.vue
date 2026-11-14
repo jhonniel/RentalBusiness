@@ -327,43 +327,32 @@ const mobileRows = computed(() => {
     />
 
     <template v-else>
-      <div
+      <AdminBento
         v-if="remote.loading"
-        class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
         role="status"
         aria-busy="true"
       >
+        <USkeleton class="col-span-2 h-32 rounded-2xl" />
         <USkeleton
-          v-for="index in 4"
+          v-for="index in 3"
           :key="index"
-          class="h-24 w-full"
+          class="col-span-1 h-32 rounded-2xl"
         />
-      </div>
+      </AdminBento>
 
       <template v-else>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <article
-            v-for="card in summaryCards"
+        <AdminBento>
+          <AdminStat
+            v-for="(card, index) in summaryCards"
             :key="card.label"
-            class="min-w-0 rounded-xl border border-stone-200 bg-white p-4"
-          >
-            <p class="text-xs uppercase tracking-wider text-stone-500">
-              {{ card.label }}
-            </p>
-            <p
-              class="mt-3 text-2xl"
-              :class="card.tone === 'bad' ? 'text-red-600' : card.tone === 'good' ? 'text-emerald-700' : 'text-stone-900'"
-            >
-              {{ card.value }}
-            </p>
-            <p
-              v-if="card.hint"
-              class="mt-1 text-xs text-stone-500"
-            >
-              {{ card.hint }}
-            </p>
-          </article>
-        </div>
+            :wide="index === 0"
+            :tone="index === 0 && !card.tone ? 'dark' : 'default'"
+            :label="card.label"
+            :value="card.value"
+            :hint="card.hint || undefined"
+            :value-tone="card.tone === 'bad' ? 'bad' : card.tone === 'good' ? 'good' : null"
+          />
+        </AdminBento>
 
         <section
           v-if="charts?.trend?.length"

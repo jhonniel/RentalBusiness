@@ -100,13 +100,13 @@ function groups(item: AdminFeedbackListItem) {
     <template v-else-if="data && summary">
       <AdminFeedbackReward compact />
 
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs font-medium uppercase tracking-wider text-stone-500">
+      <AdminBento>
+        <article class="col-span-2 flex min-w-0 flex-col justify-between gap-3 rounded-2xl bg-[#12201a] p-4 text-white sm:p-5">
+          <p class="text-[11px] font-medium uppercase tracking-wider text-white/60">
             Average rating
           </p>
-          <div class="mt-2 flex items-center gap-3">
-            <p class="text-3xl font-semibold tabular-nums text-stone-900">
+          <div class="flex flex-wrap items-center gap-3">
+            <p class="text-3xl font-semibold tabular-nums sm:text-4xl">
               {{ summary.averageRating?.toFixed(1) ?? '—' }}
             </p>
             <FeedbackStarRating
@@ -116,38 +116,25 @@ function groups(item: AdminFeedbackListItem) {
               label="Average rating"
             />
           </div>
-        </div>
-        <div class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs font-medium uppercase tracking-wider text-stone-500">
-            Responses
-          </p>
-          <p class="mt-2 text-3xl font-semibold tabular-nums text-stone-900">
-            {{ summary.responses }}
-          </p>
-        </div>
-        <div class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs font-medium uppercase tracking-wider text-stone-500">
-            Waiting for an answer
-          </p>
-          <p class="mt-2 text-3xl font-semibold tabular-nums text-stone-900">
-            {{ summary.waiting }}
-          </p>
-          <p
-            v-if="summary.expired"
-            class="mt-1 text-xs text-amber-700"
-          >
-            {{ summary.expired }} expired
-          </p>
-        </div>
-        <div class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs font-medium uppercase tracking-wider text-stone-500">
-            Response rate
-          </p>
-          <p class="mt-2 text-3xl font-semibold tabular-nums text-stone-900">
-            {{ summary.responseRate === null ? '—' : `${summary.responseRate}%` }}
-          </p>
-        </div>
-      </div>
+        </article>
+        <AdminStat
+          icon="i-lucide-message-square-heart"
+          label="Responses"
+          :value="String(summary.responses)"
+        />
+        <AdminStat
+          icon="i-lucide-hourglass"
+          label="Waiting for an answer"
+          :value="String(summary.waiting)"
+          :hint="summary.expired ? `${summary.expired} expired` : undefined"
+          :tone="summary.expired ? 'warn' : 'default'"
+        />
+        <AdminStat
+          icon="i-lucide-percent"
+          label="Response rate"
+          :value="summary.responseRate === null ? '—' : `${summary.responseRate}%`"
+        />
+      </AdminBento>
 
       <div class="grid gap-4 lg:grid-cols-2">
         <section class="rounded-xl border border-stone-200 bg-white p-5">
@@ -312,7 +299,7 @@ function groups(item: AdminFeedbackListItem) {
               <div class="flex flex-wrap items-center gap-2">
                 <NuxtLink
                   :to="`/admin/rentals/${item.rentalCode}#feedback`"
-                  class="font-medium text-stone-900 hover:underline"
+                  class="inline-flex items-center font-medium text-stone-900 hover:underline max-sm:min-h-11"
                 >
                   {{ item.rentalCode }}
                 </NuxtLink>

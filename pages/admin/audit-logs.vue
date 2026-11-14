@@ -122,7 +122,7 @@ function changeSummary(value: Record<string, unknown> | null) {
         <NuxtLink
           v-if="auditTargetHref(item.entity, item.entityId)"
           :to="auditTargetHref(item.entity, item.entityId)!"
-          class="mt-2 inline-block text-sm text-lumen-800 hover:underline"
+          class="mt-2 inline-flex items-center text-sm text-lumen-800 hover:underline max-sm:min-h-11"
         >
           Open record
         </NuxtLink>

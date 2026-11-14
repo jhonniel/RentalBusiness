@@ -109,58 +109,49 @@ const csvHref = computed(() => {
     </div>
 
     <template v-else>
-      <div class="grid gap-3 sm:grid-cols-3">
-        <article class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs uppercase tracking-wider text-stone-500">
-            Actual sales
-          </p>
-          <p class="mt-3 text-2xl text-stone-900">
-            {{ formatMoney(data?.summary.total ?? 0) }}
-          </p>
-          <p class="mt-1 text-xs text-stone-500">
-            Payments minus deposits held and commissions
-          </p>
-        </article>
-        <article class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs uppercase tracking-wider text-stone-500">
-            Paid payments
-          </p>
-          <p class="mt-3 text-2xl text-stone-900">
-            {{ data?.summary.count ?? 0 }}
-          </p>
-        </article>
-        <article class="rounded-xl border border-stone-200 bg-white p-4">
-          <p class="text-xs uppercase tracking-wider text-stone-500">
-            Average sale
-          </p>
-          <p class="mt-3 text-2xl text-stone-900">
-            {{ formatMoney(data?.summary.average ?? 0) }}
-          </p>
-        </article>
-      </div>
+      <AdminBento>
+        <AdminStat
+          wide
+          tone="dark"
+          icon="i-lucide-trending-up"
+          label="Actual sales"
+          :value="formatMoney(data?.summary.total ?? 0)"
+          hint="Payments minus deposits held and commissions"
+        />
+        <AdminStat
+          icon="i-lucide-badge-check"
+          label="Paid payments"
+          :value="String(data?.summary.count ?? 0)"
+        />
+        <AdminStat
+          icon="i-lucide-calculator"
+          label="Average sale"
+          :value="formatMoney(data?.summary.average ?? 0)"
+        />
 
-      <div
-        v-if="rows.length"
-        class="grid gap-4 lg:grid-cols-3"
-      >
-        <section class="min-w-0 rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2">
-          <h3 class="text-sm font-medium text-stone-900">
-            Actual sales {{ bucketLabel }}
-          </h3>
-          <p class="mt-1 mb-4 text-xs text-stone-500">
-            Hover a bar to see the amount.
-          </p>
+        <AdminTile
+          v-if="rows.length"
+          size="wide"
+          :title="`Actual sales ${bucketLabel}`"
+          icon="i-lucide-chart-column"
+          description="Hover a bar to see the amount."
+        >
           <ReportTrendChart
             :points="trend"
             :series="['sales']"
           />
-        </section>
-        <ReportBarList
-          title="Sales by payment method"
-          :items="methodItems"
-          empty-text="No paid payments in this range."
-        />
-      </div>
+        </AdminTile>
+        <div
+          v-if="rows.length"
+          class="col-span-2 min-w-0 [&>*]:h-full"
+        >
+          <ReportBarList
+            title="Sales by payment method"
+            :items="methodItems"
+            empty-text="No paid payments in this range."
+          />
+        </div>
+      </AdminBento>
 
       <AdminNotice
         v-if="!rows.length"
