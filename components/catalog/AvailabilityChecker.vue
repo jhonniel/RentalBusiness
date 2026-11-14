@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AvailabilityResponse } from '~/types/availability'
+import { FACEBOOK_MESSENGER_URL } from '~/utils/constants'
 import { calendarDateInZone } from '~/utils/datetime'
 import { addCalendarDays } from '~/utils/expense'
 import {
@@ -114,7 +115,6 @@ async function goRent() {
   try {
     result.value = await loadAvailability()
     if (!result.value.canFulfill) {
-      formError.value = 'Those dates are not available. Another request already holds that kit.'
       return
     }
     await navigateTo(rentTo.value)
@@ -201,16 +201,39 @@ function tomorrow(date: string) {
 
     <div
       v-if="result"
-      class="mt-4 rounded-xl px-4 py-3 text-sm leading-6"
-      :class="result.canFulfill ? 'bg-white text-[#12201a] ring-1 ring-[#12201a]/8' : 'bg-red-50 text-red-900'"
+      class="mt-4 flex items-start gap-3 rounded-xl px-4 py-3 text-sm leading-6 ring-1"
+      :class="result.canFulfill ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-red-50 text-red-900 ring-red-200'"
       role="status"
     >
-      <p v-if="result.canFulfill">
-        Available from pickup through return. {{ result.available }} of {{ result.capacity }} units are free.
+      <UIcon
+        :name="result.canFulfill ? 'i-lucide-circle-check' : 'i-lucide-circle-x'"
+        class="mt-0.5 size-5 shrink-0"
+        :class="result.canFulfill ? 'text-emerald-600' : 'text-red-600'"
+      />
+      <p
+        v-if="result.canFulfill"
+        class="font-semibold"
+      >
+        Unit is available
       </p>
-      <p v-else>
-        That pickup and return window is not fully free. {{ result.available }} of {{ result.capacity }} units remain.
-      </p>
+      <div v-else>
+        <p class="font-semibold">
+          No unit available for the selected dates
+        </p>
+        <p class="mt-0.5">
+          Try other dates, or
+          <a
+            :href="FACEBOOK_MESSENGER_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 font-semibold text-[#1877f2] underline underline-offset-2 max-sm:min-h-11"
+          ><UIcon
+            name="i-lucide-facebook"
+            class="size-4"
+          />message us on Facebook</a>
+          to inquire more.
+        </p>
+      </div>
     </div>
 
     <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
