@@ -103,7 +103,7 @@ const priceRows = computed(() => product.value ? visibleCatalogPrices(product.va
           v-if="product.comingSoon"
           class="mt-3 inline-flex rounded-full bg-[#12201a] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white"
         >
-          Coming soon
+          Available soon
         </span>
         <h1 class="font-display mt-2 text-2xl break-words text-stone-900 sm:text-4xl">
           {{ product.name }}
@@ -134,7 +134,7 @@ const priceRows = computed(() => product.value ? visibleCatalogPrices(product.va
         <CatalogNotice
           v-if="product.comingSoon"
           class="mt-6"
-          title="Coming soon"
+          title="Available soon"
           description="This kit is not open for booking yet. Check back when it is listed as available."
         />
 

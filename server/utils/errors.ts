@@ -1,11 +1,11 @@
-import { AppError, ERROR_CODES, loggedErrorText, toClientError } from '../../utils/errors'
+import { AppError, ERROR_CODES, loggedErrorText, SUPPORT_MESSAGE, toClientError } from '../../utils/errors'
 import { logger } from './logger'
 
 export { AppError, ERROR_CODES, toClientError }
 
 export function createInternalError(cause?: unknown): AppError {
   return new AppError(
-    'Contact the admin for support.',
+    SUPPORT_MESSAGE,
     500,
     ERROR_CODES.INTERNAL_ERROR,
     { cause },

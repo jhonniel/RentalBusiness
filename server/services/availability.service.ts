@@ -32,7 +32,7 @@ async function loadActiveProduct(client: Client, productUuid?: string, productSl
   }
 
   if (row.status === 'coming_soon') {
-    throw new AppError('That kit is coming soon and cannot be booked yet.', 409, ERROR_CODES.CONFLICT)
+    throw new AppError('That kit is available soon and cannot be booked yet.', 409, ERROR_CODES.CONFLICT)
   }
 
   if (!isBookableProductStatus(row.status)) {

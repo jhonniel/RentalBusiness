@@ -182,7 +182,7 @@ export type AdminReport
   })
   | (ReportMeta & {
     type: 'expenses'
-    summary: { count: number, total: number, commissions: number, otherExpenses: number, paid: number, pending: number, voidCount: number }
+    summary: { count: number, total: number, commissions: number, commissionsUnclaimed: number, commissionsCollected: number, otherExpenses: number, paid: number, pending: number, voidCount: number }
     charts: ReportCharts
     rows: ExpenseReportRow[]
   })

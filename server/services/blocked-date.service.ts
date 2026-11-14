@@ -81,7 +81,7 @@ export async function createAdminBlockedDate(
   if (!canBlockProductDates(product.status)) {
     throw new AppError(
       product.status === 'coming_soon'
-        ? 'A coming soon kit cannot have blocked dates.'
+        ? 'An available soon kit cannot have blocked dates.'
         : 'Only an active kit can have blocked dates.',
       409,
       ERROR_CODES.CONFLICT,

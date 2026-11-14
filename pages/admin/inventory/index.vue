@@ -38,6 +38,14 @@ const { data: products } = await useFetch<ProductListResponse>('/api/admin/produ
 })
 
 const unavailable = computed(() => error.value?.statusCode === 503)
+const assetCounts = computed(() => {
+  const items = data.value?.items ?? []
+  return {
+    ready: items.filter(asset => !asset.rental && asset.status === 'available').length,
+    rented: items.filter(asset => asset.rental || asset.status === 'rented' || asset.status === 'reserved').length,
+    attention: items.filter(asset => ['maintenance', 'damaged', 'lost'].includes(asset.status)).length,
+  }
+})
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0) / 20)))
 
 watch([search, status, productUuid], () => {
@@ -109,17 +117,39 @@ async function saveAsset() {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Catalog
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Inventory
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Serialized equipment assets. Add new units from a product page.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Catalog"
+      title="Inventory"
+      description="Serialized equipment assets. Add new units from a product page."
+    />
+
+    <AdminBento v-if="data">
+      <AdminStat
+        icon="i-lucide-boxes"
+        label="Assets"
+        :value="String(data.total)"
+        hint="Serialized units"
+      />
+      <AdminStat
+        icon="i-lucide-circle-check"
+        label="Ready to rent"
+        :value="String(assetCounts.ready)"
+        hint="On this page"
+      />
+      <AdminStat
+        icon="i-lucide-truck"
+        label="Rented out"
+        :value="String(assetCounts.rented)"
+        hint="On this page"
+      />
+      <AdminStat
+        icon="i-lucide-wrench"
+        label="Needs attention"
+        :tone="assetCounts.attention > 0 ? 'warn' : 'default'"
+        :value="String(assetCounts.attention)"
+        hint="Maintenance, damaged, or lost"
+      />
+    </AdminBento>
 
     <form
       class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-3"

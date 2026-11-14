@@ -58,17 +58,11 @@ async function onSubmit() {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Legal
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Waivers
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Publish a new current version. Accepted copies stay bound to the version the customer signed.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Legal"
+      title="Waivers"
+      description="Publish a new current version. Accepted copies stay bound to the version the customer signed."
+    />
 
     <AdminNotice
       v-if="unavailable"

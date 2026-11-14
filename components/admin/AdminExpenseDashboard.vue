@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminReport, ReportBarItem } from '~/types/report'
+import type { AdminCommissionsResponse } from '~/types/commission'
 import type { ReportPeriod } from '~/utils/report'
 import { REPORT_PERIOD_LABELS, REPORT_PERIODS } from '~/utils/report'
 
@@ -10,6 +11,12 @@ const props = defineProps<{
 
 const period = defineModel<ReportPeriod>('period', { required: true })
 const { formatMoney } = useCurrency()
+const NuxtLinkComponent = resolveComponent('NuxtLink')
+const { data: commissions } = useFetch<AdminCommissionsResponse>('/api/admin/commissions', { lazy: true, server: false })
+const owed = computed(() => {
+  const unclaimed = commissions.value?.unclaimed ?? []
+  return { amount: unclaimed.reduce((sum, item) => sum + item.amount, 0), count: unclaimed.length }
+})
 
 const summary = computed(() => props.report?.summary ?? null)
 const charts = computed(() => props.report?.charts ?? null)
@@ -24,7 +31,8 @@ const cards = computed(() => {
     { label: 'Total expenses', value: formatMoney(value.total), hint: `${value.count - value.voidCount} entr${value.count - value.voidCount === 1 ? 'y' : 'ies'}${value.voidCount ? ` · ${value.voidCount} void` : ''}` },
     { label: 'Paid', value: formatMoney(value.paid), tone: 'text-emerald-700' },
     { label: 'Unpaid', value: formatMoney(value.pending), hint: 'Pending entries still to settle', tone: value.pending > 0 ? 'text-amber-700' : '' },
-    { label: 'Commissions', value: formatMoney(value.commissions), hint: 'Unclaimed and collected' },
+    { label: 'Commissions', value: formatMoney(value.commissions), hint: `${formatMoney(value.commissionsUnclaimed ?? 0)} unclaimed · ${formatMoney(value.commissionsCollected ?? 0)} collected` },
+    { label: 'Unclaimed commissions · all time', value: commissions.value ? formatMoney(owed.value.amount) : '—', hint: commissions.value ? `${owed.value.count} booking${owed.value.count === 1 ? '' : 's'} still to pay commissioners` : 'Loading…', tone: owed.value.amount > 0 ? 'text-amber-700' : '', to: '/admin/commissioners' },
     { label: 'Other expenses', value: formatMoney(value.otherExpenses), hint: 'Everything except commissions' },
   ]
 })
@@ -90,11 +98,13 @@ const statusItems = computed<ReportBarItem[]>(() => summary.value
 
     <template v-else-if="report">
       <div class="grid grid-flow-row-dense grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-6">
-        <article
+        <component
+          :is="card.to ? NuxtLinkComponent : 'article'"
           v-for="(card, index) in cards"
           :key="card.label"
+          :to="card.to"
           class="chart-fade flex min-w-0 flex-col justify-between gap-3 rounded-2xl border p-4 sm:p-5"
-          :class="index === 0 ? 'col-span-2 border-transparent bg-[#12201a] text-white' : 'col-span-1 border-stone-200 bg-white'"
+          :class="index === 0 ? 'col-span-2 border-transparent bg-[#12201a] text-white' : ['col-span-1 border-stone-200 bg-white', card.to ? 'hover:border-stone-300' : '']"
           :style="{ animationDelay: `${index * 60}ms` }"
         >
           <p
@@ -116,7 +126,7 @@ const statusItems = computed<ReportBarItem[]>(() => summary.value
           >
             {{ card.hint }}
           </p>
-        </article>
+        </component>
       </div>
 
       <div class="grid gap-4 lg:grid-cols-3">

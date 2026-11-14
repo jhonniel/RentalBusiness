@@ -88,7 +88,7 @@ async function onSubmit() {
       Block dates
     </h3>
     <p class="mt-1 text-sm text-stone-500">
-      Choose dates here, or open a day and use it to block. Blocked kits show as gray bars on the calendar; open that day to remove one. Only active kits can be blocked. Past dates and coming soon kits cannot be blocked or booked.
+      Choose dates here, or open a day and use it to block. Blocked kits show as gray bars on the calendar; open that day to remove one. Only active kits can be blocked. Past dates and available soon kits cannot be blocked or booked.
     </p>
 
     <AuthAlert

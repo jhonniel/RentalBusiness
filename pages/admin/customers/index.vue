@@ -153,17 +153,11 @@ async function promote(customer: AdminCustomer) {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Operations
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Customers
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Customer profiles, system users, and commissioners who book equipment for clients.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Operations"
+      title="Customers"
+      description="Customer profiles, system users, and commissioners who book equipment for clients."
+    />
 
     <AdminNotice
       v-if="unavailable"
@@ -171,8 +165,29 @@ async function promote(customer: AdminCustomer) {
       description="Add live Supabase credentials to load customer profiles."
     />
 
-    <template v-else>
-      <section class="space-y-3">
+    <AdminBento v-else>
+      <AdminStat
+        wide
+        tone="dark"
+        icon="i-lucide-users"
+        label="Customers"
+        :value="String(data?.total ?? '—')"
+        :hint="search ? `Matching \u201C${search}\u201D` : 'All customer accounts'"
+      />
+      <AdminStat
+        icon="i-lucide-shield-check"
+        label="System users"
+        :value="String(systemUsers?.length ?? '—')"
+        hint="Admins"
+      />
+      <AdminStat
+        icon="i-lucide-hand-coins"
+        label="Commissioners"
+        :value="String(commissioners?.length ?? '—')"
+        to="/admin/commissioners"
+      />
+
+      <section class="col-span-2 min-w-0 space-y-3 lg:col-span-2 xl:col-span-3">
         <div>
           <h3 class="text-sm font-medium text-stone-900">
             System users
@@ -233,7 +248,7 @@ async function promote(customer: AdminCustomer) {
         </ul>
       </section>
 
-      <section class="space-y-3">
+      <section class="col-span-2 min-w-0 space-y-3 lg:col-span-2 xl:col-span-3">
         <div>
           <h3 class="text-sm font-medium text-stone-900">
             Commissioners
@@ -280,166 +295,176 @@ async function promote(customer: AdminCustomer) {
         </ul>
       </section>
 
-      <form
-        class="rounded-xl border border-stone-200 bg-white p-4"
-        method="get"
-        @submit.prevent
-      >
-        <input
-          v-model="searchInput"
-          class="w-full rounded-md border border-stone-200 px-3 py-2 text-sm lg:max-w-md"
-          placeholder="Search name"
+      <section class="col-span-2 min-w-0 space-y-3 lg:col-span-4 xl:col-span-6">
+        <div>
+          <h3 class="text-sm font-medium text-stone-900">
+            Customer accounts
+          </h3>
+          <p class="mt-1 text-sm text-stone-500">
+            Link a customer to a commissioner, or promote them to admin or commissioner.
+          </p>
+        </div>
+        <form
+          class="rounded-xl border border-stone-200 bg-white p-4"
+          method="get"
+          @submit.prevent
         >
-      </form>
+          <input
+            v-model="searchInput"
+            class="w-full rounded-md border border-stone-200 px-3 py-2 text-sm lg:max-w-md"
+            placeholder="Search name"
+          >
+        </form>
 
-      <div
-        v-if="pending && !data"
-        class="space-y-3"
-      >
-        <USkeleton class="h-16 w-full" />
-        <USkeleton class="h-16 w-full" />
-      </div>
-
-      <AdminNotice
-        v-else-if="error"
-        title="Customers could not be loaded"
-        description="Refresh this page. Customer accounts will appear here when the list loads."
-      />
-
-      <AdminNotice
-        v-else-if="!data?.items.length"
-        title="No customers"
-        description="Registered customers will appear here. You can make one a system user."
-      />
-
-      <ul
-        v-else
-        class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
-      >
-        <li
-          v-for="customer in data.items"
-          :key="customer.uuid"
-          class="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+        <div
+          v-if="pending && !data"
+          class="space-y-3"
         >
-          <div class="min-w-0">
-            <p class="font-medium text-stone-900">
-              {{ displayName(customer) }}
-            </p>
-            <p class="text-sm break-words text-stone-500">
-              {{ customer.walkIn ? 'Walk-in, no email given' : (customer.email || 'No account email') }}
-              · {{ customer.phone || 'No phone' }}
-              · joined {{ formatBusinessDate(customer.createdAt) }}
-            </p>
-            <label
-              v-if="data.commissionerLinksAvailable !== false"
-              class="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-600"
-            >
-              <UIcon
-                name="i-lucide-handshake"
-                class="size-3.5 shrink-0 text-stone-400"
-              />
-              <span>Commissioner</span>
-              <select
-                class="h-8 max-w-56 rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800"
-                :value="customer.linkedCommissioner?.uuid || ''"
-                :disabled="linkingUuid === customer.uuid"
-                @change="linkCommissioner(customer, ($event.target as HTMLSelectElement).value)"
+          <USkeleton class="h-16 w-full" />
+          <USkeleton class="h-16 w-full" />
+        </div>
+
+        <AdminNotice
+          v-else-if="error"
+          title="Customers could not be loaded"
+          description="Refresh this page. Customer accounts will appear here when the list loads."
+        />
+
+        <AdminNotice
+          v-else-if="!data?.items.length"
+          title="No customers"
+          description="Registered customers will appear here. You can make one a system user."
+        />
+
+        <ul
+          v-else
+          class="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white"
+        >
+          <li
+            v-for="customer in data.items"
+            :key="customer.uuid"
+            class="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          >
+            <div class="min-w-0">
+              <p class="font-medium text-stone-900">
+                {{ displayName(customer) }}
+              </p>
+              <p class="text-sm break-words text-stone-500">
+                {{ customer.walkIn ? 'Walk-in, no email given' : (customer.email || 'No account email') }}
+                · {{ customer.phone || 'No phone' }}
+                · joined {{ formatBusinessDate(customer.createdAt) }}
+              </p>
+              <label
+                v-if="data.commissionerLinksAvailable !== false"
+                class="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-600"
               >
-                <option value="">
-                  Not linked
-                </option>
-                <option
-                  v-for="person in commissioners"
-                  :key="person.uuid"
-                  :value="person.uuid"
+                <UIcon
+                  name="i-lucide-handshake"
+                  class="size-3.5 shrink-0 text-stone-400"
+                />
+                <span>Commissioner</span>
+                <select
+                  class="h-8 max-w-56 rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800"
+                  :value="customer.linkedCommissioner?.uuid || ''"
+                  :disabled="linkingUuid === customer.uuid"
+                  @change="linkCommissioner(customer, ($event.target as HTMLSelectElement).value)"
                 >
-                  {{ displayName(person) }}
-                </option>
-              </select>
-              <span
-                v-if="customer.linkedCommissioner"
-                class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700"
+                  <option value="">
+                    Not linked
+                  </option>
+                  <option
+                    v-for="person in commissioners"
+                    :key="person.uuid"
+                    :value="person.uuid"
+                  >
+                    {{ displayName(person) }}
+                  </option>
+                </select>
+                <span
+                  v-if="customer.linkedCommissioner"
+                  class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700"
+                >
+                  Earns commission on new bookings
+                </span>
+              </label>
+              <p
+                v-else
+                class="mt-2 text-xs text-stone-500"
               >
-                Earns commission on new bookings
-              </span>
-            </label>
-            <p
-              v-else
-              class="mt-2 text-xs text-stone-500"
-            >
-              Paste 20261026000000_customer_commissioner_binding.sql in Supabase to link customers to commissioners.
-            </p>
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-3">
-            <p class="text-sm text-stone-600">
-              {{ customer.rentalCount }} rental{{ customer.rentalCount === 1 ? '' : 's' }}
-            </p>
-            <template v-if="confirmUuid === customer.uuid">
+                Paste 20261026000000_customer_commissioner_binding.sql in Supabase to link customers to commissioners.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-3">
+              <p class="text-sm text-stone-600">
+                {{ customer.rentalCount }} rental{{ customer.rentalCount === 1 ? '' : 's' }}
+              </p>
+              <template v-if="confirmUuid === customer.uuid">
+                <UButton
+                  size="xs"
+                  :loading="promoting && confirmRole === 'commissioner'"
+                  @click="confirmRole = 'commissioner'; promote(customer)"
+                >
+                  Make commissioner
+                </UButton>
+                <UButton
+                  size="xs"
+                  :loading="promoting && confirmRole === 'admin'"
+                  @click="confirmRole = 'admin'; promote(customer)"
+                >
+                  Make system user
+                </UButton>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :disabled="promoting"
+                  @click="confirmUuid = null; confirmRole = null"
+                >
+                  Cancel
+                </UButton>
+              </template>
               <UButton
-                size="xs"
-                :loading="promoting && confirmRole === 'commissioner'"
-                @click="confirmRole = 'commissioner'; promote(customer)"
-              >
-                Make commissioner
-              </UButton>
-              <UButton
-                size="xs"
-                :loading="promoting && confirmRole === 'admin'"
-                @click="confirmRole = 'admin'; promote(customer)"
-              >
-                Make system user
-              </UButton>
-              <UButton
+                v-else
                 color="neutral"
-                variant="ghost"
+                variant="outline"
                 size="xs"
-                :disabled="promoting"
-                @click="confirmUuid = null; confirmRole = null"
+                @click="confirmUuid = customer.uuid; deleteUuid = null"
               >
-                Cancel
+                Change role
               </UButton>
-            </template>
-            <UButton
-              v-else
-              color="neutral"
-              variant="outline"
-              size="xs"
-              @click="confirmUuid = customer.uuid; deleteUuid = null"
-            >
-              Change role
-            </UButton>
-            <AdminDeleteAccount
-              :open="deleteUuid === customer.uuid"
-              :loading="deleting"
-              @start="deleteUuid = customer.uuid; confirmUuid = null; confirmRole = null"
-              @cancel="deleteUuid = null"
-              @confirm="deleteAccount(customer)"
-            />
-          </div>
-        </li>
-      </ul>
+              <AdminDeleteAccount
+                :open="deleteUuid === customer.uuid"
+                :loading="deleting"
+                @start="deleteUuid = customer.uuid; confirmUuid = null; confirmRole = null"
+                @cancel="deleteUuid = null"
+                @confirm="deleteAccount(customer)"
+              />
+            </div>
+          </li>
+        </ul>
 
-      <div
-        v-if="totalPages > 1"
-        class="flex flex-wrap justify-end gap-2"
-      >
-        <UButton
-          color="neutral"
-          variant="outline"
-          :disabled="page <= 1"
-          @click="page -= 1"
+        <div
+          v-if="totalPages > 1"
+          class="flex flex-wrap justify-end gap-2"
         >
-          Previous
-        </UButton>
-        <UButton
-          color="neutral"
-          variant="outline"
-          :disabled="page >= totalPages"
-          @click="page += 1"
-        >
-          Next
-        </UButton>
-      </div>
-    </template>
+          <UButton
+            color="neutral"
+            variant="outline"
+            :disabled="page <= 1"
+            @click="page -= 1"
+          >
+            Previous
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="outline"
+            :disabled="page >= totalPages"
+            @click="page += 1"
+          >
+            Next
+          </UButton>
+        </div>
+      </section>
+    </AdminBento>
   </div>
 </template>

@@ -254,17 +254,11 @@ const mobileRows = computed(() => {
 <template>
   <div class="w-full space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-          Finance
-        </p>
-        <h2 class="mt-2 text-2xl font-medium text-stone-900">
-          Reports
-        </h2>
-        <p class="mt-1 text-sm text-stone-600">
-          Sales, expenses, commissions, profit, rentals, inventory, and utilization. Totals use Asia/Manila dates. Profit is sales minus expenses and commissions.
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow="Finance"
+        title="Reports"
+        description="Sales, expenses, commissions, profit, rentals, inventory, and utilization. Totals use Asia/Manila dates. Profit is sales minus expenses and commissions."
+      />
       <UButton
         :to="csvHref"
         color="neutral"

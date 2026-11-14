@@ -62,17 +62,11 @@ useSiteMeta({
       Back to waivers
     </UButton>
 
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Legal
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Waiver PDF
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        View, download, or print this published waiver version.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Legal"
+      title="Waiver PDF"
+      description="View, download, or print this published waiver version."
+    />
 
     <AdminNotice
       v-if="loadError"

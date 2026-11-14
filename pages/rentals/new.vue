@@ -215,7 +215,7 @@ async function onSubmit() {
     <CatalogNotice
       v-else-if="product?.comingSoon"
       class="mt-8"
-      title="Coming soon"
+      title="Available soon"
       description="This kit is not open for booking yet. Check back when it is listed as available."
     >
       <UButton

@@ -50,17 +50,11 @@ const csvHref = computed(() => {
 <template>
   <div class="w-full space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-          Finance
-        </p>
-        <h2 class="mt-2 text-2xl font-medium text-stone-900">
-          Sales
-        </h2>
-        <p class="mt-1 text-sm text-stone-600">
-          Paid payments in Asia/Manila. Amounts stay on the server quote that was collected.
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow="Finance"
+        title="Sales"
+        description="Paid payments in Asia/Manila. Amounts stay on the server quote that was collected."
+      />
       <UButton
         :to="csvHref"
         color="neutral"

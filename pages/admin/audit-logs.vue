@@ -50,17 +50,11 @@ function changeSummary(value: Record<string, unknown> | null) {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Operations
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Audit logs
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Historical admin and system actions. Rows are append-only and cannot be edited or deleted here.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Operations"
+      title="Audit logs"
+      description="Historical admin and system actions. Rows are append-only and cannot be edited or deleted here."
+    />
 
     <form
       class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-2"

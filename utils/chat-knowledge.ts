@@ -24,7 +24,7 @@ function specsText(product: CatalogProduct) {
 
 export function productFacts(product: CatalogProduct) {
   const parts = [
-    product.comingSoon ? 'coming soon, not open for booking yet' : 'available to book',
+    product.comingSoon ? 'available soon, not open for booking yet' : 'available to book',
     product.dailyPrice !== null ? `${peso.format(product.dailyPrice)} per day` : null,
     product.depositAmount !== null && product.depositAmount > 0 ? `refundable deposit ${peso.format(product.depositAmount)}` : null,
     product.comingSoon ? null : `units in the shop: ${product.availableQuantity}`,
@@ -39,7 +39,7 @@ export function productFacts(product: CatalogProduct) {
 
 export function productAnswer(product: CatalogProduct) {
   const opening = product.comingSoon
-    ? `${product.name} is coming soon and can't be booked yet.`
+    ? `${product.name} is available soon and can't be booked yet.`
     : product.dailyPrice !== null
       ? `${product.name} is available to book at ${peso.format(product.dailyPrice)} per day${product.depositAmount ? ` with a ${peso.format(product.depositAmount)} refundable deposit` : ''}.`
       : `${product.name} is available to book.`
@@ -58,7 +58,7 @@ export function productAnswer(product: CatalogProduct) {
 
 function unitsAnswer(product: CatalogProduct) {
   if (product.comingSoon) {
-    return `${product.name} is coming soon and can't be booked yet.`
+    return `${product.name} is available soon and can't be booked yet.`
   }
   const units = product.availableQuantity === 1 ? '1 unit' : `${product.availableQuantity} units`
   return `We have ${units} of ${product.name}. Tell me your dates and how many you need, and I'll check how many are free.`
@@ -95,7 +95,7 @@ export function policyFacts(policies: ChatShopPolicies, paymentMethods: string[]
     paymentMethods.length ? `Payment methods: ${paymentMethods.join(', ')}.` : null,
     'How to pay: open the booking in My rentals, tap Pay, scan the QR code of a payment method shown there, then send the proof of payment on Facebook. The shop does not send QR codes separately.',
     'Booking steps: choose equipment and dates, sign the rental agreement, photograph a government ID and a selfie, submit the request, then pay on the booking Pay page.',
-    'Coming soon items cannot be booked yet, so do not ask for dates for them.',
+    'Available soon items cannot be booked yet, so do not ask for dates for them. Call them available soon, not coming soon.',
   ].filter(Boolean).join('\n')
 }
 
@@ -156,7 +156,7 @@ export function answerFromCatalog(
     const soon = products.filter(product => product.comingSoon).map(product => product.name)
     return [
       open.length ? `Available to book: ${open.join(', ')}.` : null,
-      soon.length ? `Coming soon: ${soon.join(', ')}.` : null,
+      soon.length ? `Available soon: ${soon.join(', ')}.` : null,
     ].filter(Boolean).join(' ')
   }
 

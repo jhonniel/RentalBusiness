@@ -70,4 +70,8 @@ watch(() => route.fullPath, () => {
 .admin-main :where(table) {
   max-width: 100%;
 }
+
+.admin-main :where(.rounded-xl.border, section.rounded-xl, form.rounded-xl, article.rounded-xl, ul.rounded-xl) {
+  border-radius: 1rem;
+}
 </style>

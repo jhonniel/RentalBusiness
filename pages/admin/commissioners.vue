@@ -23,6 +23,7 @@ const unavailable = computed(() => error.value?.statusCode === 503)
 const visibleUnclaimed = computed(() => (data.value?.unclaimed ?? []).filter(item => !filter.value || item.commissioner.uuid === filter.value))
 const visibleCollected = computed(() => (data.value?.collected ?? []).filter(item => !filter.value || item.commissioner.uuid === filter.value))
 const totalUnclaimed = computed(() => visibleUnclaimed.value.reduce((sum, item) => sum + item.amount, 0))
+const totalCollected = computed(() => visibleCollected.value.reduce((sum, item) => sum + item.amount, 0))
 
 function personName(item: { firstName: string, lastName: string }) {
   return `${item.firstName} ${item.lastName}`.trim() || 'Commissioner'
@@ -56,17 +57,11 @@ async function collect(item: AdminCommission) {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Operations
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Commissioners
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Commissions appear here once the booking is approved. Unpaid extensions are not counted. Mark one collected after the commissioner is paid.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Operations"
+      title="Commissioners"
+      description="Commissions appear here once the booking is approved. Unpaid extensions are not counted. Mark one collected after the commissioner is paid."
+    />
 
     <AdminNotice
       v-if="unavailable"
@@ -91,8 +86,29 @@ async function collect(item: AdminCommission) {
       <USkeleton class="h-40 w-full" />
     </div>
 
-    <template v-else-if="data">
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
+    <AdminBento v-else-if="data">
+      <AdminStat
+        wide
+        tone="dark"
+        icon="i-lucide-hand-coins"
+        label="Unclaimed"
+        :value="formatMoney(totalUnclaimed)"
+        :hint="`${visibleUnclaimed.length} booking${visibleUnclaimed.length === 1 ? '' : 's'} earned but not yet paid out`"
+      />
+      <AdminStat
+        icon="i-lucide-badge-check"
+        label="Collected"
+        :value="formatMoney(totalCollected)"
+        :hint="`${visibleCollected.length} paid out`"
+      />
+      <AdminStat
+        icon="i-lucide-users"
+        label="Commissioners"
+        :value="String(data.summary.length)"
+        to="/admin/customers"
+      />
+
+      <section class="col-span-2 min-w-0 rounded-xl border border-stone-200 bg-white p-5 lg:col-span-4 xl:col-span-6">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 class="text-sm font-medium text-stone-900">
@@ -148,7 +164,7 @@ async function collect(item: AdminCommission) {
         </p>
       </section>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
+      <section class="col-span-2 min-w-0 rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2 xl:col-span-3">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <h3 class="text-sm font-medium text-stone-900">
             Unclaimed
@@ -226,7 +242,7 @@ async function collect(item: AdminCommission) {
         </p>
       </section>
 
-      <section class="rounded-xl border border-stone-200 bg-white p-5">
+      <section class="col-span-2 min-w-0 rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2 xl:col-span-3">
         <h3 class="text-sm font-medium text-stone-900">
           Collected
         </h3>
@@ -263,6 +279,6 @@ async function collect(item: AdminCommission) {
           Nothing collected yet.
         </p>
       </section>
-    </template>
+    </AdminBento>
   </div>
 </template>

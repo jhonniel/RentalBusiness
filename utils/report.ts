@@ -463,6 +463,14 @@ export function expensesByVendor(expenses: ExpenseReportRow[], limit = 6) {
   return breakdown(activeExpenses(expenses).map(row => ({ label: row.vendor?.trim() || 'No vendor', value: row.amount }))).slice(0, limit)
 }
 
+export function commissionStatusTotals(expenses: ExpenseReportRow[]) {
+  const commissions = activeExpenses(expenses).filter(row => row.category === 'commission')
+  return {
+    commissionsUnclaimed: roundMoney(commissions.filter(row => row.status === 'pending').reduce((sum, row) => sum + row.amount, 0)),
+    commissionsCollected: roundMoney(commissions.filter(row => row.status === 'paid').reduce((sum, row) => sum + row.amount, 0)),
+  }
+}
+
 export function expenseStatusTotals(expenses: ExpenseReportRow[]) {
   const active = activeExpenses(expenses)
   return {

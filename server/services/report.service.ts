@@ -10,6 +10,7 @@ import {
   commissionsByCommissioner,
   expensesByCategory,
   expensesByVendor,
+  commissionStatusTotals,
   expenseStatusTotals,
   financeSummary,
   reportBucketFor,
@@ -134,6 +135,7 @@ export async function getAdminReport(client: Client, type: ReportType, query: Re
         total: totals.expenses,
         commissions: totals.commissions,
         otherExpenses: totals.otherExpenses,
+        ...commissionStatusTotals(rows),
         ...expenseStatusTotals(rows),
       },
       charts: {

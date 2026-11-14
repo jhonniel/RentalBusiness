@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
-import { APP_NAME } from '~/utils/constants'
-import { SUPPORT_MESSAGE } from '~/utils/errors'
+import { APP_NAME, FACEBOOK_MESSENGER_URL } from '~/utils/constants'
+import { SUPPORT_CONTACT_LABEL, SUPPORT_MESSAGE } from '~/utils/errors'
 
 const props = defineProps<{
   error: NuxtError
@@ -60,11 +60,28 @@ function handleClear() {
         <p class="mt-4 tracking-normal text-stone-600">
           {{ description }}
         </p>
-        <div class="mt-8 flex justify-center">
-          <UButton @click="handleClear">
+        <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <UButton
+            class="justify-center"
+            @click="handleClear"
+          >
             Back to home
           </UButton>
+          <UButton
+            :href="FACEBOOK_MESSENGER_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-facebook"
+            class="justify-center"
+          >
+            {{ SUPPORT_CONTACT_LABEL }}
+          </UButton>
         </div>
+        <p class="mt-4 text-sm text-stone-500">
+          Tell us what you were doing and we will help you finish it.
+        </p>
       </main>
     </div>
   </UApp>

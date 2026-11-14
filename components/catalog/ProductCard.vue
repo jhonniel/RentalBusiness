@@ -34,7 +34,7 @@ function useFallback() {
           v-if="product.comingSoon"
           class="absolute left-4 top-4 rounded-full bg-[#12201a] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white"
         >
-          Coming soon
+          Available soon
         </span>
         <img
           :src="src"

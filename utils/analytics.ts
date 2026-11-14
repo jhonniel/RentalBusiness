@@ -139,6 +139,9 @@ export function buildKpis(input: {
   const totalExpenses = input.expenses
     .filter(expense => expense.status !== 'void' && expense.category !== 'commission')
     .reduce((sum, expense) => sum + Number(expense.amount), 0)
+  const totalCommissions = input.expenses
+    .filter(expense => expense.status !== 'void' && expense.category === 'commission')
+    .reduce((sum, expense) => sum + Math.round(Number(expense.amount) * 100), 0) / 100
 
   return {
     totalSales,
@@ -153,6 +156,8 @@ export function buildKpis(input: {
     ).length,
     overdueRentals: input.rentals.filter(row => row.status === 'overdue').length,
     totalExpenses,
+    totalCommissions,
+    totalSpent: Math.round((totalExpenses + totalCommissions) * 100) / 100,
     netRevenue: totalSales - totalExpenses,
     totalCustomers: input.customerCount,
     inventoryValue: input.products.reduce((sum, product) => (

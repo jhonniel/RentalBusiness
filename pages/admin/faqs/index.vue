@@ -166,17 +166,11 @@ async function removeFaq(faq: PublicFaq) {
 <template>
   <div class="w-full space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-          Support
-        </p>
-        <h2 class="mt-2 text-2xl font-medium text-stone-900">
-          FAQs
-        </h2>
-        <p class="mt-1 text-sm text-stone-600">
-          Shown on the public FAQ page. The chat support also learns from every FAQ that is shown.
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow="Support"
+        title="FAQs"
+        description="Shown on the public FAQ page. The chat support also learns from every FAQ that is shown."
+      />
       <UButton
         to="/faq"
         target="_blank"
@@ -195,6 +189,32 @@ async function removeFaq(faq: PublicFaq) {
     />
 
     <template v-else>
+      <AdminBento>
+        <AdminStat
+          icon="i-lucide-circle-help"
+          label="FAQs"
+          :value="String(items.length)"
+        />
+        <AdminStat
+          icon="i-lucide-eye"
+          label="Shown"
+          :value="String(items.filter(faq => faq.isActive).length)"
+          hint="On the FAQ page and chat"
+        />
+        <AdminStat
+          icon="i-lucide-eye-off"
+          label="Hidden"
+          :value="String(items.filter(faq => !faq.isActive).length)"
+        />
+        <AdminStat
+          icon="i-lucide-external-link"
+          label="Public page"
+          value="/faq"
+          to="/faq"
+          tone="accent"
+        />
+      </AdminBento>
+
       <AdminNotice
         v-if="data && !ready"
         title="Paste the FAQs SQL to start editing"

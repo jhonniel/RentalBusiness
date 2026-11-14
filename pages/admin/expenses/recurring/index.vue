@@ -44,17 +44,11 @@ watch([search, category, status], () => {
 <template>
   <div class="w-full space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-          Finance
-        </p>
-        <h2 class="mt-2 text-2xl font-medium text-stone-900">
-          Recurring expenses
-        </h2>
-        <p class="mt-1 text-sm text-stone-600">
-          Templates for subscriptions and other repeating costs. Cron generation starts in Phase 12.
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow="Finance"
+        title="Recurring expenses"
+        description="Templates for subscriptions and other repeating costs. Cron generation starts in Phase 12."
+      />
       <div class="flex flex-wrap gap-2">
         <UButton
           to="/admin/expenses"

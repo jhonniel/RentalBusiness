@@ -38,6 +38,11 @@ const { data, error, pending, refresh } = await useFetch<ProductListResponse>('/
 const { data: categories } = await useFetch<PublicCategory[]>('/api/admin/categories')
 
 const unavailable = computed(() => error.value?.statusCode === 503)
+const units = computed(() => (data.value?.items ?? []).reduce((sum, product) => ({
+  available: sum.available + product.availableQuantity,
+  rented: sum.rented + product.rentedQuantity,
+  attention: sum.attention + product.maintenanceQuantity + product.damagedQuantity + product.lostQuantity,
+}), { available: 0, rented: 0, attention: 0 }))
 const { formatMoney: money } = useCurrency()
 
 watch([search, status, categoryUuid], () => {
@@ -71,19 +76,12 @@ async function deleteProduct(uuid: string) {
 
 <template>
   <div class="w-full space-y-6">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-          Catalog
-        </p>
-        <h2 class="mt-2 text-2xl font-medium text-stone-900">
-          Products
-        </h2>
-        <p class="mt-1 text-sm text-stone-600">
-          Pricing, inventory, images, and serialized assets.
-        </p>
-      </div>
-      <div class="flex flex-wrap gap-2">
+    <AdminPageHeader
+      eyebrow="Catalog"
+      title="Products"
+      description="Pricing, inventory, images, and serialized assets."
+    >
+      <template #actions>
         <UButton
           to="/admin/categories"
           color="neutral"
@@ -94,8 +92,37 @@ async function deleteProduct(uuid: string) {
         <UButton to="/admin/products/new">
           Add product
         </UButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
+
+    <AdminBento v-if="data">
+      <AdminStat
+        icon="i-lucide-package"
+        label="Products"
+        :value="String(data.total)"
+        :hint="`${categories?.length ?? 0} categories`"
+      />
+      <AdminStat
+        icon="i-lucide-circle-check"
+        label="Units available"
+        :value="String(units.available)"
+        hint="On this page"
+      />
+      <AdminStat
+        icon="i-lucide-truck"
+        label="Rented out"
+        :value="String(units.rented)"
+        hint="On this page"
+      />
+      <AdminStat
+        icon="i-lucide-wrench"
+        label="Needs attention"
+        :tone="units.attention > 0 ? 'warn' : 'default'"
+        :value="String(units.attention)"
+        hint="Maintenance, damaged, or lost"
+        to="/admin/inventory"
+      />
+    </AdminBento>
 
     <form
       class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-3"

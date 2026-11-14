@@ -1,6 +1,7 @@
 import { getRequestHeader, send, setResponseHeader, setResponseStatus } from 'h3'
 import type { H3Error, H3Event } from 'h3'
-import { loggedErrorText, publicErrorMessage, SUPPORT_MESSAGE } from '../../utils/errors'
+import { FACEBOOK_MESSENGER_URL } from '../../utils/constants'
+import { loggedErrorText, publicErrorMessage, SUPPORT_CONTACT_LABEL, SUPPORT_MESSAGE } from '../../utils/errors'
 
 function escapeHtml(value: string) {
   return value
@@ -26,6 +27,9 @@ function supportPage(statusCode: number, message: string) {
     main { width: min(28rem, calc(100% - 2rem)); text-align: center; }
     p { color: #57534e; line-height: 1.6; }
     a { color: #1c1917; }
+    .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; margin-top: 1.5rem; }
+    .actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 1rem; border-radius: .5rem; border: 1px solid #d6d3d1; text-decoration: none; font-weight: 500; }
+    .actions a.facebook { background: #1877f2; border-color: #1877f2; color: #fff; }
   </style>
 </head>
 <body>
@@ -33,7 +37,10 @@ function supportPage(statusCode: number, message: string) {
     <p style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;">JRY Rentals</p>
     <h1>${escapeHtml(title)}</h1>
     <p>${escapeHtml(body)}</p>
-    <p><a href="/">Back to home</a></p>
+    <div class="actions">
+      <a href="/">Back to home</a>
+      <a class="facebook" href="${escapeHtml(FACEBOOK_MESSENGER_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(SUPPORT_CONTACT_LABEL)}</a>
+    </div>
   </main>
 </body>
 </html>`

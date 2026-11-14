@@ -73,17 +73,11 @@ function groups(item: AdminFeedbackListItem) {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Customers
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Feedback
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Star ratings and comments customers sent after their booking. Send a link from Rentals or from a booking once it is returned or done.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Customers"
+      title="Feedback"
+      description="Star ratings and comments customers sent after their booking. Send a link from Rentals or from a booking once it is returned or done."
+    />
 
     <AdminNotice
       v-if="unavailable"

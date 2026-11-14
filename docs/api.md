@@ -328,7 +328,7 @@ Admin session required. Role is loaded from `profiles`. Responses use `uuid` / `
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products, commissioner ranks from highest commission to lowest, recent expenses, active recurring expenses. Active Rentals includes `active` and `overdue` rows, plus paid, approved, and ready-for-pickup rows whose pickup time has started and whose return time has not. Commissioner ranks sum `commission_amount` by commissioner and leave out cancelled and rejected bookings. |
+| GET | `/api/admin/analytics` | KPIs, 14-day sales, status counts, top products, commissioner ranks from highest commission to lowest, recent expenses, active recurring expenses. Active Rentals includes `active` and `overdue` rows, plus paid, approved, and ready-for-pickup rows whose pickup time has started and whose return time has not. Commissioner ranks sum `commission_amount` by commissioner and leave out cancelled and rejected bookings. KPIs `totalExpenses` (non-void costs, commissions excluded), `totalCommissions` (non-void commission expenses, unclaimed and collected), and `totalSpent` (both). `netRevenue` stays actual sales minus `totalExpenses`, because actual sales already deduct commissions. |
 | GET | `/api/admin/calendar` | Rentals (including drafts) and admin-blocked dates overlapping a `YYYY-MM` month in Asia/Manila. Days use pickup/return windows so a return morning still shows as booked. Each rental has `originalEndsOn` (last day of the first booking) when it has an active extension, so days after it are drawn as faded, striped extension days. |
 | GET | `/api/admin/calendar/find?code=` | Find up to 8 calendar bookings whose booking ID contains `code` (letters, numbers, dashes; at least 3). Same statuses as the calendar. Returns rental `uuid`/`code`, dates, equipment, and customer name only. The admin calendar jumps to the picked booking's month and highlights it; each booking ID keeps one color and is drawn as one bar per week. |
 | GET | `/api/admin/sales` | Paid payments in a date range; `format=csv` exports the same sales report |
@@ -422,6 +422,7 @@ Admin session required. Categories are the fixed list in `EXPENSE_CATEGORIES`. R
 | POST | `/api/admin/expenses/[id]/void` | Soft-void, audited |
 | GET | `/api/admin/recurring-expenses` | Templates |
 | POST | `/api/admin/recurring-expenses` | Create template. The first bill is always the start date. That bill is recorded when the start date is today or earlier. |
+| POST | `/api/admin/recurring-expenses/post-due` | Admin. Posts every active template whose next date is today or earlier, the same catch-up the daily cron runs (idempotent; a date already posted is skipped). Returns `{ job, asOf, considered, posted, skipped, failed }`. 6 / minute / admin. The Expenses page shows a Post due bills button when a template is overdue. |
 | GET | `/api/admin/recurring-expenses/[id]` | Includes recent occurrences |
 | PATCH | `/api/admin/recurring-expenses/[id]` | Update unless ended |
 | POST | `/api/admin/recurring-expenses/[id]/pause` | `active` → `paused` |
@@ -459,6 +460,8 @@ Admin session required. Dates are inclusive in `Asia/Manila`. Default range is t
 
 **Query:** `startsOn`, `endsOn`, `format` (`json` default, `csv`)  
 **Rate limit:** 20 CSV exports / minute / admin
+
+The `expenses` summary also returns `commissionsUnclaimed` (commission expenses still `pending`) and `commissionsCollected` (`paid`) for the range. Commission expenses are dated when the booking is approved, so a range only shows commissions approved inside it; the Expenses page also shows the all-time unclaimed total from `/api/admin/commissions`.
 
 Sales sum paid payments. A finished rental's deposit is no longer inside that paid amount. Expense totals skip `void`. Profit is sales minus those expenses. Rentals are rows whose dates overlap the range. Inventory is a live stock snapshot. Utilization is booked unit-days ÷ rentable capacity unit-days for occupying rentals. CSV exports are audited.
 

@@ -23,6 +23,6 @@ const color = computed(() => {
     variant="subtle"
     class="w-fit max-w-full capitalize"
   >
-    {{ status.replaceAll('_', ' ') }}
+    {{ status === 'coming_soon' ? 'available soon' : status.replaceAll('_', ' ') }}
   </UBadge>
 </template>

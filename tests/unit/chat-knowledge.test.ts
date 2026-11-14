@@ -42,14 +42,14 @@ describe('chat knowledge from the live catalog', () => {
     const reply = answerFromCatalog('What is included with the Starlink Mini?', catalog, {}, [])
     expect(reply).toContain('₱1,000.00 per day')
     expect(reply).toContain('Included: Power supply, Carry case.')
-    expect(answerFromCatalog('specs of the DJI Air 3?', catalog, {}, [])).toContain('DJI Air 3 is coming soon')
+    expect(answerFromCatalog('specs of the DJI Air 3?', catalog, {}, [])).toContain('DJI Air 3 is available soon')
     expect(answerFromCatalog('specs of the DJI Air 3?', catalog, {}, [])).not.toContain('OSMO')
   })
 
   it('answers payment methods, late fees, and the equipment list', () => {
     expect(answerFromCatalog('What payment methods do you accept?', catalog, {}, ['GCash', 'Maya'])).toContain('GCash, Maya')
     expect(answerFromCatalog('What if I return late?', catalog, {}, [])).toContain('₱300 under 6 hours late')
-    expect(answerFromCatalog('What equipment do you have?', catalog, {}, [])).toBe('Available to book: Starlink Mini. Coming soon: DJI Air 3, DJI OSMO 360.')
+    expect(answerFromCatalog('What equipment do you have?', catalog, {}, [])).toBe('Available to book: Starlink Mini. Available soon: DJI Air 3, DJI OSMO 360.')
   })
 
   it('knows unit counts but keeps long-stay discounts and weekly prices out', () => {

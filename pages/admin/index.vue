@@ -15,9 +15,33 @@ const { formatMoney } = useCurrency()
 const { data, error, pending } = await useFetch<AdminAnalytics>('/api/admin/analytics')
 const hasData = computed(() => Boolean(data.value))
 const remote = useRemoteState(error, pending, hasData)
-const maxSales = computed(() => Math.max(1, ...(data.value?.salesByDay.map(point => point.value) ?? [0])))
-const maxStatus = computed(() => Math.max(1, ...(data.value?.rentalsByStatus.map(point => point.value) ?? [0])))
-const maxCommission = computed(() => Math.max(1, ...(data.value?.commissionerRanks.map(rank => rank.commissionAmount) ?? [0])))
+const dayLabel = new Intl.DateTimeFormat('en-PH', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+const compactMoney = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', notation: 'compact', maximumFractionDigits: 1 })
+const formatDay = (date: string) => dayLabel.format(new Date(`${date}T00:00:00Z`))
+const formatDayTick = (date: string) => String(Number(date.slice(8, 10)))
+const formatAxisMoney = (value: number) => compactMoney.format(value)
+const STATUS_COLORS: Record<string, string> = {
+  pending: '#d97706',
+  awaiting_payment: '#f59e0b',
+  paid: '#0284c7',
+  approved: '#4f46e5',
+  ready_for_pickup: '#7c3aed',
+  active: '#0f766e',
+  overdue: '#dc2626',
+  returned: '#65a30d',
+  completed: '#1e3a8a',
+  cancelled: '#a8a29e',
+  rejected: '#78716c',
+  draft: '#d6d3d1',
+}
+const COMMISSIONER_CHART_LIMIT = 8
+const commissionerBars = computed(() => (data.value?.commissionerRanks ?? []).slice(0, COMMISSIONER_CHART_LIMIT).map(rank => ({
+  key: rank.uuid,
+  label: `${rank.firstName} ${rank.lastName}`.trim(),
+  value: rank.commissionAmount,
+  hint: `${rank.bookings} booking${rank.bookings === 1 ? '' : 's'}`,
+})))
+const hiddenCommissioners = computed(() => Math.max(0, (data.value?.commissionerRanks.length ?? 0) - COMMISSIONER_CHART_LIMIT))
 
 const kpis = computed(() => data.value?.kpis)
 const money = (value?: number) => value === undefined ? '—' : formatMoney(value)
@@ -88,10 +112,9 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
         to="/admin/reports"
       />
       <AdminStat
-        label="Expenses"
+        label="All spending"
         icon="i-lucide-receipt"
-        :value="money(kpis?.totalExpenses)"
-        hint="Excludes commissions"
+        :value="money(kpis?.totalSpent)"
         to="/admin/expenses"
       />
 
@@ -139,25 +162,17 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
       <AdminTile
         size="wide"
         title="Actual sales · 14 days"
-        icon="i-lucide-chart-column"
+        icon="i-lucide-chart-line"
         to="/admin/sales"
       >
-        <ul class="space-y-2">
-          <li
-            v-for="(point, index) in data?.salesByDay"
-            :key="point.label"
-            class="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-2 text-xs"
-          >
-            <span class="text-stone-500">{{ point.label.slice(5) }}</span>
-            <span class="h-2 overflow-hidden rounded-full bg-stone-100">
-              <span
-                class="chart-grow-x chart-width block h-full rounded-full bg-lumen-700"
-                :style="{ width: `${Math.round((point.value / maxSales) * 100)}%`, animationDelay: `${index * 40}ms` }"
-              />
-            </span>
-            <span class="tabular-nums">{{ formatMoney(point.value) }}</span>
-          </li>
-        </ul>
+        <AdminLineChart
+          v-if="data?.salesByDay.length"
+          :points="data.salesByDay"
+          :format="formatMoney"
+          :format-axis="formatAxisMoney"
+          :format-label="formatDay"
+          :format-tick="formatDayTick"
+        />
       </AdminTile>
 
       <AdminTile
@@ -166,25 +181,12 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
         icon="i-lucide-clipboard-list"
         to="/admin/rentals"
       >
-        <ul
+        <AdminDonutChart
           v-if="data?.rentalsByStatus.length"
-          class="space-y-2"
-        >
-          <li
-            v-for="(point, index) in data.rentalsByStatus"
-            :key="point.label"
-            class="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_auto] items-center gap-2 text-xs"
-          >
-            <span class="truncate capitalize text-stone-500">{{ point.label.replaceAll('_', ' ') }}</span>
-            <span class="h-2 overflow-hidden rounded-full bg-stone-100">
-              <span
-                class="chart-grow-x chart-width block h-full rounded-full bg-lumen-700"
-                :style="{ width: `${Math.round((point.value / maxStatus) * 100)}%`, animationDelay: `${index * 60}ms` }"
-              />
-            </span>
-            <span class="tabular-nums">{{ point.value }}</span>
-          </li>
-        </ul>
+          :points="data.rentalsByStatus"
+          :colors="STATUS_COLORS"
+          total-label="Rentals"
+        />
         <p
           v-else
           class="text-sm text-stone-500"
@@ -200,29 +202,20 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
         description="Highest commission first. A booking counts once it is approved."
         to="/admin/commissioners"
       >
-        <ol
-          v-if="data?.commissionerRanks.length"
-          class="space-y-3"
-        >
-          <li
-            v-for="(rank, index) in data.commissionerRanks"
-            :key="rank.uuid"
-            class="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1"
+        <template v-if="commissionerBars.length">
+          <AdminBarChart
+            :points="commissionerBars"
+            :total-label="hiddenCommissioners ? `Top ${COMMISSIONER_CHART_LIMIT} total` : 'Total commission'"
+            :format="formatMoney"
+            :format-axis="formatAxisMoney"
+          />
+          <p
+            v-if="hiddenCommissioners"
+            class="mt-3 text-xs text-stone-500"
           >
-            <span class="text-sm font-medium text-stone-500">{{ index + 1 }}</span>
-            <span class="min-w-0">
-              <span class="block truncate text-sm text-stone-900">{{ rank.firstName }} {{ rank.lastName }}</span>
-              <span class="text-xs text-stone-500">{{ rank.bookings }} booking{{ rank.bookings === 1 ? '' : 's' }}</span>
-            </span>
-            <span class="text-sm tabular-nums text-stone-900">{{ formatMoney(rank.commissionAmount) }}</span>
-            <span class="col-span-2 col-start-2 h-1.5 overflow-hidden rounded-full bg-stone-100">
-              <span
-                class="chart-grow-x chart-width block h-full rounded-full bg-lumen-700"
-                :style="{ width: `${Math.round((rank.commissionAmount / maxCommission) * 100)}%`, animationDelay: `${index * 60}ms` }"
-              />
-            </span>
-          </li>
-        </ol>
+            Top {{ COMMISSIONER_CHART_LIMIT }} shown. {{ hiddenCommissioners }} more on the commissioners page.
+          </p>
+        </template>
         <p
           v-else
           class="text-sm text-stone-500"

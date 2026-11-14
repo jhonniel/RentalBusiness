@@ -122,7 +122,7 @@ describe('auth helpers', () => {
   it('hides provider error details', () => {
     expect(mapAuthError('Invalid login credentials')).toBe('Email or password is incorrect.')
     expect(mapAuthError('relation "secret" does not exist')).toBe(
-      'Contact the admin for support.',
+      'Contact the admin for support, or message us on Facebook.',
     )
     expect(extractAuthErrorMessage('{"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}'))
       .toBe('Unsupported provider: provider is not enabled')

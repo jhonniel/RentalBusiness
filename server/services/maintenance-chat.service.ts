@@ -297,7 +297,7 @@ async function answerLiveQuote(
   if (comingSoon.length && comingSoon.length === intent.slugs.length) {
     const names = comingSoon.map(slug => kitName(catalog, slug) || slug).join(' and ')
     return {
-      reply: `${names} ${comingSoon.length > 1 ? 'are' : 'is'} coming soon and can't be booked yet. Message us on Facebook to know when it becomes available.`,
+      reply: `${names} ${comingSoon.length > 1 ? 'are' : 'is'} available soon and can't be booked yet. Message us on Facebook to know when it becomes available.`,
       actions: comingSoon.slice(0, 3).map(slug => ({ kind: 'view' as const, label: `View ${kitName(catalog, slug) || slug}`, to: `/products/${slug}` })),
       topic: 'coming-soon',
     }

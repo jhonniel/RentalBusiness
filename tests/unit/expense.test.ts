@@ -7,6 +7,8 @@ import {
   nextOccurrenceOn,
   toPublicExpense,
   toPublicRecurringExpense,
+  monthlyEquivalent,
+  recurrenceLabel,
 } from '../../utils/expense'
 import { expenseInputSchema, recurringExpenseInputSchema } from '../../utils/expense-validation'
 
@@ -124,5 +126,20 @@ describe('expense mapper', () => {
     expect(expense).not.toHaveProperty('id')
     expect(recurring).not.toHaveProperty('id')
     expect(recurring.occurrenceCount).toBe(0)
+  })
+})
+
+describe('recurring expenses on the Expenses page', () => {
+  it('labels the schedule in plain words', () => {
+    expect(recurrenceLabel('monthly', 1)).toBe('Every month')
+    expect(recurrenceLabel('weekly', 2)).toBe('Every 2 weeks')
+    expect(recurrenceLabel('custom', 10)).toBe('Every 10 days')
+  })
+
+  it('estimates what each recurring bill costs per month', () => {
+    expect(monthlyEquivalent(5999, 'monthly', 1)).toBe(5999)
+    expect(monthlyEquivalent(1200, 'yearly', 1)).toBe(100)
+    expect(monthlyEquivalent(900, 'quarterly', 1)).toBe(300)
+    expect(monthlyEquivalent(100, 'weekly', 1)).toBeCloseTo(434.82, 1)
   })
 })

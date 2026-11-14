@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PublicRental, RentalListResponse } from '~/types/rental'
 import type { SentFeedbackLink } from '~/types/feedback'
+import type { AdminAnalytics } from '~/types/analytics'
 import { RENTAL_STATUSES } from '~/utils/constants'
 import { formatBookingDateRange } from '~/utils/datetime'
 import { formatPickupClock } from '~/utils/rental-window'
@@ -16,9 +17,18 @@ useSiteMeta({
   path: '/admin/rentals',
 })
 
+const route = useRoute()
 const searchInput = ref('')
 const search = refDebounced(searchInput, 300)
-const status = ref('')
+const initialStatus = typeof route.query.status === 'string' && (RENTAL_STATUSES as readonly string[]).includes(route.query.status) ? route.query.status : ''
+const status = ref(initialStatus)
+const { data: analytics } = useFetch<AdminAnalytics>('/api/admin/analytics', { lazy: true, server: false })
+const kpis = computed(() => analytics.value?.kpis)
+const count = (value?: number) => value === undefined ? '—' : String(value)
+
+function filterStatus(next: string) {
+  status.value = status.value === next ? '' : next
+}
 const page = ref(1)
 const { formatMoney } = useCurrency()
 
@@ -120,26 +130,74 @@ async function removeRental(uuid: string) {
 
 <template>
   <div class="w-full space-y-6">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div class="min-w-0">
-        <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-          Operations
-        </p>
-        <h2 class="mt-2 text-2xl font-medium text-stone-900">
-          Rentals
-        </h2>
-        <p class="mt-1 text-sm text-stone-600">
-          Create a booking for a client, send the waiver link, finish a draft, or confirm a request.
-        </p>
-      </div>
-      <UButton
-        to="/admin/rentals/new"
-        icon="i-lucide-plus"
-        class="w-full justify-center sm:w-auto"
+    <AdminPageHeader
+      eyebrow="Operations"
+      title="Rentals"
+      description="Create a booking for a client, send the waiver link, finish a draft, or confirm a request."
+    >
+      <template #actions>
+        <UButton
+          to="/admin/rentals/new"
+          icon="i-lucide-plus"
+        >
+          New booking
+        </UButton>
+      </template>
+    </AdminPageHeader>
+
+    <AdminBento>
+      <button
+        v-for="tile in [
+          { key: 'pending', label: 'Pending', value: kpis?.pendingRentals, hint: 'Waiting for approval', icon: 'i-lucide-hourglass' },
+          { key: 'active', label: 'Active', value: kpis?.activeRentals, hint: 'Out with customers', icon: 'i-lucide-activity' },
+          { key: 'overdue', label: 'Overdue', value: kpis?.overdueRentals, hint: 'Past the return time', icon: 'i-lucide-alarm-clock' },
+        ]"
+        :key="tile.key"
+        type="button"
+        class="col-span-1 flex min-w-0 flex-col justify-between gap-3 rounded-2xl border p-4 text-left transition-colors sm:p-5"
+        :class="status === tile.key
+          ? 'border-transparent bg-[#12201a] text-white'
+          : tile.key === 'overdue' && (tile.value ?? 0) > 0
+            ? 'border-amber-200 bg-amber-50 text-stone-900 hover:border-amber-300'
+            : 'border-stone-200 bg-white text-stone-900 hover:border-stone-300'"
+        :aria-pressed="status === tile.key"
+        @click="filterStatus(tile.key)"
       >
-        New booking
-      </UButton>
-    </div>
+        <span class="flex w-full items-start justify-between gap-2">
+          <span
+            class="text-[11px] font-medium uppercase tracking-wider"
+            :class="status === tile.key ? 'text-white/60' : 'text-stone-500'"
+          >{{ tile.label }}</span>
+          <UIcon
+            :name="tile.icon"
+            class="size-4 shrink-0"
+            :class="status === tile.key ? 'text-white/60' : 'text-stone-400'"
+          />
+        </span>
+        <span>
+          <span class="block text-xl font-semibold tabular-nums sm:text-2xl">{{ count(tile.value) }}</span>
+          <span
+            class="mt-1 block text-xs"
+            :class="status === tile.key ? 'text-white/60' : 'text-stone-500'"
+          >{{ status === tile.key ? 'Showing these · tap to clear' : tile.hint }}</span>
+        </span>
+      </button>
+      <AdminStat
+        label="Upcoming"
+        icon="i-lucide-calendar-clock"
+        :value="count(kpis?.upcomingRentals)"
+        hint="See them on the calendar"
+        to="/admin/calendar"
+      />
+      <AdminStat
+        wide
+        tone="accent"
+        label="All rentals"
+        icon="i-lucide-clipboard-list"
+        :value="String(data?.total ?? '—')"
+        :hint="status ? `Status: ${status.replaceAll('_', ' ')}` : (search ? `Matching \u201C${search}\u201D` : 'All statuses')"
+      />
+    </AdminBento>
 
     <form
       class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-2"

@@ -106,6 +106,36 @@ export function nextOccurrenceOn(input: {
   }
 }
 
+const FREQUENCY_UNITS: Record<ExpenseFrequency, [string, string]> = {
+  daily: ['day', 'days'],
+  weekly: ['week', 'weeks'],
+  monthly: ['month', 'months'],
+  quarterly: ['quarter', 'quarters'],
+  yearly: ['year', 'years'],
+  custom: ['day', 'days'],
+}
+
+export function recurrenceLabel(frequency: ExpenseFrequency, intervalCount: number) {
+  const interval = Math.max(1, intervalCount)
+  const [one, many] = FREQUENCY_UNITS[frequency]
+  return interval === 1 ? `Every ${one}` : `Every ${interval} ${many}`
+}
+
+const DAYS_PER_MONTH = 365.25 / 12
+
+export function monthlyEquivalent(amount: number, frequency: ExpenseFrequency, intervalCount: number) {
+  const interval = Math.max(1, intervalCount)
+  const perMonth: Record<ExpenseFrequency, number> = {
+    daily: DAYS_PER_MONTH / interval,
+    weekly: DAYS_PER_MONTH / (7 * interval),
+    monthly: 1 / interval,
+    quarterly: 1 / (3 * interval),
+    yearly: 1 / (12 * interval),
+    custom: DAYS_PER_MONTH / interval,
+  }
+  return Math.round(amount * perMonth[frequency] * 100) / 100
+}
+
 export function canEditExpense(status: ExpenseStatus) {
   return status !== 'void'
 }

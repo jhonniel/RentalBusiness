@@ -157,17 +157,11 @@ async function disableVoucher(voucher: PublicVoucher) {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Finance
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Vouchers
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Generate a code to give a customer. They enter it at checkout to reduce the rental total.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Finance"
+      title="Vouchers"
+      description="Generate a code to give a customer. They enter it at checkout to reduce the rental total."
+    />
 
     <AdminNotice
       v-if="unavailable"
@@ -176,9 +170,36 @@ async function disableVoucher(voucher: PublicVoucher) {
     />
 
     <template v-else>
+      <AdminBento>
+        <AdminStat
+          icon="i-lucide-ticket"
+          label="Vouchers"
+          :value="String(data?.total ?? '—')"
+          :hint="search || status ? 'Matching your filters' : 'All vouchers'"
+        />
+        <AdminStat
+          icon="i-lucide-circle-check"
+          label="Active"
+          :value="String(data?.items.filter(voucher => voucher.displayStatus === 'active').length ?? '—')"
+          hint="On this page"
+        />
+        <AdminStat
+          icon="i-lucide-receipt"
+          label="Times used"
+          :value="String(data?.items.reduce((sum, voucher) => sum + voucher.redeemedCount, 0) ?? '—')"
+          hint="On this page"
+        />
+        <AdminStat
+          icon="i-lucide-gift"
+          label="Feedback codes"
+          :value="String(data?.items.filter(voucher => voucher.name.startsWith('Feedback · ')).length ?? '—')"
+          hint="Thank-you codes on this page"
+        />
+      </AdminBento>
+
       <AdminFeedbackReward />
 
-      <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+      <div class="grid gap-4 xl:grid-cols-2 xl:items-start">
         <form
           class="rounded-xl border border-stone-200 bg-white p-5"
           method="post"

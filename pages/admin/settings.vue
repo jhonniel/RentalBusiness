@@ -76,17 +76,11 @@ async function onSubmit() {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Operations
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Settings
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Business details used on receipts. Currency stays PHP and dates stay in Asia/Manila.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Operations"
+      title="Settings"
+      description="Business details used on receipts. Currency stays PHP and dates stay in Asia/Manila."
+    />
 
     <AdminMaintenanceEditor />
 
@@ -103,7 +97,7 @@ async function onSubmit() {
 
     <form
       v-else
-      class="grid gap-6 xl:grid-cols-2 xl:items-start"
+      class="grid gap-4 xl:grid-cols-2 xl:items-start"
       method="post"
       @submit.prevent="onSubmit"
     >

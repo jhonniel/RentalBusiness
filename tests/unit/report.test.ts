@@ -22,6 +22,7 @@ import {
   toActualTrend,
   toTrendPoints,
   toUtilizationRows,
+  commissionStatusTotals,
 } from '../../utils/report'
 import { reportQuerySchema } from '../../utils/report-validation'
 
@@ -280,5 +281,13 @@ describe('report csv and validation', () => {
       months: [],
       rows: [{ date: '2026-09-13', sales: 10, expenses: 4, profit: 6 }],
     })).not.toContain(',id')
+  })
+})
+
+describe('commission totals on the expenses dashboard', () => {
+  it('splits commissions into unclaimed (pending) and collected (paid), leaving out voids', () => {
+    const row = (amount: number, status: string, category = 'commission') => ({ uuid: `${amount}${status}`, name: 'x', category, vendor: null, reference: null, description: null, amount, status, incurredOn: '2026-10-20' })
+    const rows = [row(200, 'paid'), row(500, 'pending'), row(100, 'pending'), row(300, 'void'), row(999, 'pending', 'internet')] as Parameters<typeof commissionStatusTotals>[0]
+    expect(commissionStatusTotals(rows)).toEqual({ commissionsUnclaimed: 600, commissionsCollected: 200 })
   })
 })

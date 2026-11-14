@@ -208,17 +208,11 @@ async function removeQr(method: PublicPaymentMethod) {
 
 <template>
   <div class="w-full space-y-6">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-[0.22em] text-lumen-700">
-        Finance
-      </p>
-      <h2 class="mt-2 text-2xl font-medium text-stone-900">
-        Payment methods
-      </h2>
-      <p class="mt-1 text-sm text-stone-600">
-        Add GCash, Maya, or bank details, a logo, and the QR customers should scan.
-      </p>
-    </div>
+    <AdminPageHeader
+      eyebrow="Finance"
+      title="Payment methods"
+      description="Add GCash, Maya, or bank details, a logo, and the QR customers should scan."
+    />
 
     <AdminNotice
       v-if="unavailable"
@@ -227,7 +221,30 @@ async function removeQr(method: PublicPaymentMethod) {
     />
 
     <template v-else>
-      <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
+      <AdminBento>
+        <AdminStat
+          icon="i-lucide-credit-card"
+          label="Payment methods"
+          :value="String(methods?.length ?? '—')"
+        />
+        <AdminStat
+          icon="i-lucide-circle-check"
+          label="Shown to customers"
+          :value="String(methods?.filter(method => method.isActive).length ?? '—')"
+        />
+        <AdminStat
+          icon="i-lucide-qr-code"
+          label="With QR code"
+          :value="String(methods?.filter(method => method.qrUrl).length ?? '—')"
+        />
+        <AdminStat
+          icon="i-lucide-image"
+          label="With logo"
+          :value="String(methods?.filter(method => method.logoUrl).length ?? '—')"
+        />
+      </AdminBento>
+
+      <div class="grid gap-4 xl:grid-cols-2 xl:items-start">
         <form
           class="rounded-xl border border-stone-200 bg-white p-5"
           method="post"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AppError, ERROR_CODES, SUPPORT_MESSAGE, toClientError } from '../../utils/errors'
+import { AppError, ERROR_CODES, mentionsSupportContact, SUPPORT_MESSAGE, toClientError } from '../../utils/errors'
 
 describe('toClientError', () => {
   it('returns the user-safe payload for AppError', () => {
@@ -31,5 +31,14 @@ describe('toClientError', () => {
       409,
       ERROR_CODES.CONFLICT,
     )).message).toBe('Those dates are not available. Another request already holds that kit.')
+  })
+})
+
+describe('support contact', () => {
+  it('points customers to Facebook when they are told to contact the admin or shop', () => {
+    expect(SUPPORT_MESSAGE).toContain('Facebook')
+    expect(mentionsSupportContact(SUPPORT_MESSAGE)).toBe(true)
+    expect(mentionsSupportContact('This account has been deleted. Contact the shop for help.')).toBe(true)
+    expect(mentionsSupportContact('Choose a pickup date.')).toBe(false)
   })
 })

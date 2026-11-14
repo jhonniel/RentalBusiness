@@ -10,7 +10,12 @@ export const ERROR_CODES = {
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
 
-export const SUPPORT_MESSAGE = 'Contact the admin for support.'
+export const SUPPORT_MESSAGE = 'Contact the admin for support, or message us on Facebook.'
+export const SUPPORT_CONTACT_LABEL = 'Message us on Facebook'
+
+export function mentionsSupportContact(text: string) {
+  return /contact the (admin|shop)/i.test(text)
+}
 
 export interface ClientErrorPayload {
   message: string
