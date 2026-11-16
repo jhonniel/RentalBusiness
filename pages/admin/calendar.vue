@@ -207,9 +207,9 @@ watch(detailsOpen, (open) => {
     </div>
 
     <div class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_14rem_auto] lg:items-end">
-      <div class="block text-sm sm:col-span-2 lg:order-last lg:col-span-1">
+      <div class="block min-w-0 text-sm sm:col-span-2 lg:order-last lg:col-span-1">
         <span class="mb-1 block text-xs font-medium text-stone-600">Month</span>
-        <div class="flex items-center gap-1">
+        <div class="flex flex-wrap items-center gap-1">
           <UButton
             color="neutral"
             variant="outline"
@@ -217,7 +217,7 @@ watch(detailsOpen, (open) => {
             aria-label="Previous month"
             @click="month = shiftMonth(month, -1)"
           />
-          <p class="min-w-32 flex-1 text-center text-sm font-medium whitespace-nowrap text-stone-900 lg:flex-none">
+          <p class="min-w-28 flex-1 text-center text-sm font-medium whitespace-nowrap text-stone-900 lg:flex-none">
             {{ monthLabel }}
           </p>
           <UButton
@@ -238,10 +238,10 @@ watch(detailsOpen, (open) => {
         </div>
       </div>
       <AdminCalendarSearch
-        class="lg:order-first"
+        class="min-w-0 lg:order-first"
         @pick="focusBooking"
       />
-      <label class="block text-sm">
+      <label class="block min-w-0 text-sm">
         <span class="mb-1 block text-xs font-medium text-stone-600">Status</span>
         <select
           v-model="status"
@@ -438,7 +438,7 @@ watch(detailsOpen, (open) => {
             v-for="(date, index) in cells"
             :key="date || `mobile-empty-${index}`"
             type="button"
-            class="relative aspect-square min-h-0 min-w-0 rounded-md text-sm"
+            class="relative aspect-square min-h-0 min-w-0 rounded-md text-sm max-sm:aspect-auto"
             :class="!date
               ? 'invisible'
               : dayIsViewed(date)

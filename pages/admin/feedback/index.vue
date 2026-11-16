@@ -131,7 +131,7 @@ function groups(item: AdminFeedbackListItem) {
       </AdminBento>
 
       <div class="grid gap-4 lg:grid-cols-2">
-        <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <section class="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
           <h3 class="text-sm font-medium text-stone-900">
             Ratings by device
           </h3>
@@ -174,7 +174,7 @@ function groups(item: AdminFeedbackListItem) {
           </ul>
         </section>
 
-        <section class="rounded-xl border border-stone-200 bg-white p-5">
+        <section class="min-w-0 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
           <h3 class="text-sm font-medium text-stone-900">
             Star breakdown
           </h3>

@@ -167,18 +167,19 @@ watch([search, category, status], () => {
         <li
           v-for="item in recurringItems"
           :key="item.uuid"
+          class="min-w-0"
         >
           <NuxtLink
             :to="`/admin/expenses/recurring/${item.uuid}`"
             class="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-stone-200 px-3 py-3 hover:border-stone-300 hover:bg-stone-50"
           >
             <span class="min-w-0">
-              <span class="block truncate text-sm font-medium text-stone-900">{{ item.name }}</span>
-              <span class="block text-xs text-stone-500">
+              <span class="block text-sm font-medium break-words text-stone-900">{{ item.name }}</span>
+              <span class="block text-xs break-words text-stone-500">
                 {{ recurrenceLabel(item.frequency, item.intervalCount) }} ·
                 <span :class="item.nextOccurrenceOn < today ? 'font-medium text-amber-700' : ''">{{ item.nextOccurrenceOn < today ? 'due since' : 'next' }} {{ formatBusinessDate(item.nextOccurrenceOn) }}</span>
               </span>
-              <span class="block text-xs capitalize text-stone-400">{{ item.category }}{{ item.vendor ? ` · ${item.vendor}` : '' }}</span>
+              <span class="block truncate text-xs capitalize text-stone-400">{{ item.category }}{{ item.vendor ? ` · ${item.vendor}` : '' }}</span>
             </span>
             <span class="shrink-0 text-sm font-medium tabular-nums text-stone-900">{{ formatMoney(item.amount) }}</span>
           </NuxtLink>

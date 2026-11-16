@@ -18,11 +18,14 @@ const compact = new Intl.NumberFormat('en-PH', {
   maximumFractionDigits: 1,
 })
 
-const width = 720
-const height = 240
-const pad = { top: 12, right: 12, bottom: 30, left: 60 }
-const plotWidth = width - pad.left - pad.right
-const plotHeight = height - pad.top - pad.bottom
+const container = ref<HTMLElement | null>(null)
+const { width: containerWidth } = useElementSize(container)
+const width = computed(() => Math.max(260, Math.round(containerWidth.value) || 720))
+const narrow = computed(() => width.value < 480)
+const height = computed(() => narrow.value ? 220 : 240)
+const pad = computed(() => ({ top: 12, right: 12, bottom: 30, left: narrow.value ? 48 : 60 }))
+const plotWidth = computed(() => width.value - pad.value.left - pad.value.right)
+const plotHeight = computed(() => height.value - pad.value.top - pad.value.bottom)
 
 const showSales = computed(() => props.series.includes('sales'))
 const showExpenses = computed(() => props.series.includes('expenses'))
@@ -64,16 +67,16 @@ const scale = computed(() => {
 
 function y(value: number) {
   const { max, min } = scale.value
-  return pad.top + ((max - value) / (max - min || 1)) * plotHeight
+  return pad.value.top + ((max - value) / (max - min || 1)) * plotHeight.value
 }
 
-const groupWidth = computed(() => plotWidth / Math.max(1, props.points.length))
+const groupWidth = computed(() => plotWidth.value / Math.max(1, props.points.length))
 const barCount = computed(() => (showSales.value ? 1 : 0) + (showCost.value ? 1 : 0))
 const barWidth = computed(() => Math.max(2, Math.min(26, (groupWidth.value * 0.72) / Math.max(1, barCount.value))))
-const labelEvery = computed(() => Math.max(1, Math.ceil(props.points.length / 10)))
+const labelEvery = computed(() => Math.max(1, Math.ceil(props.points.length / Math.max(2, Math.min(10, Math.floor(plotWidth.value / 56))))))
 
 function groupX(index: number) {
-  return pad.left + index * groupWidth.value
+  return pad.value.left + index * groupWidth.value
 }
 
 function barX(index: number, slot: number) {
@@ -140,11 +143,14 @@ function pointTitle(point: ReportTrendPoint) {
         Profit
       </li>
     </ul>
-    <div class="mt-3 overflow-x-auto">
+    <div
+      ref="container"
+      class="mt-3 w-full min-w-0 overflow-hidden"
+    >
       <svg
         :key="animationKey"
         :viewBox="`0 0 ${width} ${height}`"
-        class="h-auto w-full min-w-[34rem]"
+        class="block h-auto w-full"
         role="img"
         aria-label="Trend chart"
       >

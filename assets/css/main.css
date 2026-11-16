@@ -72,6 +72,32 @@
   }
 }
 
+/* Date and time fields must never be wider than the box they sit in. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* iPhone and iPad Safari draw date fields wider than their box and centre the value. */
+@supports (-webkit-touch-callout: none) {
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.75rem;
+  }
+
+  input::-webkit-date-and-time-value {
+    margin: 0;
+    text-align: left;
+  }
+}
+
 /* Phone rules live outside @layer so they win over Tailwind utilities like text-sm and h-8. */
 @media (max-width: 639px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
