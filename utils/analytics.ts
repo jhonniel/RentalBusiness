@@ -9,6 +9,7 @@ export interface AnalyticsPaymentRow {
   status: PaymentStatus
   paid_at: string | null
   metadata?: unknown
+  rental_id?: number | null
 }
 
 export interface AnalyticsRentalRow {
@@ -24,6 +25,7 @@ export interface AnalyticsExpenseRow {
   status: string
   category?: string
   incurred_on?: string
+  rental_id?: number | null
 }
 
 export interface AnalyticsProductRow {
@@ -100,11 +102,34 @@ export function isOngoingRental(row: AnalyticsRentalRow, now = new Date()): bool
   return window.start <= instant && instant < window.end
 }
 
+function isRentPayment(metadata: unknown) {
+  const kind = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? (metadata as { kind?: unknown }).kind
+    : undefined
+  return kind !== 'extension' && kind !== 'late_fee'
+}
+
+/** The Manila date each rental was first paid, so its commission comes off the same day as its sale. */
+export function rentalSaleDates(payments: AnalyticsPaymentRow[]): Map<number, string> {
+  const first = new Map<number, string>()
+  for (const payment of payments) {
+    if (payment.status !== 'paid' || !payment.paid_at || payment.rental_id == null || !isRentPayment(payment.metadata)) {
+      continue
+    }
+    const current = first.get(payment.rental_id)
+    if (!current || Date.parse(payment.paid_at) < Date.parse(current)) {
+      first.set(payment.rental_id, payment.paid_at)
+    }
+  }
+  return new Map([...first].map(([rentalId, paidAt]) => [rentalId, calendarDateInZone(paidAt)]))
+}
+
 export function actualSalesOn(
   payments: AnalyticsPaymentRow[],
   expenses: AnalyticsExpenseRow[],
   startOn: string,
   endOn: string,
+  saleDates: Map<number, string> = rentalSaleDates(payments),
 ): number {
   const sales = payments.reduce((sum, payment) => {
     if (payment.status !== 'paid' || !payment.paid_at) {
@@ -114,10 +139,14 @@ export function actualSalesOn(
     return paidOn < startOn || paidOn > endOn ? sum : sum + Math.round(paymentSaleAmount(payment) * 100)
   }, 0)
   const commissions = expenses.reduce((sum, expense) => {
-    if (expense.category !== 'commission' || expense.status === 'void' || !expense.incurred_on) {
+    if (expense.category !== 'commission' || expense.status === 'void') {
       return sum
     }
-    return expense.incurred_on < startOn || expense.incurred_on > endOn ? sum : sum + Math.round(Number(expense.amount) * 100)
+    const countedOn = (expense.rental_id == null ? undefined : saleDates.get(expense.rental_id)) ?? expense.incurred_on
+    if (!countedOn) {
+      return sum
+    }
+    return countedOn < startOn || countedOn > endOn ? sum : sum + Math.round(Number(expense.amount) * 100)
   }, 0)
   return (sales - commissions) / 100
 }
@@ -133,9 +162,10 @@ export function buildKpis(input: {
 }): AnalyticsKpis {
   const today = input.today ?? calendarDateInZone()
   const now = input.now ?? new Date()
-  const totalSales = actualSalesOn(input.payments, input.expenses, '1970-01-01', today)
-  const todaySales = actualSalesOn(input.payments, input.expenses, today, today)
-  const monthSales = actualSalesOn(input.payments, input.expenses, monthStart(today), today)
+  const saleDates = rentalSaleDates(input.payments)
+  const totalSales = actualSalesOn(input.payments, input.expenses, '1970-01-01', today, saleDates)
+  const todaySales = actualSalesOn(input.payments, input.expenses, today, today, saleDates)
+  const monthSales = actualSalesOn(input.payments, input.expenses, monthStart(today), today, saleDates)
   const totalExpenses = input.expenses
     .filter(expense => expense.status !== 'void' && expense.category !== 'commission')
     .reduce((sum, expense) => sum + Number(expense.amount), 0)
@@ -167,9 +197,10 @@ export function buildKpis(input: {
 }
 
 export function salesByDay(payments: AnalyticsPaymentRow[], days: string[], expenses: AnalyticsExpenseRow[] = []): AnalyticsPoint[] {
+  const saleDates = rentalSaleDates(payments)
   return days.map(label => ({
     label,
-    value: actualSalesOn(payments, expenses, label, label),
+    value: actualSalesOn(payments, expenses, label, label, saleDates),
   }))
 }
 

@@ -7,12 +7,12 @@ import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
 import type { AssignAdminCommissionerInput, CancelAdminRentalInput, ContinueAdminRentalInput, CreateAdminRentalInput, EditAdminRentalExtensionInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
-import type { PublicRentalExtension, RentalExtensionPreview } from '../../types/rental'
+import type { PublicRentalExtension, PublicRentalHistoryEntry, RentalExtensionPreview } from '../../types/rental'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toShopRental } from '../../utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toPublicRentalHistoryEntry, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
-import { rentalPeriodDays, resolveRentalWindow } from '../../utils/rental-window'
+import { rentalPeriodDays, rentalScheduleChange, resolveRentalWindow } from '../../utils/rental-window'
 import { addMoney, quoteExtensionLine } from '../../utils/pricing'
 import { rentalActualSale, extensionPaymentStatus, separatelyBilledExtensionTotal } from '../../utils/rental-extension'
 import { findProductByUuid } from '../repositories/product.repository'
@@ -28,6 +28,7 @@ import {
   findRentalByCode,
   findRentalByUuid,
   findRentalIdentity,
+  listRentalStatusHistory,
   insertRentalItem,
   insertRentalRequest,
   insertRentalStatusHistory,
@@ -711,6 +712,12 @@ export async function extendAdminRental(
   return loadAdminRental(client, rental.uuid)
 }
 
+export async function listAdminRentalHistory(client: Client, identifier: string): Promise<PublicRentalHistoryEntry[]> {
+  const { row } = await loadAdminRentalRow(client, identifier)
+  const rows = await listRentalStatusHistory(client, row.id)
+  return rows.map(toPublicRentalHistoryEntry)
+}
+
 export async function listAdminRentalExtensions(client: Client, identifier: string): Promise<PublicRentalExtension[]> {
   const { row: rentalRow, rental } = await loadAdminRentalRow(client, identifier)
   const [rows, payments] = await Promise.all([
@@ -1217,27 +1224,42 @@ export async function continueAdminRental(
     depositAmount: Number(updated.deposit_amount),
   }
   const paymentAdjustment = await syncRentalPayments(client, identity.id, nextTotals)
+  const previousSchedule = { startsOn: rental.startsOn, endsOn: rental.endsOn, pickupTime: rental.pickupTime }
+  const nextSchedule = { startsOn: quote.startsOn, endsOn: quote.endsOn, pickupTime: quote.pickupTime }
+  const scheduleChange = rentalScheduleChange(previousSchedule, nextSchedule)
+  const historyNote = book
+    ? 'Admin booked the rental after the waiver was signed.'
+    : rental.status === 'draft'
+      ? 'Admin continued the customer rental form.'
+      : 'Admin updated the booking.'
 
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
     fromStatus: rental.status,
     toStatus: book ? 'pending' : rental.status,
     changedBy: profileId,
-    note: book
-      ? 'Admin booked the rental after the waiver was signed.'
-      : rental.status === 'draft'
-        ? 'Admin continued the customer rental form.'
-        : 'Admin updated the booking.',
+    note: scheduleChange ? `${historyNote} Schedule changed: ${scheduleChange}.` : historyNote,
   })
+
+  if (scheduleChange) {
+    await recordAudit(event, client, {
+      action: 'rental.schedule.admin',
+      entity: 'rental_requests',
+      entityId: rental.uuid,
+      previous: { ...previousSchedule, pickupAt: rental.pickupAt, returnAt: rental.returnAt },
+      next: { ...nextSchedule, pickupAt: quote.pickupAt, returnAt: quote.returnAt },
+    })
+  }
 
   await recordAudit(event, client, {
     action: 'rental.continue',
     entity: 'rental_requests',
     entityId: rental.uuid,
-    previous: { startsOn: rental.startsOn, endsOn: rental.endsOn, status: rental.status, totalAmount: rental.totalAmount },
+    previous: { ...previousSchedule, status: rental.status, totalAmount: rental.totalAmount },
     next: {
       startsOn: updated.starts_on,
       endsOn: updated.ends_on,
+      pickupTime: quote.pickupTime,
       quantity: quote.quantity,
       status: book ? 'pending' : rental.status,
       commissionerUuid: commission.commissionerUuid,

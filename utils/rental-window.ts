@@ -125,6 +125,25 @@ export function calendarDayOverlapsWindow(date: string, pickupAt: string, return
   return pickupAt < dayEnd && returnAt > dayStart
 }
 
+export interface RentalScheduleSnapshot {
+  startsOn: string
+  endsOn: string
+  pickupTime: string
+}
+
+/** Says how the pickup and return moved, for the rental history. Null when the schedule stayed the same. */
+export function rentalScheduleChange(previous: RentalScheduleSnapshot, next: RentalScheduleSnapshot): string | null {
+  const timeChanged = previous.pickupTime !== next.pickupTime
+  const parts: string[] = []
+  if (timeChanged || previous.startsOn !== next.startsOn) {
+    parts.push(`pickup ${formatRentalReturnLabel(previous.startsOn, previous.pickupTime)} → ${formatRentalReturnLabel(next.startsOn, next.pickupTime)}`)
+  }
+  if (timeChanged || previous.endsOn !== next.endsOn) {
+    parts.push(`return ${formatRentalReturnLabel(previous.endsOn, previous.pickupTime)} → ${formatRentalReturnLabel(next.endsOn, next.pickupTime)}`)
+  }
+  return parts.length ? parts.join('; ') : null
+}
+
 export function formatRentalReturnLabel(endsOn: string, pickupTime: string): string {
   const [year, month, day] = String(endsOn || '').split('-').map(Number)
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

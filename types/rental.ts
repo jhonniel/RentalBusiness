@@ -132,6 +132,15 @@ export interface RentalExtensionPreview {
   canFulfill: boolean
 }
 
+export interface PublicRentalHistoryEntry {
+  uuid: string
+  fromStatus: string | null
+  toStatus: string
+  note: string | null
+  changedBy: string | null
+  createdAt: string
+}
+
 export interface PublicRentalExtension {
   uuid: string
   previousEndsOn: string

@@ -3,7 +3,7 @@ import type { Database } from '../../types/database.types'
 import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { CALENDAR_RENTAL_STATUSES } from '../../utils/constants'
 import { addCalendarDays } from '../../utils/expense'
-import { rentalCodeCandidates } from '../../utils/rental'
+import { rentalCodeCandidates, type RentalHistoryRow } from '../../utils/rental'
 import { businessDateTimeToUtc } from '../../utils/rental-window'
 import { AppError, ERROR_CODES } from '../utils/errors'
 
@@ -329,6 +329,24 @@ export async function updateRentalStatus(client: Client, uuid: string, status: R
   }
 
   return data
+}
+
+const RENTAL_HISTORY_LIMIT = 100
+
+export async function listRentalStatusHistory(client: Client, rentalId: number): Promise<RentalHistoryRow[]> {
+  const { data, error } = await client
+    .from('rental_status_history')
+    .select('uuid, from_status, to_status, note, created_at, changed_by_profile:profiles!rental_status_history_changed_by_fkey ( first_name, last_name )')
+    .eq('rental_id', rentalId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(RENTAL_HISTORY_LIMIT)
+
+  if (error) {
+    throw new AppError('We could not load the rental history.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return (data ?? []) as unknown as RentalHistoryRow[]
 }
 
 export async function insertRentalStatusHistory(client: Client, values: {

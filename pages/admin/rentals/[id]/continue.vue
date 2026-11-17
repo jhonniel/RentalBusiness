@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PublicRental, RentalQuote } from '~/types/rental'
+import type { PublicRental, PublicRentalHistoryEntry, RentalQuote } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { fieldErrors } from '~/utils/auth-validation'
 import { calendarDateInZone } from '~/utils/datetime'
@@ -22,6 +22,13 @@ const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/admin/rentals/${identifier.value}`,
 )
 const { data: commissioners } = await useFetch<AdminSystemUser[]>('/api/admin/commissioners')
+const { data: history, refresh: refreshHistory } = await useFetch<PublicRentalHistoryEntry[]>(
+  () => `/api/admin/rentals/${identifier.value}/history`,
+)
+
+async function refreshRental() {
+  await Promise.all([refresh(), refreshHistory()])
+}
 
 if (error.value?.statusCode === 404) {
   throw createError({
@@ -159,7 +166,7 @@ async function onSubmit() {
           : 'Booking updated',
       color: 'success',
     })
-    await refresh()
+    await refreshRental()
     return true
   }
   catch (error) {
@@ -332,6 +339,11 @@ async function onSubmit() {
               : 'That quantity is not available for these dates.' }}
           </p>
         </section>
+
+        <AdminRentalHistory
+          v-if="history"
+          :entries="history"
+        />
       </div>
 
       <div class="space-y-6">
@@ -418,14 +430,14 @@ async function onSubmit() {
 
         <AdminIdentityUpload
           :rental="rental"
-          @uploaded="refresh"
+          @uploaded="refreshRental"
         />
 
         <AdminWaiverSign
           :rental="rental"
           :disabled="pending"
-          @signed="refresh"
-          @reset="refresh"
+          @signed="refreshRental"
+          @reset="refreshRental"
         />
 
         <div

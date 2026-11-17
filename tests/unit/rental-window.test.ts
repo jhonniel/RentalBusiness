@@ -9,6 +9,7 @@ import {
   isPastBusinessDateTime,
   normalizePickupTime,
   rentalPeriodDays,
+  rentalScheduleChange,
   resolveRentalWindow,
 } from '../../utils/rental-window'
 
@@ -70,5 +71,17 @@ describe('rental pickup and return window', () => {
   it('maps midnight backfills to the default shop pickup slot', () => {
     expect(normalizePickupTime('00:00')).toBe('09:00')
     expect(normalizePickupTime('13:00')).toBe('13:00')
+  })
+
+  it('describes a pickup or return change and stays quiet when the schedule is the same', () => {
+    const booked = { startsOn: '2026-11-15', endsOn: '2026-11-16', pickupTime: '09:00' }
+
+    expect(rentalScheduleChange(booked, { ...booked })).toBeNull()
+    expect(rentalScheduleChange(booked, { startsOn: '2026-11-28', endsOn: '2026-11-29', pickupTime: '09:00' }))
+      .toBe('pickup 15 Nov 2026 at 9:00 AM → 28 Nov 2026 at 9:00 AM; return 16 Nov 2026 at 9:00 AM → 29 Nov 2026 at 9:00 AM')
+    expect(rentalScheduleChange(booked, { ...booked, endsOn: '2026-11-18' }))
+      .toBe('return 16 Nov 2026 at 9:00 AM → 18 Nov 2026 at 9:00 AM')
+    expect(rentalScheduleChange(booked, { ...booked, pickupTime: '13:30' }))
+      .toBe('pickup 15 Nov 2026 at 9:00 AM → 15 Nov 2026 at 1:30 PM; return 16 Nov 2026 at 9:00 AM → 16 Nov 2026 at 1:30 PM')
   })
 })

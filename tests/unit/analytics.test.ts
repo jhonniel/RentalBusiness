@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { adminRentalListQuerySchema } from '../../utils/admin-validation'
-import { actualSalesOn, buildKpis, commissionerRanks, isOngoingRental, lastCalendarDays, paidSalesOn, topRentedProducts } from '../../utils/analytics'
+import { actualSalesOn, buildKpis, commissionerRanks, isOngoingRental, lastCalendarDays, paidSalesOn, rentalSaleDates, salesByDay, topRentedProducts } from '../../utils/analytics'
 import { paymentSaleAmount } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 
@@ -152,7 +152,7 @@ describe('actual sales', () => {
     expect(paymentSaleAmount({ amount: 1000, metadata: { kind: 'extension' } })).toBe(1000)
   })
 
-  it('takes commissions off on the day they are recorded', () => {
+  it('takes a commission with no linked booking off on the day it was recorded', () => {
     const payments = [
       { amount: 3200, status: 'paid' as const, paid_at: '2026-10-20T05:00:00.000Z', metadata: { includesDeposit: true, depositAmount: 500 } },
       { amount: 1000, status: 'paid' as const, paid_at: '2026-10-24T05:00:00.000Z', metadata: { kind: 'extension' } },
@@ -164,5 +164,31 @@ describe('actual sales', () => {
     ]
     expect(actualSalesOn(payments, expenses, '2026-10-01', '2026-10-31')).toBe(3300)
     expect(actualSalesOn(payments, expenses, '2026-10-20', '2026-10-20')).toBe(2300)
+  })
+
+  it('takes each booking commission off on the day that booking was paid, not the day it was approved', () => {
+    const payments = [
+      { rental_id: 51, amount: 1500, status: 'paid' as const, paid_at: '2026-11-12T05:29:00.000Z', metadata: { includesDeposit: true, depositAmount: 500 } },
+      { rental_id: 49, amount: 2500, status: 'paid' as const, paid_at: '2026-11-17T01:40:00.000Z', metadata: { includesDeposit: true, depositAmount: 500 } },
+      { rental_id: 24, amount: 3600, status: 'paid' as const, paid_at: '2026-10-20T07:06:00.000Z' },
+      { rental_id: 24, amount: 1000, status: 'paid' as const, paid_at: '2026-10-25T06:10:00.000Z', metadata: { kind: 'extension' } },
+    ]
+    const expenses = [
+      { rental_id: 51, amount: 100, status: 'pending', category: 'commission', incurred_on: '2026-11-17' },
+      { rental_id: 49, amount: 200, status: 'pending', category: 'commission', incurred_on: '2026-11-17' },
+      { rental_id: 24, amount: 500, status: 'pending', category: 'commission', incurred_on: '2026-10-23' },
+      { rental_id: 99, amount: 300, status: 'void', category: 'commission', incurred_on: '2026-11-17' },
+    ]
+
+    expect([...rentalSaleDates(payments)]).toEqual([[51, '2026-11-12'], [49, '2026-11-17'], [24, '2026-10-20']])
+    expect(salesByDay(payments, ['2026-11-12', '2026-11-17', '2026-10-20', '2026-10-23', '2026-10-25'], expenses)).toEqual([
+      { label: '2026-11-12', value: 900 },
+      { label: '2026-11-17', value: 1800 },
+      { label: '2026-10-20', value: 3100 },
+      { label: '2026-10-23', value: 0 },
+      { label: '2026-10-25', value: 1000 },
+    ])
+    expect(actualSalesOn(payments, expenses, '2026-11-01', '2026-11-30')).toBe(2700)
+    expect(actualSalesOn(payments, expenses, '1970-01-01', '2026-11-30')).toBe(6800)
   })
 })

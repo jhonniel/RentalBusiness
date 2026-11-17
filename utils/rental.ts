@@ -1,4 +1,4 @@
-import type { PublicRental, PublicRentalItem } from '~/types/rental'
+import type { PublicRental, PublicRentalHistoryEntry, PublicRentalItem } from '~/types/rental'
 import type { RentalStatus } from './constants'
 import { toPublicRentalIdentity, type IdentityVerificationRow } from './identity'
 import { firstPayments, type PaymentRow } from './payment'
@@ -164,6 +164,28 @@ export function toShopRental(row: RentalRow & {
       : null,
     commissionAmount: Number(row.commission_amount ?? 0),
     commissionPerDay: Number(row.commission_per_day ?? 0),
+  }
+}
+
+export interface RentalHistoryRow {
+  uuid: string
+  from_status: string | null
+  to_status: string
+  note: string | null
+  created_at: string
+  changed_by_profile?: { first_name: string, last_name: string } | { first_name: string, last_name: string }[] | null
+}
+
+export function toPublicRentalHistoryEntry(row: RentalHistoryRow): PublicRentalHistoryEntry {
+  const person = Array.isArray(row.changed_by_profile) ? row.changed_by_profile[0] : row.changed_by_profile
+  const name = person ? `${person.first_name} ${person.last_name}`.trim() : ''
+  return {
+    uuid: row.uuid,
+    fromStatus: row.from_status,
+    toStatus: row.to_status,
+    note: row.note?.trim() || null,
+    changedBy: name || null,
+    createdAt: row.created_at,
   }
 }
 

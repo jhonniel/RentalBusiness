@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { customerRentalGroup, amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental } from '../../utils/rental'
+import { customerRentalGroup, amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
@@ -385,5 +385,28 @@ describe('customer rental transitions', () => {
       endsOn: '2026-10-06',
       returnAt: '2026-10-06T06:00:00.000Z',
     }, new Date('2026-10-06T08:00:00.000Z'))).toBe(false)
+  })
+
+  it('maps a history row to a public entry without internal ids', () => {
+    const entry = toPublicRentalHistoryEntry({
+      uuid: '0b0f3f5e-7d0c-4c56-9a51-3b8a3a1f8f11',
+      from_status: 'paid',
+      to_status: 'paid',
+      note: ' Admin updated the booking. ',
+      created_at: '2026-11-16T03:28:28.338Z',
+      changed_by_profile: [{ first_name: 'Shop', last_name: 'Admin' }],
+      ...{ id: 7, rental_id: 51, changed_by: 5 },
+    })
+
+    expect(entry).toEqual({
+      uuid: '0b0f3f5e-7d0c-4c56-9a51-3b8a3a1f8f11',
+      fromStatus: 'paid',
+      toStatus: 'paid',
+      note: 'Admin updated the booking.',
+      changedBy: 'Shop Admin',
+      createdAt: '2026-11-16T03:28:28.338Z',
+    })
+    expect(toPublicRentalHistoryEntry({ uuid: 'u', from_status: null, to_status: 'draft', note: null, created_at: '2026-11-12T05:06:03.931Z', changed_by_profile: null }))
+      .toMatchObject({ fromStatus: null, note: null, changedBy: null })
   })
 })
