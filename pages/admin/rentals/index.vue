@@ -56,6 +56,14 @@ function toggleTile(tile: RentalTile) {
   status.value = !on && tile.kind === 'status' ? tile.key : ''
 }
 
+/** Rows get a tag only while upcoming or active. Done and cancelled rows already say so in their status. */
+function groupTag(rental: PublicRental) {
+  if (rental.group === 'upcoming') {
+    return 'upcoming'
+  }
+  return rental.group === 'active' && rental.status !== 'active' ? 'active' : ''
+}
+
 const filterLabel = computed(() => {
   if (group.value) {
     return `Showing: ${group.value}`
@@ -300,10 +308,13 @@ async function removeRental(uuid: string) {
               <p class="font-medium text-stone-900">
                 {{ rental.items[0]?.product.name || rental.code }}
               </p>
-              <StatusBadge
-                class="shrink-0 lg:hidden"
-                :status="rental.status"
-              />
+              <span class="flex shrink-0 flex-wrap justify-end gap-1.5 lg:hidden">
+                <StatusBadge
+                  v-if="groupTag(rental)"
+                  :status="groupTag(rental)"
+                />
+                <StatusBadge :status="rental.status" />
+              </span>
             </div>
             <p class="mt-1 text-sm break-words text-stone-500">
               {{ rental.code }}
@@ -321,10 +332,13 @@ async function removeRental(uuid: string) {
             class="text-sm font-medium tabular-nums text-stone-900"
             title="Actual sale: rent after discounts, minus commissions and unpaid extensions. Deposit not included."
           >{{ formatMoney(rental.actualSale ?? rental.totalAmount) }}</span>
-          <StatusBadge
-            class="hidden shrink-0 lg:inline-flex"
-            :status="rental.status"
-          />
+          <span class="hidden shrink-0 items-center gap-1.5 lg:flex">
+            <StatusBadge
+              v-if="groupTag(rental)"
+              :status="groupTag(rental)"
+            />
+            <StatusBadge :status="rental.status" />
+          </span>
         </NuxtLink>
         <div class="flex flex-wrap gap-2 lg:shrink-0 lg:justify-end">
           <NuxtLink

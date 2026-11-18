@@ -1,5 +1,5 @@
 import type { AnalyticsKpis, AnalyticsPoint, CommissionerRank, TopProduct } from '~/types/analytics'
-import type { PaymentStatus, RentalStatus } from './constants'
+import type { AdminRentalGroup, PaymentStatus, RentalStatus } from './constants'
 import { BOOKED_RENTAL_STATUSES, CANCELLED_RENTAL_STATUSES, DONE_RENTAL_STATUSES, OUT_RENTAL_STATUSES } from './constants'
 import { isCommissionEarned } from './commission'
 import { calendarDateInZone } from './datetime'
@@ -103,6 +103,25 @@ export function isOngoingRental(row: AnalyticsRentalRow, now = new Date()): bool
   return window.start <= instant && instant < window.end
 }
 
+/** Which Rentals group a booking is in right now. Null for drafts, requests still waiting, and bookings past their return that are not marked done. */
+export function adminRentalGroupOf(
+  row: AnalyticsRentalRow,
+  now = new Date(),
+  today = calendarDateInZone(now),
+): AdminRentalGroup | null {
+  if ((DONE_RENTAL_STATUSES as readonly string[]).includes(row.status)) {
+    return 'done'
+  }
+  if ((CANCELLED_RENTAL_STATUSES as readonly string[]).includes(row.status)) {
+    return 'cancelled'
+  }
+  if (isOngoingRental(row, now)) {
+    return 'active'
+  }
+  const ahead = row.pickup_at ? Date.parse(row.pickup_at) > now.getTime() : row.starts_on >= today
+  return (BOOKED_RENTAL_STATUSES as readonly string[]).includes(row.status) && ahead ? 'upcoming' : null
+}
+
 function isRentPayment(metadata: unknown) {
   const kind = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
     ? (metadata as { kind?: unknown }).kind
@@ -164,6 +183,7 @@ export function buildKpis(input: {
   const today = input.today ?? calendarDateInZone()
   const now = input.now ?? new Date()
   const saleDates = rentalSaleDates(input.payments)
+  const groups = input.rentals.map(row => adminRentalGroupOf(row, now, today))
   const totalSales = actualSalesOn(input.payments, input.expenses, '1970-01-01', today, saleDates)
   const todaySales = actualSalesOn(input.payments, input.expenses, today, today, saleDates)
   const monthSales = actualSalesOn(input.payments, input.expenses, monthStart(today), today, saleDates)
@@ -179,15 +199,11 @@ export function buildKpis(input: {
     todaySales,
     monthSales,
     pendingRentals: input.rentals.filter(row => ['pending', 'awaiting_payment'].includes(row.status)).length,
-    activeRentals: input.rentals.filter(row => isOngoingRental(row, now)).length,
-    upcomingRentals: input.rentals.filter(row =>
-      (BOOKED_RENTAL_STATUSES as readonly string[]).includes(row.status)
-      && !isOngoingRental(row, now)
-      && (row.pickup_at ? Date.parse(row.pickup_at) > now.getTime() : row.starts_on >= today),
-    ).length,
+    activeRentals: groups.filter(group => group === 'active').length,
+    upcomingRentals: groups.filter(group => group === 'upcoming').length,
     overdueRentals: input.rentals.filter(row => row.status === 'overdue').length,
-    doneRentals: input.rentals.filter(row => (DONE_RENTAL_STATUSES as readonly string[]).includes(row.status)).length,
-    cancelledRentals: input.rentals.filter(row => (CANCELLED_RENTAL_STATUSES as readonly string[]).includes(row.status)).length,
+    doneRentals: groups.filter(group => group === 'done').length,
+    cancelledRentals: groups.filter(group => group === 'cancelled').length,
     totalExpenses,
     totalCommissions,
     totalSpent: Math.round((totalExpenses + totalCommissions) * 100) / 100,

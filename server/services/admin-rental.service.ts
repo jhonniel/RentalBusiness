@@ -14,6 +14,7 @@ import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { rentalPeriodDays, rentalScheduleChange, resolveRentalWindow } from '../../utils/rental-window'
 import { addMoney, quoteExtensionLine } from '../../utils/pricing'
+import { adminRentalGroupOf } from '../../utils/analytics'
 import { rentalActualSale, extensionPaymentStatus, separatelyBilledExtensionTotal } from '../../utils/rental-extension'
 import { findProductByUuid } from '../repositories/product.repository'
 import { isUuid } from '../../utils/slug'
@@ -128,6 +129,7 @@ export async function listAdminRentals(client: Client, query: {
     to: from + query.pageSize - 1,
   })
 
+  const now = new Date()
   const doneIds = rows.filter(row => canSendFeedback(row.status as RentalStatus)).map(row => row.id)
   const [extensions, feedback] = await Promise.all([
     listExtensionAmountsByRentalIds(client, rows.map(row => row.id)).catch(() => []),
@@ -139,6 +141,13 @@ export async function listAdminRentals(client: Client, query: {
       const payments = Array.isArray(row.payment_transactions) ? row.payment_transactions : row.payment_transactions ? [row.payment_transactions] : []
       return {
         ...rental,
+        group: adminRentalGroupOf({
+          status: rental.status,
+          starts_on: row.starts_on,
+          ends_on: row.ends_on,
+          pickup_at: row.pickup_at,
+          return_at: row.return_at,
+        }, now),
         feedback: canSendFeedback(rental.status)
           ? feedbackSummary(feedback.get(row.id))
           : null,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { adminRentalListQuerySchema } from '../../utils/admin-validation'
-import { actualSalesOn, buildKpis, commissionerRanks, isOngoingRental, lastCalendarDays, paidSalesOn, rentalSaleDates, salesByDay, topRentedProducts } from '../../utils/analytics'
+import { actualSalesOn, adminRentalGroupOf, buildKpis, commissionerRanks, isOngoingRental, lastCalendarDays, paidSalesOn, rentalSaleDates, salesByDay, topRentedProducts } from '../../utils/analytics'
 import { paymentSaleAmount } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 
@@ -221,5 +221,23 @@ describe('actual sales', () => {
     expect(kpisAt('2026-11-17T01:29:00.000Z')).toMatchObject({ upcomingRentals: 1, activeRentals: 0 })
     expect(kpisAt('2026-11-17T01:30:00.000Z')).toMatchObject({ upcomingRentals: 0, activeRentals: 1 })
     expect(kpisAt('2026-11-19T01:30:00.000Z')).toMatchObject({ upcomingRentals: 0, activeRentals: 0 })
+  })
+
+  it('names the group a booking is in right now', () => {
+    const window = { starts_on: '2026-11-17', ends_on: '2026-11-19', pickup_at: '2026-11-17T01:30:00.000Z', return_at: '2026-11-19T01:30:00.000Z' }
+    const before = new Date('2026-11-16T00:00:00.000Z')
+    const during = new Date('2026-11-18T02:00:00.000Z')
+    const after = new Date('2026-11-20T00:00:00.000Z')
+
+    expect(adminRentalGroupOf({ ...window, status: 'approved' }, before)).toBe('upcoming')
+    expect(adminRentalGroupOf({ ...window, status: 'approved' }, during)).toBe('active')
+    expect(adminRentalGroupOf({ ...window, status: 'approved' }, after)).toBeNull()
+    expect(adminRentalGroupOf({ ...window, status: 'overdue' }, after)).toBe('active')
+    expect(adminRentalGroupOf({ ...window, status: 'completed' }, during)).toBe('done')
+    expect(adminRentalGroupOf({ ...window, status: 'returned' }, during)).toBe('done')
+    expect(adminRentalGroupOf({ ...window, status: 'cancelled' }, during)).toBe('cancelled')
+    expect(adminRentalGroupOf({ ...window, status: 'rejected' }, before)).toBe('cancelled')
+    expect(adminRentalGroupOf({ ...window, status: 'pending' }, before)).toBeNull()
+    expect(adminRentalGroupOf({ ...window, status: 'draft' }, during)).toBeNull()
   })
 })

@@ -4,8 +4,11 @@ const props = defineProps<{
 }>()
 
 const color = computed(() => {
-  if (['active', 'available', 'paid', 'approved', 'completed'].includes(props.status)) {
+  if (['active', 'available', 'paid', 'approved', 'completed', 'done'].includes(props.status)) {
     return 'success' as const
+  }
+  if (props.status === 'upcoming') {
+    return 'info' as const
   }
   if (['draft', 'pending', 'hidden', 'coming_soon', 'reserved', 'rented', 'maintenance', 'awaiting_payment', 'paused', 'scheduled'].includes(props.status)) {
     return 'warning' as const

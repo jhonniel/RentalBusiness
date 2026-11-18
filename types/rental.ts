@@ -3,7 +3,7 @@ import type { PublicPayment } from '~/types/payment'
 import type { PublicReceipt } from '~/types/receipt'
 import type { PublicRentalVoucher } from '~/types/voucher'
 import type { PublicWaiverAcceptance } from '~/types/waiver'
-import type { RentalStatus } from '~/utils/constants'
+import type { AdminRentalGroup, RentalStatus } from '~/utils/constants'
 import type { LateFeeStatus, LateFeeType } from '~/utils/late-fee'
 
 export interface PublicRentalIdentity {
@@ -68,6 +68,8 @@ export interface PublicRental {
   extensionLines?: RentalExtensionLine[]
   lateFee?: RentalLateFee | null
   actualSale?: number
+  /** Admin list only: upcoming, active, done, or cancelled right now. */
+  group?: AdminRentalGroup | null
   feedback?: RentalFeedbackSummary | null
   createdAt: string
 }
