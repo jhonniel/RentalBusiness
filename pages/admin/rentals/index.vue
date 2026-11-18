@@ -323,6 +323,18 @@ async function removeRental(uuid: string) {
                 · Commissioner {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
               </template>
             </p>
+            <p
+              v-if="rental.paymentBalance && rental.paymentBalance.balanceDue > 0"
+              class="mt-1 text-xs font-medium text-amber-800"
+            >
+              Balance unpaid · {{ formatMoney(rental.paymentBalance.balanceDue) }}
+            </p>
+            <p
+              v-else-if="rental.paymentBalance && rental.paymentBalance.refundDue > 0"
+              class="mt-1 text-xs font-medium text-sky-800"
+            >
+              To refund · {{ formatMoney(rental.paymentBalance.refundDue) }}
+            </p>
           </div>
           <p class="text-sm leading-5 text-stone-600">
             <span class="whitespace-nowrap">{{ formatBookingDateRange(rental.startsOn, rental.endsOn) }}</span>
@@ -330,7 +342,7 @@ async function removeRental(uuid: string) {
           </p>
           <span
             class="text-sm font-medium tabular-nums text-stone-900"
-            title="Actual sale: rent after discounts, minus commissions and unpaid extensions. Deposit not included."
+            title="Actual sale: rent after discounts, minus commissions, unpaid extensions and unpaid balances. Deposit not included."
           >{{ formatMoney(rental.actualSale ?? rental.totalAmount) }}</span>
           <span class="hidden shrink-0 items-center gap-1.5 lg:flex">
             <StatusBadge

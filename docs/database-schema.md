@@ -246,6 +246,8 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 - `payment_method`, `paid_at`, `metadata` (jsonb)
 - `created_at`
 - Unique open payment per rental: at most one row in `pending` or `processing`
+- `metadata.kind` says what a row is for. No kind is the booking payment. `extension` and `late_fee` are paid on their own. `balance` is extra rent paid after a paid booking changed. `refund` is rent given back after a paid booking got cheaper: status `refunded`, a positive `amount`, and `paid_at` set to the day it was given. Sales subtract it.
+- A paid booking payment is not rewritten when the booking changes. The open balance or refund is worked out from these rows, so no extra table is needed.
 
 Never trust client-reported payment status. Inserts and updates are server-only (service role). Customers may select their own rows.
 

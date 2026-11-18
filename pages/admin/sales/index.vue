@@ -163,7 +163,7 @@ const csvHref = computed(() => {
           class="rounded-xl border border-stone-200 bg-white p-4"
         >
           <p class="font-medium break-words text-stone-900">
-            {{ row.rentalCode || 'Sale' }}
+            {{ row.rentalCode || 'Sale' }}{{ row.refund ? ' · Refund' : '' }}
           </p>
           <p class="mt-1 text-sm break-words text-stone-500">
             {{ row.paidOn }}
@@ -223,6 +223,10 @@ const csvHref = computed(() => {
                   {{ row.rentalCode }}
                 </NuxtLink>
                 <span v-else>—</span>
+                <span
+                  v-if="row.refund"
+                  class="ml-1 text-xs text-stone-500"
+                >Refund</span>
               </td>
               <td class="px-4 py-3">
                 {{ paymentMethodLabel(row.method) }}

@@ -120,12 +120,18 @@ const commissionStatusLabel = computed(() => {
   }
   return 'recorded when the booking is approved'
 })
-const paidPayment = computed(() => rental.value?.payments.find(payment => payment.status === 'paid') ?? null)
+const paidPayment = computed(() => rental.value?.payments.find(payment => payment.status === 'paid' && payment.kind === 'booking')
+  ?? rental.value?.payments.find(payment => payment.status === 'paid')
+  ?? null)
 const hasPaidPayment = computed(() => Boolean(paidPayment.value))
 const paidAmount = computed(() => paidPayment.value?.amount ?? 0)
 const totalPaid = computed(() => Math.round((rental.value?.payments ?? [])
-  .filter(payment => payment.status === 'paid')
-  .reduce((sum, payment) => sum + Number(payment.amount), 0) * 100) / 100)
+  .reduce((sum, payment) => {
+    if (payment.status === 'paid') {
+      return sum + Number(payment.amount)
+    }
+    return payment.status === 'refunded' && payment.kind === 'refund' ? sum - Number(payment.amount) : sum
+  }, 0) * 100) / 100)
 const customerName = computed(() => rental.value?.customer
   ? `${rental.value.customer.firstName} ${rental.value.customer.lastName}`.trim()
   : 'Unknown customer')
@@ -542,6 +548,11 @@ async function removeRental() {
         </dl>
       </section>
 
+      <AdminRentalBalance
+        :rental="rental"
+        @changed="refresh"
+      />
+
       <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
         <div class="space-y-6">
           <section class="rounded-2xl border border-stone-200 bg-white p-5 text-sm">
@@ -721,6 +732,18 @@ async function removeRental() {
               >
                 Unpaid extension of {{ formatMoney(sales.pendingExtension) }} is not counted until it is paid.
               </p>
+              <p
+                v-if="sales.pendingBalance > 0"
+                class="mt-3 text-xs text-amber-200"
+              >
+                Unpaid balance of {{ formatMoney(sales.pendingBalance) }} is not counted until it is marked paid.
+              </p>
+              <p
+                v-if="sales.pendingRefund > 0"
+                class="mt-3 text-xs text-sky-200"
+              >
+                {{ formatMoney(sales.pendingRefund) }} is still to refund. Sales reports keep it until it is marked refunded.
+              </p>
             </div>
             <ul class="mt-3 divide-y divide-stone-100">
               <li
@@ -834,6 +857,13 @@ async function removeRental() {
               >
                 <dt>Unpaid extension · not counted yet</dt>
                 <dd>−{{ formatMoney(sales.pendingExtension) }}</dd>
+              </div>
+              <div
+                v-if="sales.pendingBalance > 0"
+                class="flex justify-between gap-4 text-amber-800"
+              >
+                <dt>Unpaid balance · not counted yet</dt>
+                <dd>−{{ formatMoney(sales.pendingBalance) }}</dd>
               </div>
               <div
                 v-if="rental.commissioner"

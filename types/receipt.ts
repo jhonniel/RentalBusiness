@@ -6,7 +6,7 @@ export interface ReceiptSnapshotItem {
   lineTotal: number
 }
 
-export type ReceiptPurpose = 'booking' | 'extension' | 'late_fee'
+export type ReceiptPurpose = 'booking' | 'extension' | 'late_fee' | 'balance'
 
 export interface ReceiptStatementLine {
   receiptNumber: string

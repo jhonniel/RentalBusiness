@@ -3,7 +3,8 @@ import type { AdminRentalGroup, PaymentStatus, RentalStatus } from './constants'
 import { BOOKED_RENTAL_STATUSES, CANCELLED_RENTAL_STATUSES, DONE_RENTAL_STATUSES, OUT_RENTAL_STATUSES } from './constants'
 import { isCommissionEarned } from './commission'
 import { calendarDateInZone } from './datetime'
-import { paymentSaleAmount } from './rental'
+import { isRefundPayment, paymentKind } from './payment'
+import { paymentSaleEffect } from './rental'
 
 export interface AnalyticsPaymentRow {
   amount: number
@@ -59,7 +60,7 @@ export function monthStart(today: string = calendarDateInZone()): string {
 
 export function paidSalesOn(payments: AnalyticsPaymentRow[], startOn: string, endOn: string): number {
   return payments.reduce((sum, payment) => {
-    if (payment.status !== 'paid' || !payment.paid_at) {
+    if (!countsInSales(payment) || !payment.paid_at) {
       return sum
     }
 
@@ -68,7 +69,7 @@ export function paidSalesOn(payments: AnalyticsPaymentRow[], startOn: string, en
       return sum
     }
 
-    return sum + Number(payment.amount)
+    return sum + (isRefundPayment(payment) ? -Number(payment.amount) : Number(payment.amount))
   }, 0)
 }
 
@@ -123,10 +124,12 @@ export function adminRentalGroupOf(
 }
 
 function isRentPayment(metadata: unknown) {
-  const kind = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
-    ? (metadata as { kind?: unknown }).kind
-    : undefined
-  return kind !== 'extension' && kind !== 'late_fee'
+  return paymentKind(metadata) === 'booking'
+}
+
+/** Paid payments, and refunds given back to the customer, which come off sales on the day they were given. */
+function countsInSales(payment: AnalyticsPaymentRow) {
+  return payment.status === 'paid' || isRefundPayment(payment)
 }
 
 /** The Manila date each rental was first paid, so its commission comes off the same day as its sale. */
@@ -152,11 +155,11 @@ export function actualSalesOn(
   saleDates: Map<number, string> = rentalSaleDates(payments),
 ): number {
   const sales = payments.reduce((sum, payment) => {
-    if (payment.status !== 'paid' || !payment.paid_at) {
+    if (!countsInSales(payment) || !payment.paid_at) {
       return sum
     }
     const paidOn = calendarDateInZone(payment.paid_at)
-    return paidOn < startOn || paidOn > endOn ? sum : sum + Math.round(paymentSaleAmount(payment) * 100)
+    return paidOn < startOn || paidOn > endOn ? sum : sum + Math.round(paymentSaleEffect(payment) * 100)
   }, 0)
   const commissions = expenses.reduce((sum, expense) => {
     if (expense.category !== 'commission' || expense.status === 'void') {

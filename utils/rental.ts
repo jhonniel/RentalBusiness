@@ -1,7 +1,7 @@
 import type { PublicRental, PublicRentalHistoryEntry, PublicRentalItem, RentalPaymentChange } from '~/types/rental'
 import type { RentalStatus } from './constants'
 import { toPublicRentalIdentity, type IdentityVerificationRow } from './identity'
-import { firstPayments, type PaymentRow } from './payment'
+import { firstPayments, isRefundPayment, type PaymentRow } from './payment'
 import { firstReceipts, type ReceiptRow } from './receipt'
 import { toPublicRentalVoucher, type VoucherRedemptionRow } from './voucher'
 import { firstWaiverAcceptance, type WaiverAcceptanceRow } from './waiver'
@@ -220,39 +220,52 @@ export function amountDue(rental: { totalAmount: number, depositAmount?: number 
 }
 
 /**
- * What a paid booking's payment becomes when its rent changes, and the difference to collect or refund.
- * Rent billed on its own (extensions added after the booking was paid) stays out of this payment.
+ * Where a paid booking stands against its rent: what is paid so far, what the booking costs now,
+ * and the rent still to collect or to give back.
+ * Rent billed on its own (extensions added after the booking was paid) stays out of this.
+ * The held deposit is not rent, so a deposit that changed never shows up as a balance or refund.
  */
 export function paidPaymentChange(input: {
+  /** Everything collected so far, the held deposit included. */
   paidAmount: number
   includesDeposit: boolean
   totalAmount: number
   depositAmount?: number
   billedSeparately?: number
+  /** The deposit inside paidAmount. Defaults to depositAmount, meaning the deposit did not change. */
+  heldDeposit?: number
 }): RentalPaymentChange {
   const paid = toMinorUnits(Math.max(0, input.paidAmount))
+  const deposit = input.includesDeposit ? toMinorUnits(Math.max(0, input.depositAmount ?? 0)) : 0
+  const held = input.includesDeposit ? toMinorUnits(Math.max(0, input.heldDeposit ?? input.depositAmount ?? 0)) : 0
   const rent = Math.max(0, toMinorUnits(input.totalAmount) - toMinorUnits(Math.max(0, input.billedSeparately ?? 0)))
-  const next = rent + (input.includesDeposit ? toMinorUnits(Math.max(0, input.depositAmount ?? 0)) : 0)
+  const rentPaid = paid - held
   return {
     paidAmount: fromMinorUnits(paid),
-    newAmount: fromMinorUnits(next),
-    balanceDue: fromMinorUnits(Math.max(0, next - paid)),
-    refundDue: fromMinorUnits(Math.max(0, paid - next)),
+    newAmount: fromMinorUnits(rent + deposit),
+    balanceDue: fromMinorUnits(Math.max(0, rent - rentPaid)),
+    refundDue: fromMinorUnits(Math.max(0, rentPaid - rent)),
   }
 }
 
-/** History note for a payment that moved. Empty when there is nothing to collect or refund. */
+/** History note for a balance or refund left open on a paid booking. */
 export function paymentChangeNote(change: RentalPaymentChange, currency: string) {
   if (!change.balanceDue && !change.refundDue) {
-    return ''
+    return 'No balance or refund is open on this booking now.'
   }
-  const moved = `Paid amount ${change.paidAmount.toFixed(2)} → ${change.newAmount.toFixed(2)} ${currency}.`
+  const stands = `The booking now costs ${change.newAmount.toFixed(2)} ${currency} and ${change.paidAmount.toFixed(2)} ${currency} is paid.`
   return change.balanceDue
-    ? `${moved} Collect ${change.balanceDue.toFixed(2)} ${currency} more from the customer.`
-    : `${moved} Refund ${change.refundDue.toFixed(2)} ${currency} to the customer.`
+    ? `${stands} Balance of ${change.balanceDue.toFixed(2)} ${currency} stays unpaid until it is marked paid.`
+    : `${stands} ${change.refundDue.toFixed(2)} ${currency} stays to refund until it is marked refunded.`
 }
 
-export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'startsOn' | 'endsOn' | 'discountAmount' | 'totalAmount' | 'commissionAmount' | 'commissionPerDay' | 'commissioner' | 'pendingExtensionAmount' | 'extensionLines'>) {
+/** True when the open balance or refund is not the same before and after a change. */
+export function paymentBalanceMoved(before: RentalPaymentChange | null, after: RentalPaymentChange | null) {
+  return toMinorUnits(before?.balanceDue ?? 0) !== toMinorUnits(after?.balanceDue ?? 0)
+    || toMinorUnits(before?.refundDue ?? 0) !== toMinorUnits(after?.refundDue ?? 0)
+}
+
+export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'startsOn' | 'endsOn' | 'discountAmount' | 'totalAmount' | 'commissionAmount' | 'commissionPerDay' | 'commissioner' | 'pendingExtensionAmount' | 'extensionLines' | 'paymentBalance'>) {
   const extensions = rental.extensionLines ?? []
   const baseEndsOn = extensions[0]?.previousEndsOn ?? rental.endsOn
   const days = rentalPeriodDays(rental.startsOn, rental.endsOn)
@@ -263,7 +276,8 @@ export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'start
   const baseListRent = rental.items.reduce((sum, item) => sum + toMinorUnits(item.dailyPrice * baseDays * item.quantity), 0)
   const rent = toMinorUnits(Math.max(0, rental.totalAmount))
   const pendingExtension = Math.min(rent, toMinorUnits(Math.max(0, rental.pendingExtensionAmount ?? 0)))
-  const confirmedRent = rent - pendingExtension
+  const pendingBalance = Math.min(rent - pendingExtension, toMinorUnits(Math.max(0, rental.paymentBalance?.balanceDue ?? 0)))
+  const confirmedRent = rent - pendingExtension - pendingBalance
   const commission = rental.commissioner ? toMinorUnits(Math.max(0, rental.commissionAmount ?? 0)) : 0
   const units = rental.items.reduce((sum, item) => sum + Math.max(0, item.quantity), 0)
   const perDay = rental.commissioner ? Math.max(0, rental.commissionPerDay ?? 0) : 0
@@ -286,6 +300,8 @@ export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'start
     voucherDiscount: fromMinorUnits(toMinorUnits(Math.max(0, rental.discountAmount))),
     rent: fromMinorUnits(rent),
     pendingExtension: fromMinorUnits(pendingExtension),
+    pendingBalance: fromMinorUnits(pendingBalance),
+    pendingRefund: fromMinorUnits(toMinorUnits(Math.max(0, rental.paymentBalance?.refundDue ?? 0))),
     confirmedRent: fromMinorUnits(confirmedRent),
     commission: fromMinorUnits(commission),
     discounts: fromMinorUnits(Math.max(0, baseListRent - baseRent) + toMinorUnits(Math.max(0, rental.discountAmount))),
@@ -347,6 +363,17 @@ export function paymentDepositHeld(metadata: unknown) {
 
 export function paymentSaleAmount(payment: { amount: number | string, metadata?: unknown }) {
   return Math.max(0, Math.round((Number(payment.amount) - paymentDepositHeld(payment.metadata)) * 100) / 100)
+}
+
+/**
+ * What a payment adds to sales: a paid payment without its held deposit,
+ * or a minus for money given back to the customer. Zero for anything else.
+ */
+export function paymentSaleEffect(payment: { amount: number | string, status: string, metadata?: unknown }) {
+  if (isRefundPayment(payment)) {
+    return -fromMinorUnits(toMinorUnits(Math.max(0, Number(payment.amount))))
+  }
+  return payment.status === 'paid' ? paymentSaleAmount(payment) : 0
 }
 
 export function paymentCollectedDeposit(metadata: unknown) {

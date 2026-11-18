@@ -68,6 +68,8 @@ export interface PublicRental {
   extensionLines?: RentalExtensionLine[]
   lateFee?: RentalLateFee | null
   actualSale?: number
+  /** Admin only: rent still to collect or to give back on a paid booking. Null when the booking is not paid. */
+  paymentBalance?: RentalPaymentChange | null
   /** Admin list only: upcoming, active, done, or cancelled right now. */
   group?: AdminRentalGroup | null
   feedback?: RentalFeedbackSummary | null
@@ -173,13 +175,15 @@ export interface RentalListResponse {
   total: number
 }
 
-/** How an already paid booking's payment moves when its dates or quantity change. */
-export interface RentalPaymentChange {
+/** Where a paid booking stands after its dates or quantity changed. */
+export type RentalPaymentChange = {
+  /** Collected so far, the held deposit included: the booking payment plus balances paid, minus refunds given. */
   paidAmount: number
+  /** What the booking costs now, the held deposit included. */
   newAmount: number
-  /** More to collect from the customer. Zero when nothing more is owed. */
+  /** Rent still to collect from the customer. Zero when nothing more is owed. */
   balanceDue: number
-  /** To give back to the customer. Zero when nothing is refunded. */
+  /** Rent to give back to the customer. Zero when nothing is owed back. */
   refundDue: number
 }
 

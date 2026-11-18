@@ -1,5 +1,6 @@
 import type { PublicReceipt, ReceiptPurpose, ReceiptSnapshot, ReceiptStatementLine } from '~/types/receipt'
 import type { Json } from '~/types/database.types'
+import { paymentKind } from './payment'
 
 export interface ReceiptRow {
   uuid: string
@@ -40,6 +41,7 @@ export const RECEIPT_PURPOSE_LABELS: Record<ReceiptPurpose, string> = {
   booking: 'Booking payment',
   extension: 'Booking extension',
   late_fee: 'Late fee',
+  balance: 'Balance payment',
 }
 
 export function receiptDiscounts(rental: {
@@ -59,10 +61,8 @@ export function receiptDiscounts(rental: {
 }
 
 export function paymentPurpose(metadata: unknown): ReceiptPurpose {
-  const kind = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
-    ? (metadata as { kind?: unknown }).kind
-    : null
-  return kind === 'extension' || kind === 'late_fee' ? kind : 'booking'
+  const kind = paymentKind(metadata)
+  return kind === 'refund' ? 'booking' : kind
 }
 
 export function buildReceiptStatement(

@@ -8,7 +8,7 @@ export async function listReportPayments(client: Client) {
   const { data, error } = await client
     .from('payment_transactions')
     .select('uuid, amount, currency, status, payment_method, paid_at, metadata, rental_requests ( uuid, code )')
-    .eq('status', 'paid')
+    .in('status', ['paid', 'refunded'])
     .order('paid_at', { ascending: false })
 
   if (error) {

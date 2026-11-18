@@ -9,6 +9,10 @@ const props = defineProps<{
 const { formatMoney } = useCurrency()
 const amountDue = computed(() => props.quote.totalAmount + props.quote.depositAmount)
 const payment = computed(() => props.quote.paymentChange ?? null)
+/** The held deposit is not rent, so a deposit that changes is shown on its own line. */
+const depositChange = computed(() => payment.value
+  ? Math.round((payment.value.newAmount - payment.value.paidAmount - payment.value.balanceDue + payment.value.refundDue) * 100) / 100
+  : 0)
 </script>
 
 <template>
@@ -68,17 +72,26 @@ const payment = computed(() => props.quote.paymentChange ?? null)
           <dd>{{ formatMoney(payment.newAmount) }}</dd>
         </div>
         <div
+          v-if="depositChange !== 0"
+          class="flex justify-between gap-4"
+        >
+          <dt class="text-stone-500">
+            {{ depositChange > 0 ? 'Deposit to add' : 'Deposit to return' }}
+          </dt>
+          <dd>{{ formatMoney(Math.abs(depositChange)) }}</dd>
+        </div>
+        <div
           v-if="payment.balanceDue > 0"
           class="flex justify-between gap-4 font-medium text-amber-800"
         >
-          <dt>Balance to collect</dt>
+          <dt>Balance unpaid</dt>
           <dd>{{ formatMoney(payment.balanceDue) }}</dd>
         </div>
         <div
           v-else-if="payment.refundDue > 0"
           class="flex justify-between gap-4 font-medium text-sky-800"
         >
-          <dt>Refund to customer</dt>
+          <dt>To refund</dt>
           <dd>{{ formatMoney(payment.refundDue) }}</dd>
         </div>
         <div
@@ -95,9 +108,8 @@ const payment = computed(() => props.quote.paymentChange ?? null)
       class="mt-3 text-xs text-stone-500"
     >
       {{ payment.balanceDue > 0
-        ? 'Collect this from the customer when you save.'
-        : 'Give this back to the customer when you save.' }}
-      Saving changes the paid amount to {{ formatMoney(payment.newAmount) }}, and Sales follow it.
+        ? 'This stays on the booking as an unpaid balance until you mark it paid. Sales count it on that day.'
+        : 'This stays on the booking as an amount to refund until you mark it refunded. Sales drop on that day.' }}
     </p>
     <p
       class="mt-4 text-sm"

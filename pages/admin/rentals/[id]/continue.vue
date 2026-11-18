@@ -30,6 +30,10 @@ async function refreshRental() {
   await Promise.all([refresh(), refreshHistory()])
 }
 
+async function refreshBalance() {
+  await Promise.all([refreshRental(), refreshQuote()])
+}
+
 if (error.value?.statusCode === 404) {
   throw createError({
     statusCode: 404,
@@ -167,9 +171,9 @@ async function onSubmit() {
           ? 'Rental details saved'
           : 'Booking updated',
       description: payment?.balanceDue
-        ? `Collect ${formatMoney(payment.balanceDue)} more from the customer.`
+        ? `Balance of ${formatMoney(payment.balanceDue)} stays unpaid until you mark it paid.`
         : payment?.refundDue
-          ? `Refund ${formatMoney(payment.refundDue)} to the customer.`
+          ? `${formatMoney(payment.refundDue)} stays to refund until you mark it refunded.`
           : undefined,
       color: 'success',
     })
@@ -298,6 +302,12 @@ async function onSubmit() {
           v-if="quote"
           :quote="quote"
           :show-commission="Boolean(form.commissionerUuid)"
+        />
+
+        <AdminRentalBalance
+          v-if="rental"
+          :rental="rental"
+          @changed="refreshBalance"
         />
 
         <AdminRentalHistory

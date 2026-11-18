@@ -27,6 +27,8 @@ export interface SalesReportRow {
   amount: number
   paidAmount?: number
   depositHeld?: number
+  /** True for money given back to the customer. Its amount is negative. */
+  refund?: boolean
   currency: string
   method: string | null
   rentalUuid: string | null

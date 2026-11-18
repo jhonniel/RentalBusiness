@@ -9,13 +9,15 @@ import { calendarDateInZone } from '../../utils/datetime'
 import type { AssignAdminCommissionerInput, CancelAdminRentalInput, ContinueAdminRentalInput, CreateAdminRentalInput, EditAdminRentalExtensionInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
 import type { PublicRentalExtension, PublicRentalHistoryEntry, RentalExtensionPreview, RentalPaymentChange } from '../../types/rental'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, toPublicRentalHistoryEntry, toShopRental } from '../../utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentBalanceMoved, paymentChangeNote, paymentCollectedDeposit, toPublicRentalHistoryEntry, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { rentalPeriodDays, rentalScheduleChange, resolveRentalWindow } from '../../utils/rental-window'
 import { addMoney, quoteExtensionLine } from '../../utils/pricing'
 import { adminRentalGroupOf } from '../../utils/analytics'
-import { rentalActualSale, extensionPaymentStatus, separatelyBilledExtensionTotal } from '../../utils/rental-extension'
+import { rentalActualSale, extensionPaymentStatus } from '../../utils/rental-extension'
+import { mainPaidPayment, paymentHeldDeposit, rentalPaymentBalance } from '../../utils/rental-balance'
+import { paymentKind } from '../../utils/payment'
 import { findProductByUuid } from '../repositories/product.repository'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -55,6 +57,7 @@ import {
   findOpenPaymentByRentalId,
   findPaidPaymentByRentalId,
   listExtensionPaymentsByRentalId,
+  listPaymentsByRentalId,
   insertPayment,
   updatePaymentByUuid,
 } from '../repositories/payment.repository'
@@ -139,8 +142,17 @@ export async function listAdminRentals(client: Client, query: {
     items: rows.map((row) => {
       const rental = toShopRental(row)
       const payments = Array.isArray(row.payment_transactions) ? row.payment_transactions : row.payment_transactions ? [row.payment_transactions] : []
+      const rentalExtensions = extensions.filter(extension => extension.rental_id === row.id)
+      const paymentBalance = rentalPaymentBalance({
+        status: rental.status,
+        totalAmount: rental.totalAmount,
+        depositAmount: rental.depositAmount,
+        payments,
+        extensions: rentalExtensions,
+      })
       return {
         ...rental,
+        paymentBalance,
         group: adminRentalGroupOf({
           status: rental.status,
           starts_on: row.starts_on,
@@ -155,7 +167,8 @@ export async function listAdminRentals(client: Client, query: {
           totalAmount: rental.totalAmount,
           commissionAmount: rental.commissioner ? rental.commissionAmount ?? 0 : 0,
           payments,
-          extensions: extensions.filter(extension => extension.rental_id === row.id),
+          extensions: rentalExtensions,
+          pendingBalance: paymentBalance?.balanceDue ?? 0,
         }),
       }
     }),
@@ -274,7 +287,15 @@ export async function getAdminRental(client: Client, identifier: string) {
   const commissionStatus = !commissionExpense
     ? 'not_recorded' as const
     : commissionExpense.status === 'paid' ? 'collected' as const : 'unclaimed' as const
-  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines, commissionStatus, lateFee }
+  const rowPayments = loaded.row.payment_transactions
+  const paymentBalance = rentalPaymentBalance({
+    status: rental.status,
+    totalAmount: rental.totalAmount,
+    depositAmount: rental.depositAmount,
+    payments: Array.isArray(rowPayments) ? rowPayments : rowPayments ? [rowPayments] : [],
+    extensions: rows,
+  })
+  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines, commissionStatus, lateFee, paymentBalance }
 }
 
 export async function createAdminRental(
@@ -371,73 +392,71 @@ export async function createAdminRental(
   return rental
 }
 
-async function syncRentalPayments(
-  client: Client,
-  rentalId: number,
-  totals: { totalAmount: number, depositAmount: number },
-) {
-  const openPayment = await findOpenPaymentByRentalId(client, rentalId)
-  if (openPayment) {
-    await updatePaymentByUuid(client, openPayment.uuid, {
-      amount: amountDue(totals),
-    })
-  }
-
-  const plan = await paidPaymentPlan(client, rentalId, totals)
-  if (!plan || (!plan.change.balanceDue && !plan.change.refundDue)) {
-    return null
-  }
-
-  const { paidPayment, metadata, mainTotals, includesDeposit, change } = plan
-  await updatePaymentByUuid(client, paidPayment.uuid, {
-    amount: change.newAmount,
-    metadata: {
-      ...metadata,
-      ...(includesDeposit ? collectedPaymentFields(mainTotals) : { rentAmount: mainTotals.totalAmount }),
-      adjustedAt: new Date().toISOString(),
-      adjustedFromAmount: change.paidAmount,
-    },
-  })
-  return {
-    paymentUuid: paidPayment.uuid,
-    previousAmount: change.paidAmount,
-    nextAmount: change.newAmount,
-    balanceDue: change.balanceDue,
-    refundDue: change.refundDue,
-  }
+/** The payments and extensions a paid booking's balance is worked out from. */
+async function paymentBalanceRows(client: Client, rentalId: number) {
+  const [payments, extensions] = await Promise.all([
+    listPaymentsByRentalId(client, rentalId),
+    loadExtensionsSafely(client, rentalId),
+  ])
+  return { payments, extensions }
 }
 
-/** Works out what the booking's paid payment becomes for new totals, without saving anything. */
-async function paidPaymentPlan(
+/** Rent still to collect or give back on a paid booking, for the totals given. Null when it is not paid. */
+async function currentPaymentBalance(
   client: Client,
   rentalId: number,
-  totals: { totalAmount: number, depositAmount: number },
+  rental: { status: string, totalAmount: number, depositAmount: number },
 ) {
-  const paidPayment = await findPaidPaymentByRentalId(client, rentalId)
-  if (!paidPayment) {
-    return null
-  }
-
-  const billedSeparately = await separateExtensionTotal(client, rentalId, paidPayment.paid_at)
-  const mainTotals = {
-    totalAmount: Math.max(0, addMoney(totals.totalAmount, -billedSeparately)),
-    depositAmount: totals.depositAmount,
-  }
-  const metadata = paidPayment.metadata && typeof paidPayment.metadata === 'object' && !Array.isArray(paidPayment.metadata)
-    ? paidPayment.metadata as Record<string, unknown>
-    : {}
-  const includesDeposit = paymentCollectedDeposit(metadata)
-  const change = paidPaymentChange({
-    paidAmount: Number(paidPayment.amount),
-    includesDeposit,
-    totalAmount: mainTotals.totalAmount,
-    depositAmount: mainTotals.depositAmount,
-  })
-  return { paidPayment, metadata, mainTotals, includesDeposit, change }
+  return rentalPaymentBalance({ ...rental, ...await paymentBalanceRows(client, rentalId) })
 }
 
 /**
- * For the continue form: what saving these dates would do to a paid booking's payment.
+ * Keeps a booking's payments in step with new totals.
+ * An unpaid payment follows the new amount due.
+ * A paid booking keeps its payment and paid date as they are: the rent difference stays open as a
+ * balance or a refund until the admin marks it settled, and Sales move on that day.
+ * Only the held deposit, which is never a sale, moves on the paid payment straight away.
+ */
+async function syncRentalPayments(
+  client: Client,
+  rentalId: number,
+  rental: { status: string, totalAmount: number, depositAmount: number },
+): Promise<RentalPaymentChange | null> {
+  const openPayment = await findOpenPaymentByRentalId(client, rentalId)
+  if (openPayment) {
+    await updatePaymentByUuid(client, openPayment.uuid, {
+      amount: amountDue(rental),
+    })
+  }
+
+  const rows = await paymentBalanceRows(client, rentalId)
+  const main = mainPaidPayment(rows.payments)
+  if (!main) {
+    return null
+  }
+
+  const held = paymentHeldDeposit(main.metadata)
+  if (held !== null && addMoney(held) !== addMoney(rental.depositAmount)) {
+    const metadata = main.metadata && typeof main.metadata === 'object' && !Array.isArray(main.metadata)
+      ? main.metadata as Record<string, unknown>
+      : {}
+    const updated = await updatePaymentByUuid(client, main.uuid, {
+      amount: Math.max(0, addMoney(Number(main.amount), rental.depositAmount, -held)),
+      metadata: {
+        ...metadata,
+        depositAmount: Math.max(0, rental.depositAmount),
+        depositAdjustedAt: new Date().toISOString(),
+        depositAdjustedFrom: held,
+      } as Database['public']['Tables']['payment_transactions']['Update']['metadata'],
+    })
+    rows.payments = rows.payments.map(payment => payment.uuid === updated.uuid ? updated : payment)
+  }
+
+  return rentalPaymentBalance({ ...rental, ...rows })
+}
+
+/**
+ * For the continue form: where a paid booking would stand with these dates.
  * Null when the booking is not paid yet or can no longer be changed.
  */
 export async function previewAdminRentalPaymentChange(
@@ -456,11 +475,11 @@ export async function previewAdminRentalPaymentChange(
   }
 
   const discount = Math.min(rental.discountAmount, quote.totalAmount)
-  const plan = await paidPaymentPlan(client, row.id, {
+  return currentPaymentBalance(client, row.id, {
+    status: rental.status,
     totalAmount: Math.max(0, quote.totalAmount - discount),
     depositAmount: quote.depositAmount,
   })
-  return plan?.change ?? null
 }
 
 async function loadExtensionsSafely(client: Client, rentalId: number) {
@@ -470,16 +489,6 @@ async function loadExtensionsSafely(client: Client, rentalId: number) {
   catch {
     return []
   }
-}
-
-async function separateExtensionTotal(client: Client, rentalId: number, mainPaidAt: string | null) {
-  const rows = await loadExtensionsSafely(client, rentalId)
-  return separatelyBilledExtensionTotal(rows.map(row => ({
-    uuid: row.uuid,
-    createdAt: row.created_at,
-    addedAmount: Number(row.added_amount),
-    cancelled: Boolean(row.cancelled_at),
-  })), mainPaidAt)
 }
 
 async function confirmedRentalEnd(client: Client, rental: { endsOn: string }, rentalId: number) {
@@ -737,6 +746,7 @@ export async function extendAdminRental(
     : null
 
   const paymentAdjustment = await syncRentalPayments(client, identity.id, {
+    status: rental.status,
     totalAmount: Number(updated.total_amount),
     depositAmount: Number(updated.deposit_amount),
   })
@@ -900,6 +910,151 @@ export async function markAdminRentalExtensionPaid(
   return loadAdminRental(client, rental.uuid)
 }
 
+/** Loads a paid booking with its open balance or refund, for the two actions that settle it. */
+async function loadOpenBalance(client: Client, identifier: string) {
+  const rental = await loadAdminRental(client, identifier)
+  const identity = await findRentalIdentity(client, rental.uuid)
+  if (!identity) {
+    throw new AppError('Rental not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+
+  const rows = await paymentBalanceRows(client, identity.id)
+  const balance = rentalPaymentBalance({
+    status: rental.status,
+    totalAmount: rental.totalAmount,
+    depositAmount: rental.depositAmount,
+    ...rows,
+  })
+  const settledCount = rows.payments.filter(payment => ['balance', 'refund'].includes(paymentKind(payment.metadata))).length
+  return { rental, identity, balance, sequence: settledCount + 1 }
+}
+
+/** Records the extra rent a paid booking owed after it changed. Sales count it today. */
+export async function markAdminRentalBalancePaid(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  identifier: string,
+  input: MarkAdminPaidInput,
+) {
+  const { rental, identity, balance, sequence } = await loadOpenBalance(client, identifier)
+  const amount = balance?.balanceDue ?? 0
+  if (amount <= 0) {
+    throw new AppError('This booking has no unpaid balance.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  let payment: Awaited<ReturnType<typeof insertPayment>>
+  try {
+    payment = await insertPayment(client, {
+      rental_id: identity.id,
+      customer_id: identity.customer_id,
+      amount,
+      currency: BUSINESS_CURRENCY,
+      provider: 'shop',
+      provider_transaction_id: `shop-balance-${rental.uuid}-${sequence}`,
+      status: 'paid',
+      payment_method: input.paymentMethod,
+      paid_at: new Date().toISOString(),
+      metadata: {
+        kind: 'balance',
+        recordedBy: 'admin',
+        rentAmount: amount,
+        includesDeposit: false,
+      },
+    })
+  }
+  catch (error) {
+    if (error instanceof AppError && error.statusCode === 409) {
+      throw new AppError('This balance was just recorded. Refresh the page.', 409, ERROR_CODES.CONFLICT)
+    }
+    throw error
+  }
+
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: rental.status,
+    changedBy: profileId,
+    note: `Admin recorded a ${input.paymentMethod} payment of ${amount.toFixed(2)} ${BUSINESS_CURRENCY} for the unpaid balance.`,
+  })
+
+  try {
+    await issueReceiptForPayment(event, payment)
+  }
+  catch {
+    // Receipt email can fail without rolling back the sale.
+  }
+
+  await recordAudit(event, client, {
+    action: 'rental.balance.paid',
+    entity: 'payment_transactions',
+    entityId: payment.uuid,
+    next: { rentalCode: rental.code, amount, paymentMethod: input.paymentMethod },
+  })
+
+  return getAdminRental(client, rental.uuid)
+}
+
+/** Records the rent given back after a paid booking got cheaper. Sales drop by it today. */
+export async function markAdminRentalRefundGiven(
+  event: H3Event,
+  client: Client,
+  profileId: number,
+  identifier: string,
+  input: MarkAdminPaidInput,
+) {
+  const { rental, identity, balance, sequence } = await loadOpenBalance(client, identifier)
+  const amount = balance?.refundDue ?? 0
+  if (amount <= 0) {
+    throw new AppError('This booking has nothing to refund.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  const refundedAt = new Date().toISOString()
+  let payment: Awaited<ReturnType<typeof insertPayment>>
+  try {
+    payment = await insertPayment(client, {
+      rental_id: identity.id,
+      customer_id: identity.customer_id,
+      amount,
+      currency: BUSINESS_CURRENCY,
+      provider: 'shop',
+      provider_transaction_id: `shop-refund-${rental.uuid}-${sequence}`,
+      status: 'refunded',
+      payment_method: input.paymentMethod,
+      paid_at: refundedAt,
+      metadata: {
+        kind: 'refund',
+        recordedBy: 'admin',
+        refundedAt,
+        includesDeposit: false,
+      },
+    })
+  }
+  catch (error) {
+    if (error instanceof AppError && error.statusCode === 409) {
+      throw new AppError('This refund was just recorded. Refresh the page.', 409, ERROR_CODES.CONFLICT)
+    }
+    throw error
+  }
+
+  await insertRentalStatusHistory(client, {
+    rentalId: identity.id,
+    fromStatus: rental.status,
+    toStatus: rental.status,
+    changedBy: profileId,
+    note: `Admin refunded ${amount.toFixed(2)} ${BUSINESS_CURRENCY} to the customer by ${input.paymentMethod} after the booking changed.`,
+  })
+
+  await recordAudit(event, client, {
+    action: 'rental.refund.given',
+    entity: 'payment_transactions',
+    entityId: payment.uuid,
+    next: { rentalCode: rental.code, amount, paymentMethod: input.paymentMethod },
+  })
+
+  return getAdminRental(client, rental.uuid)
+}
+
 export async function editAdminRentalExtension(
   event: H3Event,
   client: Client,
@@ -1037,6 +1192,7 @@ export async function editAdminRentalExtension(
   }
 
   const paymentAdjustment = await syncRentalPayments(client, identity.id, {
+    status: rental.status,
     totalAmount: Number(updated.total_amount),
     depositAmount: Number(updated.deposit_amount),
   })
@@ -1158,6 +1314,7 @@ export async function cancelAdminRentalExtension(
   }
 
   const paymentAdjustment = await syncRentalPayments(client, identity.id, {
+    status: rental.status,
     totalAmount: Number(updated.total_amount),
     depositAmount: Number(updated.deposit_amount),
   })
@@ -1282,17 +1439,13 @@ export async function continueAdminRental(
     totalAmount: Number(updated.total_amount),
     depositAmount: Number(updated.deposit_amount),
   }
-  const paymentAdjustment = await syncRentalPayments(client, identity.id, nextTotals)
+  const balanceBefore = await currentPaymentBalance(client, identity.id, rental)
+  const balanceAfter = await syncRentalPayments(client, identity.id, { status: rental.status, ...nextTotals })
   const previousSchedule = { startsOn: rental.startsOn, endsOn: rental.endsOn, pickupTime: rental.pickupTime }
   const nextSchedule = { startsOn: quote.startsOn, endsOn: quote.endsOn, pickupTime: quote.pickupTime }
   const scheduleChange = rentalScheduleChange(previousSchedule, nextSchedule)
-  const paymentChange: RentalPaymentChange | null = paymentAdjustment
-    ? {
-        paidAmount: paymentAdjustment.previousAmount,
-        newAmount: paymentAdjustment.nextAmount,
-        balanceDue: paymentAdjustment.balanceDue,
-        refundDue: paymentAdjustment.refundDue,
-      }
+  const paymentChange: RentalPaymentChange | null = balanceAfter && paymentBalanceMoved(balanceBefore, balanceAfter)
+    ? balanceAfter
     : null
   const historyNote = [
     book
@@ -1302,6 +1455,9 @@ export async function continueAdminRental(
         : 'Admin updated the booking.',
     scheduleChange ? `Schedule changed: ${scheduleChange}.` : '',
     paymentChange ? paymentChangeNote(paymentChange, BUSINESS_CURRENCY) : '',
+    balanceAfter && addMoney(rental.depositAmount) !== addMoney(nextTotals.depositAmount)
+      ? `Deposit held changed ${rental.depositAmount.toFixed(2)} → ${nextTotals.depositAmount.toFixed(2)} ${BUSINESS_CURRENCY}.`
+      : '',
   ].filter(Boolean).join(' ')
 
   await insertRentalStatusHistory(client, {
@@ -1336,7 +1492,7 @@ export async function continueAdminRental(
       commissionerUuid: commission.commissionerUuid,
       commissionAmount: commission.commissionAmount,
       totalAmount: nextTotals.totalAmount,
-      paymentAdjustment,
+      paymentBalance: balanceAfter,
     },
   })
 

@@ -8,7 +8,7 @@ export async function listAnalyticsPayments(client: Client) {
   const { data, error } = await client
     .from('payment_transactions')
     .select('amount, status, paid_at, metadata, rental_id')
-    .eq('status', 'paid')
+    .in('status', ['paid', 'refunded'])
 
   if (error) {
     throw new AppError('We could not load sales.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })

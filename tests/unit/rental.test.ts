@@ -423,9 +423,9 @@ describe('customer rental transitions', () => {
 
   it('writes the balance or refund into the history note', () => {
     expect(paymentChangeNote({ paidAmount: 2500, newAmount: 3500, balanceDue: 1000, refundDue: 0 }, 'PHP'))
-      .toBe('Paid amount 2500.00 → 3500.00 PHP. Collect 1000.00 PHP more from the customer.')
+      .toBe('The booking now costs 3500.00 PHP and 2500.00 PHP is paid. Balance of 1000.00 PHP stays unpaid until it is marked paid.')
     expect(paymentChangeNote({ paidAmount: 2500, newAmount: 1500, balanceDue: 0, refundDue: 1000 }, 'PHP'))
-      .toBe('Paid amount 2500.00 → 1500.00 PHP. Refund 1000.00 PHP to the customer.')
-    expect(paymentChangeNote({ paidAmount: 2500, newAmount: 2500, balanceDue: 0, refundDue: 0 }, 'PHP')).toBe('')
+      .toBe('The booking now costs 1500.00 PHP and 2500.00 PHP is paid. 1000.00 PHP stays to refund until it is marked refunded.')
+    expect(paymentChangeNote({ paidAmount: 2500, newAmount: 2500, balanceDue: 0, refundDue: 0 }, 'PHP')).toBe('No balance or refund is open on this booking now.')
   })
 })

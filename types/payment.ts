@@ -1,4 +1,4 @@
-import type { PaymentStatus } from '~/utils/constants'
+import type { PaymentKind, PaymentStatus } from '~/utils/constants'
 
 export interface PublicPaymentMethod {
   uuid: string
@@ -15,6 +15,8 @@ export interface PublicPaymentMethod {
 
 export interface PublicPayment {
   uuid: string
+  /** booking, extension, late_fee, balance (extra paid after a change), or refund (given back). */
+  kind: PaymentKind
   amount: number
   currency: string
   provider: string

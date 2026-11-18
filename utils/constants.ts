@@ -64,6 +64,10 @@ export const PAYMENT_STATUSES = [
 ] as const
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 
+/** Payments recorded on their own, apart from the booking's first payment. Stored in `metadata.kind`. */
+export const SEPARATE_PAYMENT_KINDS = ['extension', 'late_fee', 'balance', 'refund'] as const
+export type PaymentKind = 'booking' | (typeof SEPARATE_PAYMENT_KINDS)[number]
+
 export const PRODUCT_STATUSES = ['draft', 'active', 'coming_soon', 'hidden', 'archived'] as const
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
 export const PUBLIC_CATALOG_PRODUCT_STATUSES = ['active', 'coming_soon'] as const

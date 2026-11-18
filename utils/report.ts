@@ -20,7 +20,8 @@ import { calendarDateInZone, inclusiveDayCount, overlapDayCount } from './dateti
 import { addCalendarDays } from './expense'
 import { rentableCapacity } from './availability'
 import { rentalOccupiesInventory } from './rental-status'
-import { paymentDepositHeld, paymentSaleAmount } from './rental'
+import { isRefundPayment } from './payment'
+import { paymentDepositHeld, paymentSaleEffect } from './rental'
 import { toCsv } from './csv'
 
 export const REPORT_RANGE_MAX_DAYS = 366
@@ -114,7 +115,8 @@ export function inCalendarRange(value: string, startsOn: string, endsOn: string)
 
 export function toSalesRows(payments: ReportPaymentRow[], startsOn: string, endsOn: string): SalesReportRow[] {
   return payments.flatMap((payment) => {
-    if (payment.status !== 'paid' || !payment.paid_at) {
+    const refund = isRefundPayment(payment)
+    if ((payment.status !== 'paid' && !refund) || !payment.paid_at) {
       return []
     }
 
@@ -124,13 +126,14 @@ export function toSalesRows(payments: ReportPaymentRow[], startsOn: string, ends
     }
 
     const rental = first(payment.rental_requests)
-    const depositHeld = paymentDepositHeld(payment.metadata)
+    const depositHeld = refund ? 0 : paymentDepositHeld(payment.metadata)
     return [{
       uuid: payment.uuid,
       paidOn,
-      amount: paymentSaleAmount(payment),
-      paidAmount: Number(payment.amount),
+      amount: paymentSaleEffect(payment),
+      paidAmount: refund ? -Number(payment.amount) : Number(payment.amount),
       depositHeld,
+      ...(refund ? { refund: true } : {}),
       currency: payment.currency,
       method: payment.payment_method,
       rentalUuid: rental?.uuid ?? null,
