@@ -18,6 +18,7 @@ import { adminRentalGroupOf } from '../../utils/analytics'
 import { rentalActualSale, extensionPaymentStatus } from '../../utils/rental-extension'
 import { mainPaidPayment, paymentHeldDeposit, rentalPaymentBalance } from '../../utils/rental-balance'
 import { paymentKind } from '../../utils/payment'
+import { commissionAmount } from '../../utils/commission'
 import { findProductByUuid } from '../repositories/product.repository'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -520,7 +521,7 @@ function confirmedEndFrom(
 
 async function recordEarnedCommission(
   client: Client,
-  rental: { code: string, startsOn: string, endsOn: string, commissioner?: { firstName: string, lastName: string } | null, commissionAmount?: number, items: { quantity: number, product: { name: string } }[] },
+  rental: { code: string, startsOn: string, endsOn: string, commissioner?: { firstName: string, lastName: string } | null, commissionAmount?: number, commissionPerDay?: number, items: { quantity: number, product: { name: string } }[] },
   rentalId: number,
   status: RentalStatus,
 ) {
@@ -539,6 +540,7 @@ async function recordEarnedCommission(
     productName: item?.product.name || 'Equipment',
     days: rentalPeriodDays(rental.startsOn, confirmed.endsOn),
     quantity: item?.quantity ?? 1,
+    partPaid: (rental.commissionAmount ?? 0) < commissionAmount(rental.commissionPerDay ?? 0, rental.startsOn, confirmed.endsOn, item?.quantity ?? 1),
   })
 }
 
@@ -554,6 +556,16 @@ async function syncConfirmedCommission(
   }
 
   const confirmed = await confirmedRentalEnd(client, rental, rentalId)
+  // Read the totals again: the caller may have just saved new dates or a new quantity.
+  const saved = await findRentalByUuid(client, rental.uuid)
+  const totalAmount = Number(saved?.total_amount ?? 0)
+  const balance = saved
+    ? await currentPaymentBalance(client, rentalId, {
+        status: rental.status,
+        totalAmount,
+        depositAmount: Number(saved.deposit_amount),
+      })
+    : null
   return syncAssignedCommission(client, {
     id: rentalId,
     uuid: rental.uuid,
@@ -567,6 +579,10 @@ async function syncConfirmedCommission(
     endsOn: confirmed.endsOn,
     days: rentalPeriodDays(rental.startsOn, confirmed.endsOn),
     quantity: item.quantity,
+    paidRent: {
+      rent: Math.max(0, addMoney(totalAmount, -confirmed.pendingAmount)),
+      balanceDue: balance?.balanceDue ?? 0,
+    },
   })
 }
 
@@ -970,12 +986,29 @@ export async function markAdminRentalBalancePaid(
     throw error
   }
 
+  // The commission share that waited for this balance is earned now, and comes off Sales today with it.
+  const commission = rental.commissioner
+    ? await syncConfirmedCommission(client, rental, identity.id, rental.commissioner.uuid)
+    : null
+  const commissionAdded = commission ? Math.max(0, addMoney(commission.commissionAmount, -(rental.commissionAmount ?? 0))) : 0
+  if (commissionAdded > 0) {
+    payment = await updatePaymentByUuid(client, payment.uuid, {
+      metadata: {
+        kind: 'balance',
+        recordedBy: 'admin',
+        rentAmount: amount,
+        includesDeposit: false,
+        commissionAmount: commissionAdded,
+      },
+    })
+  }
+
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
     fromStatus: rental.status,
     toStatus: rental.status,
     changedBy: profileId,
-    note: `Admin recorded a ${input.paymentMethod} payment of ${amount.toFixed(2)} ${BUSINESS_CURRENCY} for the unpaid balance.`,
+    note: `Admin recorded a ${input.paymentMethod} payment of ${amount.toFixed(2)} ${BUSINESS_CURRENCY} for the unpaid balance.${commission ? ` Commission is now ${commission.commissionAmount.toFixed(2)} ${BUSINESS_CURRENCY}.` : ''}`,
   })
 
   try {
@@ -989,7 +1022,7 @@ export async function markAdminRentalBalancePaid(
     action: 'rental.balance.paid',
     entity: 'payment_transactions',
     entityId: payment.uuid,
-    next: { rentalCode: rental.code, amount, paymentMethod: input.paymentMethod },
+    next: { rentalCode: rental.code, amount, paymentMethod: input.paymentMethod, commissionAmount: commission?.commissionAmount ?? null },
   })
 
   return getAdminRental(client, rental.uuid)

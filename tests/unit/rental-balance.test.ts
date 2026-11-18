@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { actualSalesOn, rentalSaleDates } from '../../utils/analytics'
+import { commissionForPaidRent } from '../../utils/commission'
 import { isRefundPayment, paymentKind, toPublicPayment } from '../../utils/payment'
 import { paymentPurpose } from '../../utils/receipt'
 import { toSalesRows } from '../../utils/report'
@@ -129,6 +130,31 @@ describe('balance and refund in sales', () => {
     expect(actualSalesOn(payments, commission, '2026-11-20', '2026-11-20')).toBe(1000)
     expect(actualSalesOn(payments, commission, '2026-11-22', '2026-11-22')).toBe(-1000)
     expect(actualSalesOn(payments, commission, '2026-11-01', '2026-11-30')).toBe(800)
+  })
+
+  it('holds back the commission for rent that is not paid yet', () => {
+    expect(commissionForPaidRent(200, 2000, 1000)).toBe(100)
+    expect(commissionForPaidRent(200, 2000, 0)).toBe(200)
+    expect(commissionForPaidRent(200, 2000, 2000)).toBe(0)
+    expect(commissionForPaidRent(200, 2000, 5000)).toBe(0)
+    expect(commissionForPaidRent(300, 2700, 900)).toBe(200)
+    expect(commissionForPaidRent(100, 3000, 1000)).toBe(66.67)
+    expect(commissionForPaidRent(0, 2000, 1000)).toBe(0)
+    expect(commissionForPaidRent(200, 0, 0)).toBe(200)
+  })
+
+  it('takes the held-back commission off on the day the balance was paid', () => {
+    const paid = { ...main, status: 'paid' as const, rental_id: 51 }
+    const unpaid = [{ rental_id: 51, amount: 100, status: 'pending', category: 'commission', incurred_on: '2026-11-17' }]
+    expect(actualSalesOn([paid], unpaid, '2026-11-12', '2026-11-12')).toBe(900)
+
+    const settled = [paid, { ...balancePaid, status: 'paid' as const, rental_id: 51, metadata: { kind: 'balance', commissionAmount: 100 } }]
+    const full = [{ rental_id: 51, amount: 200, status: 'pending', category: 'commission', incurred_on: '2026-11-17' }]
+    expect(actualSalesOn(settled, full, '2026-11-12', '2026-11-12')).toBe(900)
+    expect(actualSalesOn(settled, full, '2026-11-20', '2026-11-20')).toBe(900)
+    expect(actualSalesOn(settled, full, '2026-11-01', '2026-11-30')).toBe(1800)
+    expect(actualSalesOn(settled, [{ ...full[0], amount: 50 }], '2026-11-20', '2026-11-20')).toBe(950)
+    expect(actualSalesOn(settled, [{ ...full[0], status: 'void' }], '2026-11-20', '2026-11-20')).toBe(1000)
   })
 
   it('lists the refund as a negative sales row', () => {

@@ -869,7 +869,7 @@ async function removeRental() {
                 v-if="rental.commissioner"
                 class="flex justify-between gap-4 text-stone-600"
               >
-                <dt>Total commission · {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}{{ sales.pendingExtension > 0 ? ' (paid days only)' : '' }}</dt>
+                <dt>Total commission · {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}{{ sales.pendingExtension > 0 ? ' (paid days only)' : sales.pendingBalance > 0 ? ' (paid part only)' : '' }}</dt>
                 <dd>−{{ formatMoney(sales.commission) }}</dd>
               </div>
               <div class="flex justify-between gap-4 font-medium text-stone-900">

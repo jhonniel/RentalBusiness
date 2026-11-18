@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { PublicProfile } from '../../types/auth'
-import { commissionAmount, commissionStillToRecord, canReleaseCommissionerBooking, isCommissionEarned } from '../../utils/commission'
+import { commissionAmount, commissionForPaidRent, commissionStillToRecord, canReleaseCommissionerBooking, isCommissionEarned } from '../../utils/commission'
 import type { CreateCommissionerRentalInput, rentalQuoteQuerySchema } from '../../utils/rental-validation'
 import type { z } from 'zod'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
@@ -50,6 +50,8 @@ export async function reconcileCommissionExpense(
     productName: string
     days: number
     quantity: number
+    /** True while part of the commission waits for an unpaid balance. */
+    partPaid?: boolean
   },
 ) {
   if (!isCommissionEarned(rental.status) || !rental.commissioner || rental.commissionAmount <= 0) {
@@ -73,7 +75,7 @@ export async function reconcileCommissionExpense(
     return null
   }
 
-  const description = `${rental.productName} · ${rental.days} day${rental.days === 1 ? '' : 's'} × ${rental.quantity}${collected > 0 ? ' · balance after collected' : ''}`
+  const description = `${rental.productName} · ${rental.days} day${rental.days === 1 ? '' : 's'} × ${rental.quantity}${rental.partPaid ? ' · paid part only' : ''}${collected > 0 ? ' · balance after collected' : ''}`
   if (keep) {
     if (Number(keep.amount) !== target) {
       await updateExpenseByUuid(client, keep.uuid, {
@@ -152,12 +154,15 @@ export async function syncAssignedCommission(
     endsOn: string
     days: number
     quantity: number
+    /** The rent this commission is earned on and how much of it is still unpaid. Its share waits until it is paid. */
+    paidRent?: { rent: number, balanceDue: number }
   },
 ) {
   const assigned = input.commissionerUuid
     ? await assignedCommission(client, input.commissionerUuid, input)
     : null
-  const amount = assigned?.commissionAmount ?? 0
+  const full = assigned?.commissionAmount ?? 0
+  const amount = input.paidRent ? commissionForPaidRent(full, input.paidRent.rent, input.paidRent.balanceDue) : full
 
   await updateRentalCommission(client, rental.uuid, {
     commissionerId: assigned?.commissioner.id ?? null,
@@ -173,6 +178,7 @@ export async function syncAssignedCommission(
     productName: input.productName,
     days: input.days,
     quantity: input.quantity,
+    partPaid: amount < full,
   })
 
   return {

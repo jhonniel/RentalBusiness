@@ -147,6 +147,36 @@ export function rentalSaleDates(payments: AnalyticsPaymentRow[]): Map<number, st
   return new Map([...first].map(([rentalId, paidAt]) => [rentalId, calendarDateInZone(paidAt)]))
 }
 
+/**
+ * Commission that waited for an unpaid balance. It comes off on the day that balance was paid,
+ * not on the day the booking was first paid.
+ */
+function commissionShifts(payments: AnalyticsPaymentRow[], expenses: AnalyticsExpenseRow[], saleDates: Map<number, string>) {
+  const remaining = new Map<number, number>()
+  for (const expense of expenses) {
+    if (expense.category === 'commission' && expense.status !== 'void' && expense.rental_id != null) {
+      remaining.set(expense.rental_id, (remaining.get(expense.rental_id) ?? 0) + Math.round(Number(expense.amount) * 100))
+    }
+  }
+
+  const shifts: Array<{ from: string, to: string, cents: number }> = []
+  for (const payment of payments) {
+    if (payment.status !== 'paid' || !payment.paid_at || payment.rental_id == null || paymentKind(payment.metadata) !== 'balance') {
+      continue
+    }
+    const from = saleDates.get(payment.rental_id)
+    const held = Math.round(Number((payment.metadata as { commissionAmount?: unknown }).commissionAmount ?? 0) * 100) || 0
+    const cents = Math.min(Math.max(0, held), remaining.get(payment.rental_id) ?? 0)
+    const to = calendarDateInZone(payment.paid_at)
+    if (!from || cents <= 0 || from === to) {
+      continue
+    }
+    remaining.set(payment.rental_id, (remaining.get(payment.rental_id) ?? 0) - cents)
+    shifts.push({ from, to, cents })
+  }
+  return shifts
+}
+
 export function actualSalesOn(
   payments: AnalyticsPaymentRow[],
   expenses: AnalyticsExpenseRow[],
@@ -171,7 +201,12 @@ export function actualSalesOn(
     }
     return countedOn < startOn || countedOn > endOn ? sum : sum + Math.round(Number(expense.amount) * 100)
   }, 0)
-  return (sales - commissions) / 100
+  const moved = commissionShifts(payments, expenses, saleDates).reduce((sum, shift) => (
+    sum
+    + (shift.to < startOn || shift.to > endOn ? 0 : shift.cents)
+    - (shift.from < startOn || shift.from > endOn ? 0 : shift.cents)
+  ), 0)
+  return (sales - commissions - moved) / 100
 }
 
 export function buildKpis(input: {

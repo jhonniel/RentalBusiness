@@ -20,6 +20,20 @@ export function isCommissionEarned(rentalStatus: string) {
   return (COMMISSION_EARNED_STATUSES as readonly string[]).includes(rentalStatus)
 }
 
+/**
+ * The commission earned so far on a booking whose rent is only partly paid.
+ * The share for an unpaid balance is held back until that balance is marked paid.
+ */
+export function commissionForPaidRent(commission: number, rent: number, balanceDue: number) {
+  const full = Math.max(0, Math.round(commission * 100))
+  const total = Math.max(0, Math.round(rent * 100))
+  const unpaid = Math.min(total, Math.max(0, Math.round(balanceDue * 100)))
+  if (!full || !total || !unpaid) {
+    return full / 100
+  }
+  return Math.round(full * (total - unpaid) / total) / 100
+}
+
 export function commissionStillToRecord(commissionAmount: number, collectedAmount: number) {
   return Math.max(0, Math.round((Math.max(0, commissionAmount) - Math.max(0, collectedAmount)) * 100) / 100)
 }
