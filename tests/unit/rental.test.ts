@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { customerRentalGroup, amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
+import { customerRentalGroup, amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
@@ -408,5 +408,24 @@ describe('customer rental transitions', () => {
     })
     expect(toPublicRentalHistoryEntry({ uuid: 'u', from_status: null, to_status: 'draft', note: null, created_at: '2026-11-12T05:06:03.931Z', changed_by_profile: null }))
       .toMatchObject({ fromStatus: null, note: null, changedBy: null })
+  })
+
+  it('works out the balance or refund when a paid booking gets more or fewer days', () => {
+    const paid = { paidAmount: 2500, includesDeposit: true, depositAmount: 500 }
+
+    expect(paidPaymentChange({ ...paid, totalAmount: 3000 })).toEqual({ paidAmount: 2500, newAmount: 3500, balanceDue: 1000, refundDue: 0 })
+    expect(paidPaymentChange({ ...paid, totalAmount: 1000 })).toEqual({ paidAmount: 2500, newAmount: 1500, balanceDue: 0, refundDue: 1000 })
+    expect(paidPaymentChange({ ...paid, totalAmount: 2000 })).toEqual({ paidAmount: 2500, newAmount: 2500, balanceDue: 0, refundDue: 0 })
+    expect(paidPaymentChange({ paidAmount: 2000, includesDeposit: false, depositAmount: 500, totalAmount: 3000 })).toMatchObject({ newAmount: 3000, balanceDue: 1000 })
+    expect(paidPaymentChange({ ...paid, totalAmount: 4000, billedSeparately: 1000 })).toMatchObject({ newAmount: 3500, balanceDue: 1000 })
+    expect(paidPaymentChange({ paidAmount: 1500.1, includesDeposit: true, depositAmount: 500, totalAmount: 1000.3 })).toMatchObject({ newAmount: 1500.3, balanceDue: 0.2 })
+  })
+
+  it('writes the balance or refund into the history note', () => {
+    expect(paymentChangeNote({ paidAmount: 2500, newAmount: 3500, balanceDue: 1000, refundDue: 0 }, 'PHP'))
+      .toBe('Paid amount 2500.00 → 3500.00 PHP. Collect 1000.00 PHP more from the customer.')
+    expect(paymentChangeNote({ paidAmount: 2500, newAmount: 1500, balanceDue: 0, refundDue: 1000 }, 'PHP'))
+      .toBe('Paid amount 2500.00 → 1500.00 PHP. Refund 1000.00 PHP to the customer.')
+    expect(paymentChangeNote({ paidAmount: 2500, newAmount: 2500, balanceDue: 0, refundDue: 0 }, 'PHP')).toBe('')
   })
 })

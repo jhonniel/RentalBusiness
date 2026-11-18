@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PublicRental, PublicRentalHistoryEntry, RentalQuote } from '~/types/rental'
+import type { PublicRental, PublicRentalHistoryEntry, RentalPaymentChange, RentalQuote } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { fieldErrors } from '~/utils/auth-validation'
 import { calendarDateInZone } from '~/utils/datetime'
@@ -58,7 +58,8 @@ const formError = ref('')
 const quoteError = ref('')
 const pending = ref(false)
 const quoting = ref(false)
-const quote = ref<(RentalQuote & { commissionAmount?: number }) | null>(null)
+type AdminQuote = RentalQuote & { commissionAmount?: number, paymentChange?: RentalPaymentChange | null }
+const quote = ref<AdminQuote | null>(null)
 
 const rentalWindow = computed(() => resolveRentalWindow({
   startsOn: form.startsOn,
@@ -105,7 +106,7 @@ async function refreshQuote() {
   quoting.value = true
   quoteError.value = ''
   try {
-    quote.value = await $fetch<RentalQuote & { commissionAmount?: number }>('/api/admin/rentals/quote', {
+    quote.value = await $fetch<AdminQuote>('/api/admin/rentals/quote', {
       method: 'POST',
       body: {
         productSlug: productSlug.value,
@@ -154,16 +155,22 @@ async function onSubmit() {
 
   pending.value = true
   try {
-    await $fetch(`/api/admin/rentals/${rental.value.uuid}/continue`, {
+    const saved = await $fetch<{ paymentChange?: RentalPaymentChange | null }>(`/api/admin/rentals/${rental.value.uuid}/continue`, {
       method: 'PATCH',
       body: parsed.data,
     })
+    const payment = saved.paymentChange
     toast.add({
       title: rental.value.waiver && rental.value.status === 'draft'
         ? 'Rental booked'
         : rental.value.status === 'draft'
           ? 'Rental details saved'
           : 'Booking updated',
+      description: payment?.balanceDue
+        ? `Collect ${formatMoney(payment.balanceDue)} more from the customer.`
+        : payment?.refundDue
+          ? `Refund ${formatMoney(payment.refundDue)} to the customer.`
+          : undefined,
       color: 'success',
     })
     await refreshRental()
@@ -287,58 +294,11 @@ async function onSubmit() {
           </p>
         </section>
 
-        <section
+        <AdminRentalSummary
           v-if="quote"
-          class="rounded-xl border border-stone-200 bg-white p-5"
-        >
-          <h3 class="text-sm font-medium text-stone-900">
-            Summary
-          </h3>
-          <dl class="mt-4 space-y-2 text-sm">
-            <div class="flex justify-between gap-4">
-              <dt class="text-stone-500">
-                {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
-              </dt>
-              <dd>{{ formatMoney(quote.rentAmount) }}</dd>
-            </div>
-            <div
-              v-if="quote.lessAmount > 0"
-              class="flex justify-between gap-4"
-            >
-              <dt class="text-stone-500">
-                Less
-              </dt>
-              <dd>−{{ formatMoney(quote.lessAmount) }}</dd>
-            </div>
-            <div class="flex justify-between gap-4">
-              <dt class="text-stone-500">
-                Deposit
-              </dt>
-              <dd>{{ formatMoney(quote.depositAmount) }}</dd>
-            </div>
-            <div class="flex justify-between gap-4 font-medium text-stone-900">
-              <dt>Amount due</dt>
-              <dd>{{ formatMoney(quote.totalAmount + quote.depositAmount) }}</dd>
-            </div>
-            <div
-              v-if="form.commissionerUuid"
-              class="flex justify-between gap-4"
-            >
-              <dt class="text-stone-500">
-                Commissioner commission
-              </dt>
-              <dd>{{ formatMoney(quote.commissionAmount || 0) }}</dd>
-            </div>
-          </dl>
-          <p
-            class="mt-4 text-sm"
-            :class="quote.canFulfill ? 'text-lumen-800' : 'text-red-800'"
-          >
-            {{ quote.canFulfill
-              ? `${quote.available} units are free for these dates.`
-              : 'That quantity is not available for these dates.' }}
-          </p>
-        </section>
+          :quote="quote"
+          :show-commission="Boolean(form.commissionerUuid)"
+        />
 
         <AdminRentalHistory
           v-if="history"

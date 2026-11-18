@@ -173,6 +173,16 @@ export interface RentalListResponse {
   total: number
 }
 
+/** How an already paid booking's payment moves when its dates or quantity change. */
+export interface RentalPaymentChange {
+  paidAmount: number
+  newAmount: number
+  /** More to collect from the customer. Zero when nothing more is owed. */
+  balanceDue: number
+  /** To give back to the customer. Zero when nothing is refunded. */
+  refundDue: number
+}
+
 export interface RentalQuote {
   product: {
     uuid: string

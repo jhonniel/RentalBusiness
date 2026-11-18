@@ -7,9 +7,9 @@ import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
 import type { AssignAdminCommissionerInput, CancelAdminRentalInput, ContinueAdminRentalInput, CreateAdminRentalInput, EditAdminRentalExtensionInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
-import type { PublicRentalExtension, PublicRentalHistoryEntry, RentalExtensionPreview } from '../../types/rental'
+import type { PublicRentalExtension, PublicRentalHistoryEntry, RentalExtensionPreview, RentalPaymentChange } from '../../types/rental'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentCollectedDeposit, toPublicRentalHistoryEntry, toShopRental } from '../../utils/rental'
+import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, toPublicRentalHistoryEntry, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { rentalPeriodDays, rentalScheduleChange, resolveRentalWindow } from '../../utils/rental-window'
@@ -383,6 +383,36 @@ async function syncRentalPayments(
     })
   }
 
+  const plan = await paidPaymentPlan(client, rentalId, totals)
+  if (!plan || (!plan.change.balanceDue && !plan.change.refundDue)) {
+    return null
+  }
+
+  const { paidPayment, metadata, mainTotals, includesDeposit, change } = plan
+  await updatePaymentByUuid(client, paidPayment.uuid, {
+    amount: change.newAmount,
+    metadata: {
+      ...metadata,
+      ...(includesDeposit ? collectedPaymentFields(mainTotals) : { rentAmount: mainTotals.totalAmount }),
+      adjustedAt: new Date().toISOString(),
+      adjustedFromAmount: change.paidAmount,
+    },
+  })
+  return {
+    paymentUuid: paidPayment.uuid,
+    previousAmount: change.paidAmount,
+    nextAmount: change.newAmount,
+    balanceDue: change.balanceDue,
+    refundDue: change.refundDue,
+  }
+}
+
+/** Works out what the booking's paid payment becomes for new totals, without saving anything. */
+async function paidPaymentPlan(
+  client: Client,
+  rentalId: number,
+  totals: { totalAmount: number, depositAmount: number },
+) {
   const paidPayment = await findPaidPaymentByRentalId(client, rentalId)
   if (!paidPayment) {
     return null
@@ -397,22 +427,40 @@ async function syncRentalPayments(
     ? paidPayment.metadata as Record<string, unknown>
     : {}
   const includesDeposit = paymentCollectedDeposit(metadata)
-  const previousAmount = Number(paidPayment.amount)
-  const nextAmount = includesDeposit ? amountDue(mainTotals) : mainTotals.totalAmount
-  if (nextAmount === previousAmount) {
+  const change = paidPaymentChange({
+    paidAmount: Number(paidPayment.amount),
+    includesDeposit,
+    totalAmount: mainTotals.totalAmount,
+    depositAmount: mainTotals.depositAmount,
+  })
+  return { paidPayment, metadata, mainTotals, includesDeposit, change }
+}
+
+/**
+ * For the continue form: what saving these dates would do to a paid booking's payment.
+ * Null when the booking is not paid yet or can no longer be changed.
+ */
+export async function previewAdminRentalPaymentChange(
+  client: Client,
+  rentalUuid: string,
+  quote: { totalAmount: number, depositAmount: number },
+): Promise<RentalPaymentChange | null> {
+  const row = await findRentalByUuid(client, rentalUuid)
+  if (!row) {
     return null
   }
 
-  await updatePaymentByUuid(client, paidPayment.uuid, {
-    amount: nextAmount,
-    metadata: {
-      ...metadata,
-      ...(includesDeposit ? collectedPaymentFields(mainTotals) : { rentAmount: mainTotals.totalAmount }),
-      adjustedAt: new Date().toISOString(),
-      adjustedFromAmount: previousAmount,
-    },
+  const rental = toShopRental(row)
+  if (!canModifyAdminRental(rental)) {
+    return null
+  }
+
+  const discount = Math.min(rental.discountAmount, quote.totalAmount)
+  const plan = await paidPaymentPlan(client, row.id, {
+    totalAmount: Math.max(0, quote.totalAmount - discount),
+    depositAmount: quote.depositAmount,
   })
-  return { paymentUuid: paidPayment.uuid, previousAmount, nextAmount }
+  return plan?.change ?? null
 }
 
 async function loadExtensionsSafely(client: Client, rentalId: number) {
@@ -1238,18 +1286,30 @@ export async function continueAdminRental(
   const previousSchedule = { startsOn: rental.startsOn, endsOn: rental.endsOn, pickupTime: rental.pickupTime }
   const nextSchedule = { startsOn: quote.startsOn, endsOn: quote.endsOn, pickupTime: quote.pickupTime }
   const scheduleChange = rentalScheduleChange(previousSchedule, nextSchedule)
-  const historyNote = book
-    ? 'Admin booked the rental after the waiver was signed.'
-    : rental.status === 'draft'
-      ? 'Admin continued the customer rental form.'
-      : 'Admin updated the booking.'
+  const paymentChange: RentalPaymentChange | null = paymentAdjustment
+    ? {
+        paidAmount: paymentAdjustment.previousAmount,
+        newAmount: paymentAdjustment.nextAmount,
+        balanceDue: paymentAdjustment.balanceDue,
+        refundDue: paymentAdjustment.refundDue,
+      }
+    : null
+  const historyNote = [
+    book
+      ? 'Admin booked the rental after the waiver was signed.'
+      : rental.status === 'draft'
+        ? 'Admin continued the customer rental form.'
+        : 'Admin updated the booking.',
+    scheduleChange ? `Schedule changed: ${scheduleChange}.` : '',
+    paymentChange ? paymentChangeNote(paymentChange, BUSINESS_CURRENCY) : '',
+  ].filter(Boolean).join(' ')
 
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
     fromStatus: rental.status,
     toStatus: book ? 'pending' : rental.status,
     changedBy: profileId,
-    note: scheduleChange ? `${historyNote} Schedule changed: ${scheduleChange}.` : historyNote,
+    note: historyNote,
   })
 
   if (scheduleChange) {
@@ -1280,7 +1340,7 @@ export async function continueAdminRental(
     },
   })
 
-  return loadAdminRental(client, rental.uuid)
+  return { ...await loadAdminRental(client, rental.uuid), paymentChange }
 }
 
 export async function assignAdminRentalCommissioner(

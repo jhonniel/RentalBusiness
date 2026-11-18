@@ -1,4 +1,4 @@
-import type { PublicRental, PublicRentalHistoryEntry, PublicRentalItem } from '~/types/rental'
+import type { PublicRental, PublicRentalHistoryEntry, PublicRentalItem, RentalPaymentChange } from '~/types/rental'
 import type { RentalStatus } from './constants'
 import { toPublicRentalIdentity, type IdentityVerificationRow } from './identity'
 import { firstPayments, type PaymentRow } from './payment'
@@ -217,6 +217,39 @@ export function canSubmitRentalRequest(rental: Pick<PublicRental, 'status' | 'wa
 
 export function amountDue(rental: { totalAmount: number, depositAmount?: number }) {
   return fromMinorUnits(toMinorUnits(Math.max(0, rental.totalAmount) + Math.max(0, rental.depositAmount ?? 0)))
+}
+
+/**
+ * What a paid booking's payment becomes when its rent changes, and the difference to collect or refund.
+ * Rent billed on its own (extensions added after the booking was paid) stays out of this payment.
+ */
+export function paidPaymentChange(input: {
+  paidAmount: number
+  includesDeposit: boolean
+  totalAmount: number
+  depositAmount?: number
+  billedSeparately?: number
+}): RentalPaymentChange {
+  const paid = toMinorUnits(Math.max(0, input.paidAmount))
+  const rent = Math.max(0, toMinorUnits(input.totalAmount) - toMinorUnits(Math.max(0, input.billedSeparately ?? 0)))
+  const next = rent + (input.includesDeposit ? toMinorUnits(Math.max(0, input.depositAmount ?? 0)) : 0)
+  return {
+    paidAmount: fromMinorUnits(paid),
+    newAmount: fromMinorUnits(next),
+    balanceDue: fromMinorUnits(Math.max(0, next - paid)),
+    refundDue: fromMinorUnits(Math.max(0, paid - next)),
+  }
+}
+
+/** History note for a payment that moved. Empty when there is nothing to collect or refund. */
+export function paymentChangeNote(change: RentalPaymentChange, currency: string) {
+  if (!change.balanceDue && !change.refundDue) {
+    return ''
+  }
+  const moved = `Paid amount ${change.paidAmount.toFixed(2)} → ${change.newAmount.toFixed(2)} ${currency}.`
+  return change.balanceDue
+    ? `${moved} Collect ${change.balanceDue.toFixed(2)} ${currency} more from the customer.`
+    : `${moved} Refund ${change.refundDue.toFixed(2)} ${currency} to the customer.`
 }
 
 export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'startsOn' | 'endsOn' | 'discountAmount' | 'totalAmount' | 'commissionAmount' | 'commissionPerDay' | 'commissioner' | 'pendingExtensionAmount' | 'extensionLines'>) {
