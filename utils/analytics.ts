@@ -1,5 +1,6 @@
 import type { AnalyticsKpis, AnalyticsPoint, CommissionerRank, TopProduct } from '~/types/analytics'
 import type { PaymentStatus, RentalStatus } from './constants'
+import { BOOKED_RENTAL_STATUSES, CANCELLED_RENTAL_STATUSES, DONE_RENTAL_STATUSES, OUT_RENTAL_STATUSES } from './constants'
 import { isCommissionEarned } from './commission'
 import { calendarDateInZone } from './datetime'
 import { paymentSaleAmount } from './rental'
@@ -71,7 +72,7 @@ export function paidSalesOn(payments: AnalyticsPaymentRow[], startOn: string, en
   }, 0)
 }
 
-const COMMITTED_RENTAL_STATUSES = ['paid', 'approved', 'ready_for_pickup', 'active', 'overdue'] as const
+const COMMITTED_RENTAL_STATUSES = [...BOOKED_RENTAL_STATUSES, ...OUT_RENTAL_STATUSES] as const
 
 function rentalWindow(row: AnalyticsRentalRow) {
   const start = Date.parse(row.pickup_at || `${row.starts_on}T00:00:00+08:00`)
@@ -89,7 +90,7 @@ export function isOngoingRental(row: AnalyticsRentalRow, now = new Date()): bool
     return false
   }
 
-  if (row.status === 'active' || row.status === 'overdue') {
+  if ((OUT_RENTAL_STATUSES as readonly string[]).includes(row.status)) {
     return true
   }
 
@@ -180,11 +181,13 @@ export function buildKpis(input: {
     pendingRentals: input.rentals.filter(row => ['pending', 'awaiting_payment'].includes(row.status)).length,
     activeRentals: input.rentals.filter(row => isOngoingRental(row, now)).length,
     upcomingRentals: input.rentals.filter(row =>
-      ['paid', 'approved', 'ready_for_pickup'].includes(row.status)
+      (BOOKED_RENTAL_STATUSES as readonly string[]).includes(row.status)
       && !isOngoingRental(row, now)
       && (row.pickup_at ? Date.parse(row.pickup_at) > now.getTime() : row.starts_on >= today),
     ).length,
     overdueRentals: input.rentals.filter(row => row.status === 'overdue').length,
+    doneRentals: input.rentals.filter(row => (DONE_RENTAL_STATUSES as readonly string[]).includes(row.status)).length,
+    cancelledRentals: input.rentals.filter(row => (CANCELLED_RENTAL_STATUSES as readonly string[]).includes(row.status)).length,
     totalExpenses,
     totalCommissions,
     totalSpent: Math.round((totalExpenses + totalCommissions) * 100) / 100,

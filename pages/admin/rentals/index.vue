@@ -2,7 +2,7 @@
 import type { PublicRental, RentalListResponse } from '~/types/rental'
 import type { SentFeedbackLink } from '~/types/feedback'
 import type { AdminAnalytics } from '~/types/analytics'
-import { RENTAL_STATUSES } from '~/utils/constants'
+import { ADMIN_RENTAL_GROUPS, RENTAL_STATUSES } from '~/utils/constants'
 import { formatBookingDateRange } from '~/utils/datetime'
 import { formatPickupClock } from '~/utils/rental-window'
 import { canModifyAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
@@ -22,19 +22,53 @@ const searchInput = ref('')
 const search = refDebounced(searchInput, 300)
 const initialStatus = typeof route.query.status === 'string' && (RENTAL_STATUSES as readonly string[]).includes(route.query.status) ? route.query.status : ''
 const status = ref(initialStatus)
+const initialGroup = !initialStatus && typeof route.query.group === 'string' && (ADMIN_RENTAL_GROUPS as readonly string[]).includes(route.query.group) ? route.query.group : ''
+const group = ref(initialGroup)
 const { data: analytics } = useFetch<AdminAnalytics>('/api/admin/analytics', { lazy: true, server: false })
 const kpis = computed(() => analytics.value?.kpis)
 const count = (value?: number) => value === undefined ? '—' : String(value)
 
-function filterStatus(next: string) {
-  status.value = status.value === next ? '' : next
+interface RentalTile {
+  key: string
+  kind: 'status' | 'group'
+  label: string
+  value?: number
+  hint: string
+  icon: string
 }
+
+const tiles = computed<RentalTile[]>(() => [
+  { key: 'pending', kind: 'status', label: 'Pending', value: kpis.value?.pendingRentals, hint: 'Waiting for approval', icon: 'i-lucide-hourglass' },
+  { key: 'upcoming', kind: 'group', label: 'Upcoming', value: kpis.value?.upcomingRentals, hint: 'Paid, pickup still ahead', icon: 'i-lucide-calendar-clock' },
+  { key: 'active', kind: 'group', label: 'Active', value: kpis.value?.activeRentals, hint: 'Out with customers', icon: 'i-lucide-activity' },
+  { key: 'overdue', kind: 'status', label: 'Overdue', value: kpis.value?.overdueRentals, hint: 'Past the return time', icon: 'i-lucide-alarm-clock' },
+  { key: 'done', kind: 'group', label: 'Done', value: kpis.value?.doneRentals, hint: 'Returned and completed', icon: 'i-lucide-circle-check' },
+  { key: 'cancelled', kind: 'group', label: 'Cancelled', value: kpis.value?.cancelledRentals, hint: 'Cancelled or rejected', icon: 'i-lucide-circle-x' },
+])
+
+function isTileOn(tile: RentalTile) {
+  return tile.kind === 'group' ? group.value === tile.key : !group.value && status.value === tile.key
+}
+
+function toggleTile(tile: RentalTile) {
+  const on = isTileOn(tile)
+  group.value = !on && tile.kind === 'group' ? tile.key : ''
+  status.value = !on && tile.kind === 'status' ? tile.key : ''
+}
+
+const filterLabel = computed(() => {
+  if (group.value) {
+    return `Showing: ${group.value}`
+  }
+  return status.value ? `Status: ${status.value.replaceAll('_', ' ')}` : ''
+})
 const page = ref(1)
 const { formatMoney } = useCurrency()
 
 const query = computed(() => ({
   search: search.value || undefined,
   status: status.value || undefined,
+  group: group.value || undefined,
   page: page.value,
   pageSize: 20,
 }))
@@ -51,7 +85,13 @@ const { data, error, pending, refresh } = await useFetch<RentalListResponse>('/a
 const unavailable = computed(() => error.value?.statusCode === 503)
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total ?? 0) / 20)))
 
-watch([search, status], () => {
+watch(status, (value) => {
+  if (value) {
+    group.value = ''
+  }
+})
+
+watch([search, status, group], () => {
   page.value = 1
 })
 
@@ -145,57 +185,46 @@ async function removeRental(uuid: string) {
       </template>
     </AdminPageHeader>
 
-    <AdminBento>
+    <AdminBento :columns="4">
       <button
-        v-for="tile in [
-          { key: 'pending', label: 'Pending', value: kpis?.pendingRentals, hint: 'Waiting for approval', icon: 'i-lucide-hourglass' },
-          { key: 'active', label: 'Active', value: kpis?.activeRentals, hint: 'Out with customers', icon: 'i-lucide-activity' },
-          { key: 'overdue', label: 'Overdue', value: kpis?.overdueRentals, hint: 'Past the return time', icon: 'i-lucide-alarm-clock' },
-        ]"
+        v-for="tile in tiles"
         :key="tile.key"
         type="button"
         class="col-span-1 flex min-w-0 flex-col justify-between gap-3 rounded-2xl border p-4 text-left transition-colors sm:p-5"
-        :class="status === tile.key
+        :class="isTileOn(tile)
           ? 'border-transparent bg-[#12201a] text-white'
           : tile.key === 'overdue' && (tile.value ?? 0) > 0
             ? 'border-amber-200 bg-amber-50 text-stone-900 hover:border-amber-300'
             : 'border-stone-200 bg-white text-stone-900 hover:border-stone-300'"
-        :aria-pressed="status === tile.key"
-        @click="filterStatus(tile.key)"
+        :aria-pressed="isTileOn(tile)"
+        @click="toggleTile(tile)"
       >
         <span class="flex w-full items-start justify-between gap-2">
           <span
             class="text-[11px] font-medium uppercase tracking-wider"
-            :class="status === tile.key ? 'text-white/60' : 'text-stone-500'"
+            :class="isTileOn(tile) ? 'text-white/60' : 'text-stone-500'"
           >{{ tile.label }}</span>
           <UIcon
             :name="tile.icon"
             class="size-4 shrink-0"
-            :class="status === tile.key ? 'text-white/60' : 'text-stone-400'"
+            :class="isTileOn(tile) ? 'text-white/60' : 'text-stone-400'"
           />
         </span>
         <span>
           <span class="block text-xl font-semibold tabular-nums sm:text-2xl">{{ count(tile.value) }}</span>
           <span
             class="mt-1 block text-xs"
-            :class="status === tile.key ? 'text-white/60' : 'text-stone-500'"
-          >{{ status === tile.key ? 'Showing these · tap to clear' : tile.hint }}</span>
+            :class="isTileOn(tile) ? 'text-white/60' : 'text-stone-500'"
+          >{{ isTileOn(tile) ? 'Showing these · tap to clear' : tile.hint }}</span>
         </span>
       </button>
-      <AdminStat
-        label="Upcoming"
-        icon="i-lucide-calendar-clock"
-        :value="count(kpis?.upcomingRentals)"
-        hint="See them on the calendar"
-        to="/admin/calendar"
-      />
       <AdminStat
         wide
         tone="accent"
         label="All rentals"
         icon="i-lucide-clipboard-list"
         :value="String(data?.total ?? '—')"
-        :hint="status ? `Status: ${status.replaceAll('_', ' ')}` : (search ? `Matching \u201C${search}\u201D` : 'All statuses')"
+        :hint="filterLabel || (search ? `Matching \u201C${search}\u201D` : 'All statuses')"
       />
     </AdminBento>
 
@@ -249,8 +278,8 @@ async function removeRental(uuid: string) {
 
     <AdminNotice
       v-else-if="!data?.items.length"
-      title="No rentals"
-      description="Customer requests will appear here."
+      :title="filterLabel || search ? 'No rentals match' : 'No rentals'"
+      :description="filterLabel || search ? 'Clear the filter or search to see all rentals.' : 'Customer requests will appear here.'"
     />
 
     <ul

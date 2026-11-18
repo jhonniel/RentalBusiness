@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { CALENDAR_RENTAL_STATUSES, RENTAL_STATUSES } from './constants'
+import { ADMIN_RENTAL_GROUPS, CALENDAR_RENTAL_STATUSES, RENTAL_STATUSES } from './constants'
 
 export const adminRentalListQuerySchema = z.object({
   status: z.enum(RENTAL_STATUSES).optional(),
+  group: z.enum(ADMIN_RENTAL_GROUPS).optional(),
   search: z.string().trim().max(80).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),

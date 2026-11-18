@@ -27,6 +27,11 @@ describe('analytics dates and sales', () => {
         { status: 'pending', starts_on: '2026-09-20' },
         { status: 'paid', starts_on: '2026-09-20' },
         { status: 'overdue', starts_on: '2026-09-01' },
+        { status: 'completed', starts_on: '2026-08-01' },
+        { status: 'returned', starts_on: '2026-08-02' },
+        { status: 'cancelled', starts_on: '2026-08-03' },
+        { status: 'rejected', starts_on: '2026-08-04' },
+        { status: 'draft', starts_on: '2026-09-25' },
       ],
       expenses: [
         { amount: 500, status: 'paid' },
@@ -44,6 +49,8 @@ describe('analytics dates and sales', () => {
       upcomingRentals: 1,
       activeRentals: 1,
       overdueRentals: 1,
+      doneRentals: 2,
+      cancelledRentals: 2,
       totalExpenses: 500,
       totalCommissions: 300,
       totalSpent: 800,
@@ -190,5 +197,29 @@ describe('actual sales', () => {
     ])
     expect(actualSalesOn(payments, expenses, '2026-11-01', '2026-11-30')).toBe(2700)
     expect(actualSalesOn(payments, expenses, '1970-01-01', '2026-11-30')).toBe(6800)
+  })
+
+  it('accepts the rental list groups and rejects unknown ones', () => {
+    expect(adminRentalListQuerySchema.parse({ group: 'upcoming' })).toMatchObject({ group: 'upcoming', page: 1, pageSize: 20 })
+    for (const group of ['active', 'done', 'cancelled']) {
+      expect(adminRentalListQuerySchema.safeParse({ group }).success).toBe(true)
+    }
+    expect(adminRentalListQuerySchema.safeParse({ group: 'pending' }).success).toBe(false)
+    expect(adminRentalListQuerySchema.safeParse({ group: 'active', status: 'approved' }).success).toBe(true)
+  })
+
+  it('counts a booked rental as upcoming before pickup and active once the pickup time passes', () => {
+    const rental = {
+      status: 'approved' as const,
+      starts_on: '2026-11-17',
+      ends_on: '2026-11-19',
+      pickup_at: '2026-11-17T01:30:00.000Z',
+      return_at: '2026-11-19T01:30:00.000Z',
+    }
+    const kpisAt = (now: string) => buildKpis({ payments: [], rentals: [rental], expenses: [], products: [], customerCount: 0, today: now.slice(0, 10), now: new Date(now) })
+
+    expect(kpisAt('2026-11-17T01:29:00.000Z')).toMatchObject({ upcomingRentals: 1, activeRentals: 0 })
+    expect(kpisAt('2026-11-17T01:30:00.000Z')).toMatchObject({ upcomingRentals: 0, activeRentals: 1 })
+    expect(kpisAt('2026-11-19T01:30:00.000Z')).toMatchObject({ upcomingRentals: 0, activeRentals: 0 })
   })
 })

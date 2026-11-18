@@ -6,6 +6,8 @@ export interface AnalyticsKpis {
   activeRentals: number
   upcomingRentals: number
   overdueRentals: number
+  doneRentals: number
+  cancelledRentals: number
   totalExpenses: number
   totalCommissions: number
   totalSpent: number

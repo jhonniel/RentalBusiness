@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
 import type { AdminCalendar, AdminCalendarEvent } from '../../types/calendar'
-import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
+import type { AdminRentalGroup, CalendarRentalStatus, RentalStatus } from '../../utils/constants'
 import { BUSINESS_CURRENCY, BUSINESS_TIMEZONE } from '../../utils/constants'
 import { monthBounds, monthKey } from '../../utils/calendar'
 import { calendarDateInZone } from '../../utils/datetime'
@@ -114,6 +114,7 @@ function feedbackSummary(row: FeedbackRequestRow | undefined): RentalFeedbackSum
 
 export async function listAdminRentals(client: Client, query: {
   status?: RentalStatus
+  group?: AdminRentalGroup
   search?: string
   page: number
   pageSize: number
@@ -121,6 +122,7 @@ export async function listAdminRentals(client: Client, query: {
   const from = (query.page - 1) * query.pageSize
   const { rows, total } = await listRentals(client, {
     status: query.status,
+    group: query.group,
     search: sanitizeSearch(query.search),
     from,
     to: from + query.pageSize - 1,

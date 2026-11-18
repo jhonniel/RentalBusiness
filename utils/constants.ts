@@ -44,6 +44,15 @@ export const RENTAL_STATUSES = [
 ] as const
 export type RentalStatus = (typeof RENTAL_STATUSES)[number]
 
+/** Paid for and waiting for the pickup time. Once that time passes they count as out with the customer. */
+export const BOOKED_RENTAL_STATUSES = ['paid', 'approved', 'ready_for_pickup'] as const
+export const OUT_RENTAL_STATUSES = ['active', 'overdue'] as const
+export const DONE_RENTAL_STATUSES = ['returned', 'completed'] as const
+export const CANCELLED_RENTAL_STATUSES = ['cancelled', 'rejected'] as const
+
+export const ADMIN_RENTAL_GROUPS = ['upcoming', 'active', 'done', 'cancelled'] as const
+export type AdminRentalGroup = (typeof ADMIN_RENTAL_GROUPS)[number]
+
 export const PAYMENT_STATUSES = [
   'pending',
   'processing',

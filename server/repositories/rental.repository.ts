@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../types/database.types'
-import type { CalendarRentalStatus, RentalStatus } from '../../utils/constants'
-import { CALENDAR_RENTAL_STATUSES } from '../../utils/constants'
+import type { AdminRentalGroup, CalendarRentalStatus, RentalStatus } from '../../utils/constants'
+import { BOOKED_RENTAL_STATUSES, CALENDAR_RENTAL_STATUSES, CANCELLED_RENTAL_STATUSES, DONE_RENTAL_STATUSES, OUT_RENTAL_STATUSES } from '../../utils/constants'
 import { addCalendarDays } from '../../utils/expense'
 import { rentalCodeCandidates, type RentalHistoryRow } from '../../utils/rental'
 import { businessDateTimeToUtc } from '../../utils/rental-window'
@@ -445,6 +445,9 @@ export async function findRentalIdentity(client: Client, uuid: string) {
 
 export async function listRentals(client: Client, filters: {
   status?: RentalStatus
+  group?: AdminRentalGroup
+  /** The instant that splits upcoming from active bookings. */
+  now?: string
   search?: string
   from: number
   to: number
@@ -457,6 +460,20 @@ export async function listRentals(client: Client, filters: {
 
   if (filters.status) {
     query = query.eq('status', filters.status)
+  }
+
+  const now = filters.now ?? new Date().toISOString()
+  if (filters.group === 'upcoming') {
+    query = query.in('status', [...BOOKED_RENTAL_STATUSES]).gt('pickup_at', now)
+  }
+  else if (filters.group === 'active') {
+    query = query.or(`status.in.(${OUT_RENTAL_STATUSES.join(',')}),and(status.in.(${BOOKED_RENTAL_STATUSES.join(',')}),pickup_at.lte."${now}",return_at.gt."${now}")`)
+  }
+  else if (filters.group === 'done') {
+    query = query.in('status', [...DONE_RENTAL_STATUSES])
+  }
+  else if (filters.group === 'cancelled') {
+    query = query.in('status', [...CANCELLED_RENTAL_STATUSES])
   }
 
   if (filters.search) {
