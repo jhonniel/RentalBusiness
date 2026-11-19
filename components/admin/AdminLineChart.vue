@@ -103,7 +103,6 @@ function hover(event: PointerEvent, index: number | null) {
         </div>
 
         <svg
-          v-if="!concealed"
           :key="animationKey"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -147,19 +146,17 @@ function hover(event: PointerEvent, index: number | null) {
         </svg>
 
         <span
-          v-if="!concealed && active !== null && coords[active]"
+          v-if="active !== null && coords[active]"
           class="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-stone-300"
           :style="{ left: `${coords[active]!.x}%` }"
         />
-        <template v-if="!concealed">
-          <span
-            v-for="(coord, index) in coords"
-            :key="`dot-${index}`"
-            class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-lumen-700 shadow-sm transition-[width,height] duration-150"
-            :class="[active === index ? 'size-3.5' : 'size-2', play ? 'chart-fade' : 'opacity-0']"
-            :style="{ left: `${coord.x}%`, top: `${coord.y}%`, animationDelay: `${200 + index * 40}ms` }"
-          />
-        </template>
+        <span
+          v-for="(coord, index) in coords"
+          :key="`dot-${index}`"
+          class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-lumen-700 shadow-sm transition-[width,height] duration-150"
+          :class="[active === index ? 'size-3.5' : 'size-2', play ? 'chart-fade' : 'opacity-0']"
+          :style="{ left: `${coord.x}%`, top: `${coord.y}%`, animationDelay: `${200 + index * 40}ms` }"
+        />
 
         <div class="absolute inset-0 flex">
           <button

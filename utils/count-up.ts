@@ -26,9 +26,9 @@ export function splitCountedAmount(value: string): CountedAmount | null {
   }
 }
 
-/** Hides an amount while keeping its currency sign, separators, and length. `₱10,500.00` becomes `₱**,***.**`. */
+/** Hides an amount with one asterisk per digit. `₱10,500.00` becomes `₱*******`. */
 export function maskCountedAmount(value: string): string {
-  return value.replace(/\d/g, '*')
+  return value.replace(/\d/g, '*').replace(/[.,]/g, '')
 }
 
 export function formatCountedAmount(amount: CountedAmount, current: number): string {

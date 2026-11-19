@@ -14,10 +14,10 @@ describe('counted amounts', () => {
     expect(splitCountedAmount('-₱1,500.50')).toMatchObject({ prefix: '-₱', number: 1500.5, decimals: 2 })
   })
 
-  it('masks each digit and keeps the currency and separators', () => {
-    expect(maskCountedAmount('₱10,500.00')).toBe('₱**,***.**')
-    expect(maskCountedAmount('-₱109,427.09')).toBe('-₱***,***.**')
-    expect(maskCountedAmount('₱2.5K')).toBe('₱*.*K')
+  it('masks each digit without commas or decimal points', () => {
+    expect(maskCountedAmount('₱10,500.00')).toBe('₱*******')
+    expect(maskCountedAmount('-₱109,427.09')).toBe('-₱********')
+    expect(maskCountedAmount('₱2.5K')).toBe('₱**K')
     expect(maskCountedAmount('—')).toBe('—')
   })
 })
