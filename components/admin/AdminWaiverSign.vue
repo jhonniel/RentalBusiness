@@ -340,6 +340,7 @@ watch(canGuestLink, (value) => {
             {{ copied ? 'Copied' : 'Copy link' }}
           </UButton>
         </div>
+        <SentLinkPreview v-if="waiverUrl" />
         <div class="flex flex-wrap gap-2">
           <UButton
             type="button"

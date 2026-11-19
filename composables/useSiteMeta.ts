@@ -7,6 +7,8 @@ interface SiteMetaOptions {
   path?: string
   image?: string
   imageAlt?: string
+  imageWidth?: number
+  imageHeight?: number
   robots?: string
   ogType?: 'website' | 'product'
 }
@@ -30,7 +32,8 @@ export function useSiteMeta(options: SiteMetaOptions | (() => SiteMetaOptions) =
     return siteCanonical(origin, path())
   }
   function image() {
-    return resolved.value.image || defaultOgImage(origin)
+    const value = resolved.value.image || defaultOgImage(origin)
+    return value.startsWith('/') ? siteCanonical(origin, value) : value
   }
 
   useSeoMeta({
@@ -42,8 +45,8 @@ export function useSiteMeta(options: SiteMetaOptions | (() => SiteMetaOptions) =
     ogUrl: canonical,
     ogImage: image,
     ogImageAlt: () => resolved.value.imageAlt ?? APP_NAME,
-    ogImageWidth: () => resolved.value.image ? undefined : 1200,
-    ogImageHeight: () => resolved.value.image ? undefined : 630,
+    ogImageWidth: () => resolved.value.image ? resolved.value.imageWidth : 1200,
+    ogImageHeight: () => resolved.value.image ? resolved.value.imageHeight : 630,
     ogSiteName: APP_NAME,
     ogLocale: 'en_PH',
     twitterCard: 'summary_large_image',

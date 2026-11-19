@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
-import { receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
+import { feedbackRequestEmail, receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
 import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptDiscounts, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
@@ -172,5 +172,17 @@ describe('email templates', () => {
     expect(invite.html).toContain('/waivers/sign/11111111-1111-4111-8111-111111111111')
     expect(invite.html).toContain('&lt;script&gt;')
     expect(invite.html).not.toContain('<script>alert(1)</script>')
+
+    const feedback = feedbackRequestEmail({
+      customerName: '<script>alert(1)</script>',
+      rentalCode: 'LUM-20260913-00001',
+      products: ['Starlink Mini'],
+      feedbackUrl: 'https://jryrentals.online/feedback/11111111-1111-4111-8111-111111111111?token=secret',
+    })
+    expect(feedback.html).toContain('/logo-on-dark.png')
+    expect(feedback.html).toContain('/og-feedback.png')
+    expect(feedback.html).toContain('How was your rental')
+    expect(feedback.html).toContain('&lt;script&gt;')
+    expect(feedback.html).not.toContain('<script>alert(1)</script>')
   })
 })

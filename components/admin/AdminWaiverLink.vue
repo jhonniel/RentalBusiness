@@ -161,6 +161,8 @@ onMounted(() => {
         {{ waiverUrl ? 'Create a new link and copy' : 'Create sign link' }}
       </UButton>
 
+      <SentLinkPreview v-if="waiverUrl" />
+
       <label class="block text-sm">
         <span class="mb-1.5 block text-stone-700">Email (optional)</span>
         <UInput

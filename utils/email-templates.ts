@@ -174,6 +174,9 @@ export function feedbackRequestEmail(input: {
       Thank you for renting ${escapeHtml(gear)} with ${escapeHtml(APP_NAME)} (booking ${escapeHtml(input.rentalCode)}).
       Please rate your experience from 1 to 5 stars and leave a comment. It takes about a minute.
     </p>
+    <p style="margin:0 0 20px;">
+      <img src="${escapeHtml(`${publicOrigin()}/og-feedback.png`)}" alt="JRY Rentals feedback page: How was your rental, with star ratings" width="512" height="269" style="display:block;width:100%;max-width:512px;height:auto;border:1px solid #e7e5e4;border-radius:12px;">
+    </p>
     <p style="margin:0 0 24px;">
       <a href="${escapeHtml(input.feedbackUrl)}" style="display:inline-block;background:#0f1c17;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;">
         Rate your rental

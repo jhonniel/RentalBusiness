@@ -269,6 +269,7 @@ async function send() {
         >
           Sending a new link turns off the previous one.
         </p>
+        <SentLinkPreview kind="feedback" />
       </div>
 
       <div

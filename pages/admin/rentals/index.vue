@@ -494,6 +494,7 @@ async function removeRental(uuid: string) {
           <p class="text-xs text-stone-500">
             The link works for 30 days. Only the customer with this link can answer, once. {{ feedbackLink.earnsReward ? 'This feedback earns the thank-you voucher.' : 'This feedback does not earn a voucher.' }}
           </p>
+          <SentLinkPreview kind="feedback" />
         </div>
       </template>
     </UModal>

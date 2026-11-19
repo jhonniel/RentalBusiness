@@ -90,7 +90,7 @@ When an administrator enables maintenance, visitors are sent to `/maintenance` a
 - Business timezone: `Asia/Manila`
 - Motion is short and disabled under `prefers-reduced-motion`
 - Public catalog listing uses short SWR (`/products`). Product detail pages are not cached so admin price and info updates show immediately. Admin and account routes send `cache-control: private, no-store`
-- Default Open Graph image is `/og.png`. Account, auth, and admin paths are `noindex, nofollow`
+- Default Open Graph image is `/og.png` (JRY Rentals logo). Feedback links use `/og-feedback.png`, which shows the logo and the rating screen. Account, auth, and admin paths are `noindex, nofollow`
 - `/robots.txt` and `/sitemap.xml` list public URLs only (home, catalog, category filters, about, FAQ, privacy, terms, cookies, and every public product slug when Supabase is connected). Search results and catalog pages after the first are `noindex`. Private routes also send `X-Robots-Tag: noindex, nofollow`
 - Public pages include Open Graph, Twitter, canonical, and JSON-LD (`LocalBusiness`, `WebSite`, `HowTo`, `CollectionPage`, `AboutPage`, product `Offer`)
 - Responses set `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and a restrictive CSP (`frame-src` / `object-src` allow `'self' blob:` for waiver PDF preview). Vercel also sends HSTS.

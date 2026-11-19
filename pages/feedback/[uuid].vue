@@ -10,13 +10,18 @@ definePageMeta({
   layout: 'blank',
 })
 
-useSiteMeta({
-  title: 'Rate your rental',
-  path: '/feedback',
-  robots: 'noindex, nofollow',
-})
-
 const route = useRoute()
+
+useSiteMeta(() => ({
+  title: 'Rate your rental',
+  description: 'Rate your JRY Rentals booking from 1 to 5 stars. It takes about a minute.',
+  path: `/feedback/${String(route.params.uuid || '')}`,
+  image: '/og-feedback.png',
+  imageAlt: 'JRY Rentals logo and the feedback page: How was your rental, with star ratings',
+  imageWidth: 1200,
+  imageHeight: 630,
+  robots: 'noindex, nofollow',
+}))
 const uuid = computed(() => String(route.params.uuid || ''))
 const token = computed(() => typeof route.query.token === 'string' ? route.query.token : '')
 
