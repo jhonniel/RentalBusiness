@@ -109,7 +109,7 @@ const showLateFee = computed(() => {
   const fee = rental.value?.lateFee
   return Boolean(fee && (fee.status !== 'none' || fee.uuid || LATE_FEE_OUT_STATUSES.includes(rental.value!.status)))
 })
-const showFeedback = computed(() => Boolean(rental.value && canSendFeedback(rental.value)))
+const showFeedback = computed(() => Boolean(rental.value && canSendFeedback(rental.value.status)))
 const sales = computed(() => rental.value ? rentalSalesBreakdown(rental.value) : null)
 const commissionStatusLabel = computed(() => {
   if (rental.value?.commissionStatus === 'collected') {

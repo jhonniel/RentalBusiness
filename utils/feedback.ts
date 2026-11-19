@@ -1,5 +1,4 @@
 import type { RentalStatus } from './constants'
-import { BOOKED_RENTAL_STATUSES, DONE_RENTAL_STATUSES, OUT_RENTAL_STATUSES } from './constants'
 
 export const FEEDBACK_LINK_DAYS = 30
 export const FEEDBACK_RATING_MIN = 1
@@ -99,33 +98,8 @@ export function buildFeedbackQuestions(devices: FeedbackDevice[]): FeedbackQuest
   return [...deviceQuestions, ...general]
 }
 
-const FEEDBACK_OPEN_STATUSES: readonly RentalStatus[] = [
-  ...BOOKED_RENTAL_STATUSES,
-  ...OUT_RENTAL_STATUSES,
-  ...DONE_RENTAL_STATUSES,
-]
-
-/**
- * A feedback link can be sent once the booking is returned or done,
- * or once its return time has passed while it is still booked or out.
- */
-export function canSendFeedback(
-  rental: { status: RentalStatus, returnAt?: string | null, endsOn?: string },
-  now = new Date(),
-) {
-  if (!(FEEDBACK_OPEN_STATUSES as readonly string[]).includes(rental.status)) {
-    return false
-  }
-  if ((DONE_RENTAL_STATUSES as readonly string[]).includes(rental.status)) {
-    return true
-  }
-
-  const returnAt = rental.returnAt
-    ? Date.parse(rental.returnAt)
-    : rental.endsOn
-      ? Date.parse(`${rental.endsOn}T00:00:00+08:00`)
-      : Number.NaN
-  return Number.isFinite(returnAt) && returnAt <= now.getTime()
+export function canSendFeedback(status: RentalStatus) {
+  return FEEDBACK_RENTAL_STATUSES.includes(status)
 }
 
 export function feedbackExpiresAt(now = new Date()) {
