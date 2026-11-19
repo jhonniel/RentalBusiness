@@ -137,6 +137,18 @@ input[type="month"] {
     min-width: 0 !important;
     min-height: 0 !important;
   }
+
+  /* Centered dialogs use 100vw, which is wider than a phone and clips the edges. */
+  [role="dialog"]:is(.top-1\/2, [class~="top-1/2"]) {
+    top: max(0.75rem, env(safe-area-inset-top)) !important;
+    left: 0.75rem !important;
+    right: auto !important;
+    width: calc(100% - 1.5rem) !important;
+    max-width: calc(100% - 1.5rem) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem) !important;
+    transform: none !important;
+    translate: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

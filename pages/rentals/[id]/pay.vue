@@ -586,7 +586,7 @@ async function copyValue(value: string, label: string) {
               <img
                 :src="selectedMethod.qrUrl"
                 :alt="`${selectedMethod.name} QR`"
-                class="mx-auto aspect-square w-full max-w-80 object-contain"
+                class="mx-auto aspect-square w-full max-h-[min(16rem,42dvh)] max-w-80 object-contain"
               >
             </div>
             <dl class="w-full space-y-2 text-sm">

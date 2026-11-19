@@ -43,7 +43,6 @@ function onAgree() {
     "
     :ui="{
       content: 'sm:max-w-2xl',
-      body: 'max-h-[min(60vh,28rem)] overflow-y-auto',
     }"
   >
     <template #body>

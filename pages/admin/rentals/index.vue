@@ -455,7 +455,7 @@ async function removeRental(uuid: string) {
           >
             A link was already sent. Creating a new one turns off the old link.
           </p>
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <UButton
               color="neutral"
               variant="ghost"
@@ -477,7 +477,7 @@ async function removeRental(uuid: string) {
           v-else
           class="space-y-3"
         >
-          <div class="flex gap-2">
+          <div class="flex flex-col gap-2 sm:flex-row">
             <UInput
               :model-value="feedbackLink.feedbackUrl"
               readonly
