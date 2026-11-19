@@ -310,6 +310,38 @@ export function bookingsFromOccupyingWindows(
   }))
 }
 
+/** Pickup first, then a later return day. A return on the pickup day is not a finished range. */
+export function nextBookingRange(
+  current: { startsOn: string, endsOn: string },
+  picked: { start: string, end?: string },
+  options: { min?: string, closed?: Iterable<string>, flexible?: boolean } = {},
+) {
+  const min = options.min || ''
+  const closed = options.closed instanceof Set ? options.closed : new Set(options.closed ?? [])
+  const flexible = options.flexible ?? false
+  const keptReturn = current.endsOn > picked.start ? current.endsOn : ''
+
+  if (!picked.start || (min && picked.start < min) || (!flexible && closed.has(picked.start))) {
+    return { startsOn: current.startsOn, endsOn: current.endsOn, complete: false, error: 'closed' as const }
+  }
+
+  const end = picked.end || ''
+  if (!end || end <= picked.start) {
+    return {
+      startsOn: picked.start,
+      endsOn: keptReturn,
+      complete: false,
+      error: end ? 'order' as const : '' as const,
+    }
+  }
+
+  if (!flexible && (closed.has(end) || rangeIncludesUnavailableDates(picked.start, end, closed))) {
+    return { startsOn: picked.start, endsOn: keptReturn, complete: false, error: 'blocked' as const }
+  }
+
+  return { startsOn: picked.start, endsOn: end, complete: true, error: '' as const }
+}
+
 export function evaluateAvailability(input: AvailabilityInput): AvailabilityResult {
   const capacity = rentableCapacity(input)
   const booked = Math.max(0, input.bookedQuantity)

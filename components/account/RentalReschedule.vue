@@ -146,27 +146,22 @@ async function save() {
       class="mt-4 space-y-4"
     >
       <div class="grid gap-3 sm:grid-cols-2">
-        <BookingDateField
-          v-model="startsOn"
-          label="Pickup date"
+        <BookingDateRange
+          v-model:starts-on="startsOn"
+          v-model:ends-on="endsOn"
           :availability="calendar"
-          :until="endsOn || undefined"
           :disabled="saving"
-        />
-        <BookingPickupTime
-          v-model="pickupTime"
-          :availability="calendar"
-          :starts-on="startsOn"
-          :ends-on="endsOn"
-          :disabled="saving"
-        />
-        <BookingDateField
-          v-model="endsOn"
-          label="Return date"
-          :availability="calendar"
-          :min="startsOn || undefined"
-          :disabled="saving"
-        />
+        >
+          <template #between>
+            <BookingPickupTime
+              v-model="pickupTime"
+              :availability="calendar"
+              :starts-on="startsOn"
+              :ends-on="endsOn"
+              :disabled="saving"
+            />
+          </template>
+        </BookingDateRange>
       </div>
 
       <dl

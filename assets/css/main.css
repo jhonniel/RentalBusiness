@@ -131,6 +131,12 @@ input[type="month"] {
   button:not([role="switch"]):not([role="checkbox"]):not([data-compact]):has(> .iconify:only-child) {
     min-width: 44px;
   }
+
+  /* Day cells in a week grid have to stay inside the phone width. */
+  [role="grid"] :is(button, [role="gridcell"]) {
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

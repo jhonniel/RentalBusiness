@@ -337,8 +337,8 @@ async function removeRental(uuid: string) {
             </p>
           </div>
           <p class="text-sm leading-5 text-stone-600">
-            <span class="whitespace-nowrap">{{ formatBookingDateRange(rental.startsOn, rental.endsOn) }}</span>
-            <span class="whitespace-nowrap"> · {{ formatPickupClock(rental.pickupTime) }}</span>
+            <span>{{ formatBookingDateRange(rental.startsOn, rental.endsOn) }}</span>
+            <span> · {{ formatPickupClock(rental.pickupTime) }}</span>
           </p>
           <span
             class="text-sm font-medium tabular-nums text-stone-900"
@@ -356,7 +356,7 @@ async function removeRental(uuid: string) {
           <NuxtLink
             v-if="rental.feedback?.status === 'submitted'"
             :to="`/admin/rentals/${rental.code}#feedback`"
-            class="inline-flex min-w-[8rem] flex-1 items-center justify-center gap-1.5 rounded-md bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 lg:flex-none"
+            class="inline-flex min-w-0 flex-1 basis-36 items-center justify-center gap-1.5 rounded-md bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 lg:flex-none"
             :title="`Customer rated this booking ${rental.feedback.averageRating?.toFixed(1)} of 5`"
           >
             <svg
@@ -372,7 +372,7 @@ async function removeRental(uuid: string) {
             variant="outline"
             size="sm"
             icon="i-lucide-star"
-            class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+            class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
             :loading="feedbackBusy === rental.uuid"
             :disabled="Boolean(feedbackBusy) && feedbackBusy !== rental.uuid"
             :title="rental.feedback.status === 'sent' ? 'A link was sent. Create a new one (the old link stops working).' : 'Create a feedback link for this customer'"
@@ -386,7 +386,7 @@ async function removeRental(uuid: string) {
             color="neutral"
             variant="outline"
             size="sm"
-            class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+            class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
           >
             {{ canModifyAdminRental(rental) && rental.status !== 'draft' ? 'Edit' : 'Continue' }}
           </UButton>
@@ -394,7 +394,7 @@ async function removeRental(uuid: string) {
             <UButton
               color="error"
               size="sm"
-              class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+              class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
               :loading="deletePending"
               @click="removeRental(rental.uuid)"
             >
@@ -404,7 +404,7 @@ async function removeRental(uuid: string) {
               color="neutral"
               variant="ghost"
               size="sm"
-              class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+              class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
               :disabled="deletePending"
               @click="deleteCode = ''"
             >
@@ -416,7 +416,7 @@ async function removeRental(uuid: string) {
             color="error"
             variant="ghost"
             size="sm"
-            class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+            class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
             @click="deleteCode = rental.code"
           >
             Delete

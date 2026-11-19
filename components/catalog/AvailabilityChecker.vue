@@ -2,7 +2,6 @@
 import type { AvailabilityResponse } from '~/types/availability'
 import { FACEBOOK_MESSENGER_URL } from '~/utils/constants'
 import { calendarDateInZone } from '~/utils/datetime'
-import { addCalendarDays } from '~/utils/expense'
 import {
   DEFAULT_PICKUP_TIME,
   defaultRentalReturnOn,
@@ -129,10 +128,6 @@ async function goRent() {
     pending.value = false
   }
 }
-
-function tomorrow(date: string) {
-  return addCalendarDays(date, 1)
-}
 </script>
 
 <template>
@@ -151,32 +146,25 @@ function tomorrow(date: string) {
     </div>
 
     <div class="mt-5 grid gap-4 sm:grid-cols-2">
-      <BookingDateField
-        v-model="startsOn"
-        label="Pickup date"
+      <BookingDateRange
+        v-model:starts-on="startsOn"
+        v-model:ends-on="endsOn"
         :product-uuid="productUuid"
         :product-slug="productSlug"
         :quantity="1"
-        :until="endsOn || undefined"
         :disabled="pending"
-      />
-      <BookingPickupTime
-        v-model="pickupTime"
-        :product-uuid="productUuid"
-        :product-slug="productSlug"
-        :starts-on="startsOn"
-        :ends-on="endsOn"
-        :disabled="pending"
-      />
-      <BookingDateField
-        v-model="endsOn"
-        label="Return date"
-        :product-uuid="productUuid"
-        :product-slug="productSlug"
-        :quantity="1"
-        :min="tomorrow(startsOn)"
-        :disabled="pending"
-      />
+      >
+        <template #between>
+          <BookingPickupTime
+            v-model="pickupTime"
+            :product-uuid="productUuid"
+            :product-slug="productSlug"
+            :starts-on="startsOn"
+            :ends-on="endsOn"
+            :disabled="pending"
+          />
+        </template>
+      </BookingDateRange>
     </div>
 
     <p

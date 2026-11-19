@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aboutPageJsonLd, breadcrumbJsonLd, collectionJsonLd, defaultOgImage, howToJsonLd, isPrivatePath, organizationJsonLd, productJsonLd, publicSitemapPaths, siteCanonical, siteRobots, websiteJsonLd } from '../../utils/seo'
+import { aboutPageJsonLd, breadcrumbJsonLd, catalogIndexState, collectionJsonLd, defaultOgImage, howToJsonLd, isPrivatePath, organizationJsonLd, productJsonLd, publicSitemapPaths, renderSitemap, robotsTxt, siteCanonical, siteRobots, websiteJsonLd } from '../../utils/seo'
 
 describe('siteCanonical', () => {
   it('joins origin and path without a double slash', () => {
@@ -22,6 +22,34 @@ describe('site robots', () => {
     expect(siteRobots('/privacy')).toBe('index, follow')
     expect(siteRobots('/terms')).toBe('index, follow')
     expect(siteRobots('/cookies')).toBe('index, follow')
+    expect(isPrivatePath('/feedback/abc')).toBe(true)
+    expect(isPrivatePath('/commissioner')).toBe(true)
+    expect(siteRobots('/feedback/abc')).toBe('noindex, nofollow')
+  })
+
+  it('indexes a category page and keeps search results out', () => {
+    expect(catalogIndexState({})).toMatchObject({ path: '/products', robots: 'index, follow' })
+    expect(catalogIndexState({ category: 'drones' })).toMatchObject({
+      path: '/products?category=drones',
+      robots: 'index, follow',
+      indexable: true,
+    })
+    expect(catalogIndexState({ category: 'drones', search: 'mini' }).robots).toBe('noindex, follow')
+    expect(catalogIndexState({ page: 2 }).robots).toBe('noindex, follow')
+  })
+
+  it('publishes robots and a sitemap without private urls', () => {
+    const robots = robotsTxt('https://jryrentals.com')
+    expect(robots).toContain('Disallow: /feedback')
+    expect(robots).toContain('Disallow: /commissioner')
+    expect(robots).toContain('Sitemap: https://jryrentals.com/sitemap.xml')
+
+    const xml = renderSitemap([
+      { loc: 'https://jryrentals.com/products?category=drones' },
+      { loc: 'https://jryrentals.com/products/starlink', lastmod: '2026-11-19T00:00:00.000Z' },
+    ])
+    expect(xml).toContain('<loc>https://jryrentals.com/products?category=drones</loc>')
+    expect(xml).toContain('<lastmod>2026-11-19</lastmod>')
   })
 })
 
@@ -33,6 +61,7 @@ describe('organization JSON-LD', () => {
     expect(json['@type']).toBe('LocalBusiness')
     expect(json.address.addressLocality).toBe('Davao City')
     expect(json.sameAs).toContain('https://www.facebook.com/jryrentals/')
+    expect(json.sameAs).toContain('https://www.instagram.com/jryrentals')
     expect(defaultOgImage('https://lumen.test')).toBe('https://lumen.test/og.png')
     expect(publicSitemapPaths()).toEqual(['/', '/products', '/about', '/faq', '/privacy', '/terms', '/cookies'])
     expect(websiteJsonLd('https://lumen.test').potentialAction['query-input']).toBe('required name=search_term_string')
@@ -57,7 +86,7 @@ describe('organization JSON-LD', () => {
     expect(json.offers.priceCurrency).toBe('PHP')
     expect(json.offers.availability).toContain('InStock')
     expect(crumbs.itemListElement[1].item).toBe('https://lumen.test/products')
-    expect(howToJsonLd().step).toHaveLength(3)
+    expect(howToJsonLd().step.map(step => step.name)).toContain('Message us to confirm')
     expect(aboutPageJsonLd('https://lumen.test').url).toBe('https://lumen.test/about')
     expect(collectionJsonLd('https://lumen.test', [{ slug: 'dji-air-3', name: 'DJI Air 3' }]).mainEntity.itemListElement[0].url)
       .toBe('https://lumen.test/products/dji-air-3')

@@ -7,7 +7,9 @@ import {
   BUSINESS_CURRENCY,
   BUSINESS_EMAIL,
   FACEBOOK_URL,
+  INSTAGRAM_URL,
 } from './constants'
+import { HOW_IT_WORKS_INTRO, HOW_IT_WORKS_STEPS } from './site-content'
 
 const PRIVATE_PATHS = [
   '/admin',
@@ -27,6 +29,8 @@ const PRIVATE_PATHS = [
   '/payments',
   '/waivers',
   '/maintenance',
+  '/feedback',
+  '/commissioner',
 ]
 
 const PUBLIC_SITEMAP_PATHS = [
@@ -69,6 +73,63 @@ export function publicSitemapPaths() {
   return [...PUBLIC_SITEMAP_PATHS]
 }
 
+/** Index a category landing page. Search results and later pages point back at that page and stay out of the index. */
+export function catalogIndexState(query: { category?: string, search?: string, page?: number }) {
+  const category = query.category?.trim()
+  const landing = category ? `/products?category=${encodeURIComponent(category)}` : '/products'
+  const indexable = !query.search?.trim() && !(query.page && query.page > 1)
+  return {
+    path: landing,
+    robots: indexable ? 'index, follow' : 'noindex, follow',
+    indexable,
+  }
+}
+
+export function robotsTxt(origin: string) {
+  return [
+    'User-agent: *',
+    'Allow: /',
+    ...PRIVATE_PATHS.map(path => `Disallow: ${path}`),
+    'Disallow: /api',
+    '',
+    `Sitemap: ${siteCanonical(origin, '/sitemap.xml')}`,
+    '',
+  ].join('\n')
+}
+
+export function renderSitemap(urls: Array<{ loc: string, lastmod?: string | null }>) {
+  const body = urls.map((url) => {
+    const lastmod = url.lastmod && /^\d{4}-\d{2}-\d{2}/.test(url.lastmod)
+      ? `\n    <lastmod>${escapeXml(url.lastmod.slice(0, 10))}</lastmod>`
+      : ''
+    return `  <url>\n    <loc>${escapeXml(url.loc)}</loc>${lastmod}\n  </url>`
+  })
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...body,
+    '</urlset>',
+    '',
+  ].join('\n')
+}
+
+function escapeXml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case '&':
+        return '&amp;'
+      case '<':
+        return '&lt;'
+      case '>':
+        return '&gt;'
+      case '"':
+        return '&quot;'
+      default:
+        return '&#39;'
+    }
+  })
+}
+
 export function organizationJsonLd(origin: string) {
   const url = siteCanonical(origin, '/')
   return {
@@ -88,7 +149,7 @@ export function organizationJsonLd(origin: string) {
       'streetAddress': BUSINESS_ADDRESS,
     },
     'areaServed': BUSINESS_CITY,
-    'sameAs': [FACEBOOK_URL],
+    'sameAs': [FACEBOOK_URL, INSTAGRAM_URL],
   }
 }
 
@@ -169,36 +230,22 @@ export function howToJsonLd() {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
     'name': `How to rent equipment from ${APP_NAME}`,
-    'description': 'Choose your gear, select your dates, then pickup, meetup, or deliver.',
-    'step': [
-      {
-        '@type': 'HowToStep',
-        'position': 1,
-        'name': 'Choose your gear',
-        'text': 'Pick the kit that fits your shoot.',
-      },
-      {
-        '@type': 'HowToStep',
-        'position': 2,
-        'name': 'Select your dates',
-        'text': 'Lock availability for the days you need.',
-      },
-      {
-        '@type': 'HowToStep',
-        'position': 3,
-        'name': 'Pickup, meetup, or deliver',
-        'text': 'Get your gear by pickup, meetup, or delivery.',
-      },
-    ],
+    'description': HOW_IT_WORKS_INTRO,
+    'step': HOW_IT_WORKS_STEPS.map((step, index) => ({
+      '@type': 'HowToStep',
+      'position': index + 1,
+      'name': step.title,
+      'text': step.copy,
+    })),
   }
 }
 
-export function collectionJsonLd(origin: string, products: Array<{ slug: string, name: string }>) {
+export function collectionJsonLd(origin: string, products: Array<{ slug: string, name: string }>, path = '/products') {
   return {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     'name': 'Equipment',
-    'url': siteCanonical(origin, '/products'),
+    'url': siteCanonical(origin, path),
     'description': `Browse cameras, drones, Starlink, and production equipment for rent in ${BUSINESS_CITY}.`,
     'mainEntity': {
       '@type': 'ItemList',

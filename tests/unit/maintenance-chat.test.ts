@@ -28,6 +28,8 @@ describe('maintenance chat', () => {
   it('suggests Facebook when someone asks for help or a person', () => {
     expect(answerFromKnowledge('Can I talk to a person?', context)).toContain('message us on Facebook')
     expect(answerFromKnowledge('How do I contact you?', context)).toContain('facebook.com/jryrentals')
+    expect(answerFromKnowledge('How do I contact you?', context)).toContain('instagram.com/jryrentals')
+    expect(answerFromKnowledge('How do I book a kit?', context)).toContain('Instagram')
   })
 
   it('requires the last message to come from the visitor', () => {
@@ -47,6 +49,8 @@ describe('maintenance chat', () => {
   it('keeps the chat API open during maintenance', () => {
     expect(isMaintenanceBypassApiPath('/api/maintenance/chat')).toBe(true)
     expect(maintenanceAssistantPrompt(context)).toContain('DJI Osmo 360')
+    expect(maintenanceAssistantPrompt(context)).toContain('Message us to confirm')
+    expect(maintenanceAssistantPrompt(context)).toContain('instagram.com/jryrentals')
     expect(maintenanceAssistantPrompt(context)).not.toContain('Sony A7 IV')
     expect(maintenanceAssistantPrompt({
       ...context,

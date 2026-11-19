@@ -354,10 +354,10 @@ async function onSubmit() {
           <p class="mt-3 text-sm text-stone-500">
             Optional. Leave these blank and the customer fills them on the waiver link.
           </p>
-          <div class="mt-4 grid grid-cols-2 rounded-lg bg-stone-100 p-1">
+          <div class="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-stone-100 p-1">
             <button
               type="button"
-              class="rounded-md px-3 py-2 text-sm font-medium"
+              class="min-w-0 rounded-md px-2 py-2 text-sm leading-tight font-medium"
               :class="clientMode === 'existing' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600'"
               @click="clientMode = 'existing'"
             >
@@ -365,7 +365,7 @@ async function onSubmit() {
             </button>
             <button
               type="button"
-              class="rounded-md px-3 py-2 text-sm font-medium"
+              class="min-w-0 rounded-md px-2 py-2 text-sm leading-tight font-medium"
               :class="clientMode === 'new' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600'"
               @click="clientMode = 'new'"
             >
@@ -589,32 +589,25 @@ async function onSubmit() {
             Choose the equipment first, then set the pickup and return.
           </p>
           <div class="mt-4 grid gap-4 sm:grid-cols-2">
-            <BookingDateField
-              v-model="form.startsOn"
-              label="Pickup date"
+            <BookingDateRange
+              v-model:starts-on="form.startsOn"
+              v-model:ends-on="form.endsOn"
               :product-slug="selectedProduct?.slug"
               :quantity="form.quantity"
-              :until="form.endsOn || undefined"
               :disabled="pending || !selectedProduct"
               flexible
-            />
-            <BookingPickupTime
-              v-model="form.pickupTime"
-              :product-slug="selectedProduct?.slug"
-              :starts-on="form.startsOn"
-              :ends-on="form.endsOn"
-              :disabled="pending || !selectedProduct"
-              flexible
-            />
-            <BookingDateField
-              v-model="form.endsOn"
-              label="Return date"
-              :product-slug="selectedProduct?.slug"
-              :quantity="form.quantity"
-              :min="form.startsOn || undefined"
-              :disabled="pending || !selectedProduct"
-              flexible
-            />
+            >
+              <template #between>
+                <BookingPickupTime
+                  v-model="form.pickupTime"
+                  :product-slug="selectedProduct?.slug"
+                  :starts-on="form.startsOn"
+                  :ends-on="form.endsOn"
+                  :disabled="pending || !selectedProduct"
+                  flexible
+                />
+              </template>
+            </BookingDateRange>
             <label class="block text-sm">
               <span class="mb-1.5 block text-stone-700">Quantity</span>
               <UInput

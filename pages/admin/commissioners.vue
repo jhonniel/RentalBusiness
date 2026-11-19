@@ -204,7 +204,7 @@ async function collect(item: AdminCommission) {
               <template v-if="confirmUuid === item.uuid">
                 <UButton
                   size="sm"
-                  class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+                  class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
                   :loading="collecting"
                   @click="collect(item)"
                 >
@@ -214,7 +214,7 @@ async function collect(item: AdminCommission) {
                   size="sm"
                   color="neutral"
                   variant="outline"
-                  class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+                  class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
                   :disabled="collecting"
                   @click="confirmUuid = null"
                 >
@@ -226,7 +226,7 @@ async function collect(item: AdminCommission) {
                 size="sm"
                 color="neutral"
                 variant="outline"
-                class="min-w-[8rem] flex-1 justify-center lg:flex-none"
+                class="min-w-0 flex-1 basis-36 justify-center lg:flex-none"
                 @click="confirmUuid = item.uuid"
               >
                 Mark as collected

@@ -13,7 +13,7 @@ watch(() => route.fullPath, () => {
 </script>
 
 <template>
-  <div class="min-h-dvh overflow-x-clip bg-slate-50">
+  <div class="admin-app min-h-dvh overflow-x-clip bg-slate-50">
     <SkipToContent />
     <div class="flex min-h-dvh">
       <div class="hidden w-64 shrink-0 lg:block">
@@ -49,7 +49,7 @@ watch(() => route.fullPath, () => {
     <USlideover
       v-model:open="mobileOpen"
       title="Admin menu"
-      :ui="{ content: 'w-[min(100vw,20rem)] max-w-[100vw]', body: 'overflow-y-auto p-0' }"
+      :ui="{ content: 'w-80 max-w-full', body: 'overflow-y-auto p-0' }"
     >
       <template #body>
         <AdminSidebar embedded />
@@ -71,7 +71,26 @@ watch(() => route.fullPath, () => {
   max-width: 100%;
 }
 
+/* Grid items default to min-width:auto, which lets a long tab label widen the page on a phone. */
+.admin-main :where(.grid > *) {
+  min-width: 0;
+}
+
 .admin-main :where(.rounded-xl.border, section.rounded-xl, form.rounded-xl, article.rounded-xl, ul.rounded-xl) {
   border-radius: 1rem;
+}
+
+@media (max-width: 1023px) {
+  .admin-app {
+    touch-action: manipulation;
+  }
+
+  .admin-main {
+    overflow-x: clip;
+  }
+
+  .admin-main :where(img, svg, video, canvas, pre) {
+    max-width: 100%;
+  }
 }
 </style>

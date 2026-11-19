@@ -11,6 +11,7 @@ import {
   chatKitPrompt,
   chatQuestionContext,
   chatQuoteRange,
+  formatChatAvailabilityWindow,
   formatChatQuoteAnswer,
   formatLiveAvailabilityFacts,
   parseChatQuoteIntent,
@@ -313,6 +314,49 @@ async function answerLiveQuote(
       actions: slug && firstName ? [{ kind: 'book' as const, label: `Book ${firstName}`, to: `/rentals/new?product=${encodeURIComponent(slug)}` }] : [],
       topic: 'ask-dates',
       productName: firstName,
+    }
+  }
+  if (intent.action === 'calendar') {
+    const to = addCalendarDays(today, 30)
+    const replies: string[] = []
+    const actions: ChatBookingAction[] = []
+    let productName: string | null = null
+    for (const productSlug of intent.slugs) {
+      if (comingSoonSlugs.has(productSlug)) {
+        continue
+      }
+      try {
+        const calendar = await getProductAvailabilityCalendar(client, {
+          productSlug,
+          quantity: intent.quantity,
+          from: today,
+          to,
+        })
+        replies.push(formatChatAvailabilityWindow({
+          name: calendar.product.name,
+          from: calendar.from,
+          to: calendar.to,
+          bookedDates: calendar.bookedDates,
+        }))
+        actions.push({
+          kind: 'book',
+          label: `Book ${calendar.product.name}`,
+          to: `/rentals/new?product=${encodeURIComponent(productSlug)}`,
+        })
+        productName ??= calendar.product.name
+      }
+      catch {
+        // A missing kit stays out of the availability answer.
+      }
+    }
+    if (!replies.length) {
+      return null
+    }
+    return {
+      reply: replies.join('\n\n'),
+      actions: actions.slice(0, 3),
+      topic: 'ask-dates',
+      productName,
     }
   }
 

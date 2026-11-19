@@ -14,6 +14,7 @@ const origin = String(config.public.siteUrl || 'http://localhost:3000')
 useHead({
   script: [
     {
+      key: 'about-jsonld',
       type: 'application/ld+json',
       innerHTML: JSON.stringify(aboutPageJsonLd(origin)),
     },

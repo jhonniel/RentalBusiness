@@ -94,7 +94,7 @@ export function policyFacts(policies: ChatShopPolicies, paymentMethods: string[]
     policies.cancellationRules ? `Cancellation: ${policies.cancellationRules}` : 'Cancellation: the down payment is not refundable once the rental is booked.',
     paymentMethods.length ? `Payment methods: ${paymentMethods.join(', ')}.` : null,
     'How to pay: open the booking in My rentals, tap Pay, scan the QR code of a payment method shown there, then send the proof of payment on Facebook. The shop does not send QR codes separately.',
-    'Booking steps: choose equipment and dates, sign the rental agreement, photograph a government ID and a selfie, submit the request, then pay on the booking Pay page.',
+    'Booking steps: choose equipment, check the dates (crossed-out days are fully booked), sign in and send the request, sign the waiver and upload a government ID and selfie, pay the rent plus the deposit on the booking, then message the Facebook page or Instagram with the booking code to confirm. Return is the same clock time on the return date. Pickup, meetup, or delivery is arranged after the booking.',
     'Available soon items cannot be booked yet, so do not ask for dates for them. Call them available soon, not coming soon.',
   ].filter(Boolean).join('\n')
 }

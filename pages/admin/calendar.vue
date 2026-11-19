@@ -438,7 +438,8 @@ watch(detailsOpen, (open) => {
             v-for="(date, index) in cells"
             :key="date || `mobile-empty-${index}`"
             type="button"
-            class="relative aspect-square min-h-0 min-w-0 rounded-md text-sm max-sm:aspect-auto"
+            data-compact
+            class="relative aspect-square min-h-0 min-w-0 rounded-md text-sm"
             :class="!date
               ? 'invisible'
               : dayIsViewed(date)

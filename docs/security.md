@@ -268,7 +268,7 @@ Private buckets for waivers, receipts, and customer documents. Catalog photos, p
 - Public catalog pages allow indexing (`index, follow`)
 - Auth, account, receipt, payment, admin, waiver-invite, and maintenance paths set `noindex, nofollow`
 - `/robots.txt` disallows the same private prefixes
-- `/sitemap.xml` lists only public catalog and legal URLs and never includes `uuid` or database ids
+- `/sitemap.xml` lists only public catalog, category, and legal URLs and never includes `uuid` or database ids. Private routes also send `X-Robots-Tag: noindex, nofollow`
 
 ## Error disclosure
 

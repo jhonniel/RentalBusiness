@@ -234,19 +234,11 @@ async function copyLink() {
       </label>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <BookingDateField
-          v-model="form.startsOn"
-          label="Pickup date"
+        <BookingDateRange
+          v-model:starts-on="form.startsOn"
+          v-model:ends-on="form.endsOn"
           :availability="calendar"
           :quantity="form.quantity"
-          :disabled="pending"
-        />
-        <BookingDateField
-          v-model="form.endsOn"
-          label="Return date"
-          :availability="calendar"
-          :quantity="form.quantity"
-          :min="form.startsOn"
           :disabled="pending"
         />
       </div>

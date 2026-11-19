@@ -257,35 +257,28 @@ async function onSubmit() {
             You can change the pickup date, return date, and pickup time, including past dates, for example to record a pickup that already happened or to extend the return date. Return stays at the same clock on the return date.
           </p>
           <div class="mt-4 grid gap-3 sm:grid-cols-2">
-            <BookingDateField
-              v-model="form.startsOn"
-              label="Pickup date"
+            <BookingDateRange
+              v-model:starts-on="form.startsOn"
+              v-model:ends-on="form.endsOn"
               :product-slug="productSlug || undefined"
               :quantity="form.quantity"
-              :until="form.endsOn || undefined"
               :disabled="pending || !canModify"
               flexible
               allow-past
-            />
-            <BookingPickupTime
-              v-model="form.pickupTime"
-              :product-slug="productSlug || undefined"
-              :starts-on="form.startsOn"
-              :ends-on="form.endsOn"
-              :own-pickup-at="rental.pickupAt"
-              :own-return-at="rental.returnAt"
-              :disabled="pending || !canModify"
-              flexible
-            />
-            <BookingDateField
-              v-model="form.endsOn"
-              label="Return date"
-              :product-slug="productSlug || undefined"
-              :quantity="form.quantity"
-              :min="form.startsOn || undefined"
-              :disabled="pending || !canModify"
-              flexible
-            />
+            >
+              <template #between>
+                <BookingPickupTime
+                  v-model="form.pickupTime"
+                  :product-slug="productSlug || undefined"
+                  :starts-on="form.startsOn"
+                  :ends-on="form.endsOn"
+                  :own-pickup-at="rental.pickupAt"
+                  :own-return-at="rental.returnAt"
+                  :disabled="pending || !canModify"
+                  flexible
+                />
+              </template>
+            </BookingDateRange>
           </div>
           <p class="mt-3 text-sm text-stone-600">
             Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}

@@ -64,7 +64,7 @@ const statusItems = computed<ReportBarItem[]>(() => summary.value
         Overview
       </h3>
       <div
-        class="flex flex-wrap gap-1 rounded-lg border border-stone-200 bg-white p-1"
+        class="grid w-full grid-cols-2 gap-1 rounded-lg border border-stone-200 bg-white p-1 sm:flex sm:w-auto"
         role="group"
         aria-label="Period"
       >
@@ -72,7 +72,7 @@ const statusItems = computed<ReportBarItem[]>(() => summary.value
           v-for="item in REPORT_PERIODS"
           :key="item"
           type="button"
-          class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+          class="min-w-0 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:px-3 sm:py-1.5"
           :class="period === item ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'"
           :aria-pressed="period === item"
           @click="period = item"

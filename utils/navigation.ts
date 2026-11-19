@@ -41,3 +41,25 @@ export const adminNavItems: NavItem[] = [
   { label: 'Account', to: '/admin/account', icon: 'i-lucide-user-cog', enabled: true },
   { label: 'Audit Logs', to: '/admin/audit-logs', icon: 'i-lucide-scroll-text', enabled: true },
 ]
+
+export function isAdminNavActive(path: string, to?: string) {
+  if (!to) {
+    return false
+  }
+
+  if (to === '/admin') {
+    return path === '/admin'
+  }
+
+  if (path === to) {
+    return true
+  }
+
+  const moreSpecific = adminNavItems.some(item =>
+    item.to
+    && item.to.length > to.length
+    && (path === item.to || path.startsWith(`${item.to}/`)),
+  )
+
+  return !moreSpecific && path.startsWith(`${to}/`)
+}

@@ -11,44 +11,55 @@ interface SiteMetaOptions {
   ogType?: 'website' | 'product'
 }
 
-export function useSiteMeta(options: SiteMetaOptions = {}) {
+export function useSiteMeta(options: SiteMetaOptions | (() => SiteMetaOptions) = {}) {
   const config = useRuntimeConfig()
   const origin = String(config.public.siteUrl || 'http://localhost:3000')
-  const path = options.path ?? '/'
-  const title = options.title ? `${options.title} · ${APP_NAME}` : `${APP_NAME} · Equipment Rentals`
-  const description = options.description ?? APP_DESCRIPTION
-  const canonical = siteCanonical(origin, path)
-  const image = options.image || defaultOgImage(origin)
-  const imageAlt = options.imageAlt ?? APP_NAME
-  const robots = options.robots ?? siteRobots(path)
+  const resolved = computed(() => typeof options === 'function' ? options() : options)
+  const ogType = resolved.value.ogType ?? 'website'
+
+  function title() {
+    return resolved.value.title ? `${resolved.value.title} · ${APP_NAME}` : `${APP_NAME} · Equipment Rentals`
+  }
+  function description() {
+    return resolved.value.description ?? APP_DESCRIPTION
+  }
+  function path() {
+    return resolved.value.path ?? '/'
+  }
+  function canonical() {
+    return siteCanonical(origin, path())
+  }
+  function image() {
+    return resolved.value.image || defaultOgImage(origin)
+  }
 
   useSeoMeta({
     title,
     description,
     ogTitle: title,
     ogDescription: description,
-    ogType: options.ogType ?? 'website',
+    ogType: ogType as 'website',
     ogUrl: canonical,
     ogImage: image,
-    ogImageAlt: imageAlt,
-    ogImageWidth: options.image ? undefined : 1200,
-    ogImageHeight: options.image ? undefined : 630,
+    ogImageAlt: () => resolved.value.imageAlt ?? APP_NAME,
+    ogImageWidth: () => resolved.value.image ? undefined : 1200,
+    ogImageHeight: () => resolved.value.image ? undefined : 630,
     ogSiteName: APP_NAME,
     ogLocale: 'en_PH',
     twitterCard: 'summary_large_image',
     twitterTitle: title,
     twitterDescription: description,
     twitterImage: image,
-    twitterImageAlt: imageAlt,
-    robots,
+    twitterImageAlt: () => resolved.value.imageAlt ?? APP_NAME,
+    robots: () => resolved.value.robots ?? siteRobots(path()),
   })
 
   useHead({
     htmlAttrs: {
       lang: 'en-PH',
     },
-    link: [
-      { rel: 'canonical', href: canonical },
-    ],
+    link: computed(() => [
+      { rel: 'canonical', href: canonical() },
+    ]),
   })
 }

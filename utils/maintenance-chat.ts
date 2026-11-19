@@ -6,7 +6,9 @@ import {
   BUSINESS_EMAIL,
   BUSINESS_TIMEZONE,
   FACEBOOK_URL,
+  INSTAGRAM_URL,
 } from './constants'
+import { HOW_IT_WORKS_INTRO, HOW_IT_WORKS_STEPS } from './site-content'
 import { formatBookingDate } from './datetime'
 import { STOREFRONT_KIT_PRODUCTS } from './storefront'
 
@@ -48,12 +50,12 @@ export const MAINTENANCE_CHAT_KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'gear',
     keywords: ['gear', 'equipment', 'starlink', 'drone', 'osmo', 'camera', 'dji', 'kits'],
-    answer: `${APP_NAME} rents ${KIT_NAMES} in ${BUSINESS_CITY}. Pickup, meetup, or delivery can be arranged after you book.`,
+    answer: `${APP_NAME} rents ${KIT_NAMES} in ${BUSINESS_CITY}. Tell me the equipment and the dates and I can check if those days are free. Pickup, meetup, or delivery can be arranged after you book.`,
   },
   {
     id: 'book',
     keywords: ['book', 'booking', 'reserve', 'rental request', 'how to rent'],
-    answer: `Choose a kit, pick dates in ${BUSINESS_TIMEZONE}, sign the rental waiver, photograph a government ID and selfie, then pay. Pickup, meetup, or delivery is arranged after approval.`,
+    answer: `Open Equipment and pick what you need, choose a pickup date, pickup time, and return date, sign in and send the request, sign the waiver and upload your ID, then pay the rent plus the deposit on the booking. After that, message the Facebook page or Instagram with your booking code so we can confirm it. Pickup, meetup, or delivery is arranged after you book. Return is the same time on the return date.`,
   },
   {
     id: 'pay',
@@ -73,7 +75,7 @@ export const MAINTENANCE_CHAT_KNOWLEDGE: KnowledgeEntry[] = [
   {
     id: 'contact',
     keywords: ['email', 'contact', 'facebook', 'messenger', 'message', 'phone', 'reach', 'help', 'talk', 'human', 'agent', 'person'],
-    answer: `The fastest way to reach us is to message us on Facebook at ${FACEBOOK_URL}. You can also email ${BUSINESS_EMAIL}.`,
+    answer: `The fastest way to reach us is to message us on Facebook at ${FACEBOOK_URL} or Instagram at ${INSTAGRAM_URL}. You can also email ${BUSINESS_EMAIL}.`,
   },
   {
     id: 'legal',
@@ -100,7 +102,8 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
     : 'The storefront is open. Visitors can browse kits and start a booking on this website.'
 
   return [
-    `You are the ${APP_NAME} assistant on the public website.`,
+    `You are the ${APP_NAME} assistant on the public website. You know the public rental system and you check live equipment availability. You never see other customers, payments, admin tools, or secrets.`,
+    `How the system works: ${HOW_IT_WORKS_INTRO} ${HOW_IT_WORKS_STEPS.map((step, index) => `${index + 1}. ${step.title}: ${step.copy}`).join(' ')}`,
     availability,
     `Business facts: based in ${BUSINESS_ADDRESS}; currency ${BUSINESS_CURRENCY}; dates use ${BUSINESS_TIMEZONE}; kits include ${KIT_NAMES}.`,
     context.today
@@ -127,10 +130,10 @@ export function maintenanceAssistantPrompt(context: MaintenanceChatContext) {
       ? `Buttons shown under your reply: ${context.buttons.join(', ')}. You may tell the visitor to tap them; a Book button opens the booking form with their details filled in. Do not repeat the button labels as a separate line.`
       : 'No buttons are shown under your reply, so never mention a button. To book, the visitor opens a kit from the equipment page and taps Book.',
     'If the visitor asks for a link, say "Here is the link:" and stop; the system adds the exact link after your reply. Never write URLs yourself and never say you cannot share links.',
-    `Contact: ${BUSINESS_EMAIL} and Facebook ${FACEBOOK_URL}.`,
-    'Booking: choose gear, pick dates, sign the waiver, upload ID and selfie, pay by QR, then pickup, meetup, or delivery.',
+    `Contact: ${BUSINESS_EMAIL}, Facebook ${FACEBOOK_URL}, and Instagram ${INSTAGRAM_URL}. After a booking is sent, the customer messages Facebook or Instagram with the booking code to confirm it.`,
+    'Booking: choose equipment, check that the dates are free, sign in and send the request, sign the waiver, upload a government ID and a selfie, pay the rent plus the deposit by the QR code on the booking, message Facebook or Instagram to confirm, then pickup, meetup, or delivery. Return is the same clock time on the return date. Crossed-out days are fully booked.',
     'Refund: the down payment paid to confirm a booking is not refundable once the rental is booked. A security deposit is separate from the down payment.',
-    'Visitors can ask the PHP price for a kit, or say they want to book a kit by name, including JBL and other catalog gear. If they give a date, tomorrow, the next day, or a from-to window, check live availability and say whether that kit is free or already booked. Inclusive days, availability, and totals come from live booking data.',
+    'Visitors can ask the PHP price for any equipment in the live catalog, or ask if it is free. If they name equipment and dates, say whether those exact dates are free or already booked, using the live quote. If they name equipment but no dates, use LIVE AVAILABILITY and list the booked days; every other day in that window is free. Never guess a free or booked day.',
     context.liveFacts
       ? `LIVE AVAILABILITY is the source of truth in ${BUSINESS_TIMEZONE}. Use it to say booked or available. Never contradict it: ${context.liveFacts}`
       : 'If LIVE AVAILABILITY is missing, do not guess whether a date is booked. Ask for a kit name and date.',

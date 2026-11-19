@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import type { CatalogListResponse, PublicCategory } from '~/types/catalog'
-import { collectionJsonLd } from '~/utils/seo'
-
-useSiteMeta({
-  title: 'Equipment',
-  description: 'Browse cameras, drones, Starlink, and production equipment for rent in Davao City.',
-  path: '/products',
-})
+import { catalogIndexState, collectionJsonLd } from '~/utils/seo'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,13 +22,30 @@ const { data, error, pending } = await useFetch<CatalogListResponse>('/api/produ
 })
 const { data: categories } = await useFetch<PublicCategory[]>('/api/categories')
 
+const categoryName = computed(() => categories.value?.find(category => category.slug === categorySlug.value)?.name)
+const indexState = computed(() => catalogIndexState({
+  category: categorySlug.value,
+  search: search.value,
+  page: page.value,
+}))
+
+useSiteMeta(() => ({
+  title: categoryName.value ? `${categoryName.value} rentals` : 'Equipment',
+  description: categoryName.value
+    ? `Rent ${categoryName.value.toLowerCase()} in Davao City from JRY Rentals.`
+    : 'Browse cameras, drones, Starlink, and production equipment for rent in Davao City.',
+  path: indexState.value.path,
+  robots: indexState.value.robots,
+}))
+
 const config = useRuntimeConfig()
 const origin = String(config.public.siteUrl || 'http://localhost:3000')
 useHead(() => ({
-  script: data.value?.items.length
+  script: indexState.value.indexable && data.value?.items.length
     ? [{
+        key: 'catalog-jsonld',
         type: 'application/ld+json',
-        innerHTML: JSON.stringify(collectionJsonLd(origin, data.value.items)),
+        innerHTML: JSON.stringify(collectionJsonLd(origin, data.value.items, indexState.value.path)),
       }]
     : [],
 }))

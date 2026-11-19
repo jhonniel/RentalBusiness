@@ -252,29 +252,23 @@ async function onSubmit() {
             </div>
           </div>
           <div class="mt-5 grid gap-4 sm:grid-cols-3">
-            <BookingDateField
-              v-model="form.startsOn"
-              label="Pickup date"
+            <BookingDateRange
+              v-model:starts-on="form.startsOn"
+              v-model:ends-on="form.endsOn"
               :product-slug="form.productSlug || undefined"
               :quantity="form.quantity"
-              :until="form.endsOn || undefined"
               :disabled="pending"
-            />
-            <BookingPickupTime
-              v-model="form.pickupTime"
-              :product-slug="form.productSlug || undefined"
-              :starts-on="form.startsOn"
-              :ends-on="form.endsOn"
-              :disabled="pending"
-            />
-            <BookingDateField
-              v-model="form.endsOn"
-              label="Return date"
-              :product-slug="form.productSlug || undefined"
-              :quantity="form.quantity"
-              :min="form.startsOn || undefined"
-              :disabled="pending"
-            />
+            >
+              <template #between>
+                <BookingPickupTime
+                  v-model="form.pickupTime"
+                  :product-slug="form.productSlug || undefined"
+                  :starts-on="form.startsOn"
+                  :ends-on="form.endsOn"
+                  :disabled="pending"
+                />
+              </template>
+            </BookingDateRange>
           </div>
           <div class="mt-4 flex items-center gap-2 rounded-xl bg-[#f4f6f5] px-3.5 py-2.5 text-sm text-[#12201a]">
             <UIcon

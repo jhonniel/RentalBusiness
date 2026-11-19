@@ -435,27 +435,22 @@ async function onUploadIdentity() {
               Change the dates if you need to. The equipment must still be free.
             </p>
             <div class="mt-4 grid min-w-0 gap-4 sm:grid-cols-2">
-              <BookingDateField
-                v-model="startsOn"
-                label="Pickup date"
+              <BookingDateRange
+                v-model:starts-on="startsOn"
+                v-model:ends-on="endsOn"
                 :availability="dateCalendar"
-                :until="endsOn || undefined"
                 :disabled="pending"
-              />
-              <BookingPickupTime
-                v-model="pickupTime"
-                :availability="dateCalendar"
-                :starts-on="startsOn"
-                :ends-on="endsOn"
-                :disabled="pending"
-              />
-              <BookingDateField
-                v-model="endsOn"
-                label="Return date"
-                :availability="dateCalendar"
-                :min="startsOn || undefined"
-                :disabled="pending"
-              />
+              >
+                <template #between>
+                  <BookingPickupTime
+                    v-model="pickupTime"
+                    :availability="dateCalendar"
+                    :starts-on="startsOn"
+                    :ends-on="endsOn"
+                    :disabled="pending"
+                  />
+                </template>
+              </BookingDateRange>
             </div>
             <p
               v-if="errors.startsOn || errors.endsOn || errors.pickupTime"

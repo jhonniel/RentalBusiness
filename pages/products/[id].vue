@@ -19,14 +19,14 @@ if (error.value?.statusCode === 404) {
   })
 }
 
-useSiteMeta({
+useSiteMeta(() => ({
   title: product.value?.name || 'Equipment',
   description: product.value?.shortDescription || product.value?.description,
   path: `/products/${product.value?.slug || identifier.value}`,
   image: product.value?.images[0]?.url,
   imageAlt: product.value?.images[0]?.alt || product.value?.name,
   ogType: 'product',
-})
+}))
 
 const config = useRuntimeConfig()
 const origin = String(config.public.siteUrl || 'http://localhost:3000')
@@ -34,10 +34,12 @@ useHead({
   script: product.value
     ? [
         {
+          key: 'product-jsonld',
           type: 'application/ld+json',
           innerHTML: JSON.stringify(productJsonLd(origin, product.value)),
         },
         {
+          key: 'breadcrumb-jsonld',
           type: 'application/ld+json',
           innerHTML: JSON.stringify(breadcrumbJsonLd(origin, [
             { name: 'Home', path: '/' },

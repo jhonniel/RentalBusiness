@@ -9,6 +9,7 @@ import {
   chatPickupTime,
   chatQuoteActions,
   chatQuoteRange,
+  formatChatAvailabilityWindow,
   formatChatQuoteAnswer,
   formatLiveAvailabilityFacts,
   parseChatQuoteIntent,
@@ -126,6 +127,30 @@ describe('chat quote intent', () => {
       startsOn: '2026-09-19',
       endsOn: '2026-09-20',
     })
+  })
+
+  it('checks the next month when they ask if a kit is free and give no date', () => {
+    const intent = parseChatQuoteIntent('Is the Starlink available?', today)
+    expect(intent.action).toBe('calendar')
+    expect(intent.slugs).toEqual(['starlink-mini'])
+    expect(intent.startsOn).toBeNull()
+    const open = formatChatAvailabilityWindow({
+      name: 'Starlink Mini',
+      from: '2026-09-18',
+      to: '2026-10-18',
+      bookedDates: [],
+    })
+    expect(open).toContain('is available from')
+    expect(open).toContain('None of those days are booked')
+    const booked = formatChatAvailabilityWindow({
+      name: 'Starlink Mini',
+      from: '2026-09-18',
+      to: '2026-10-18',
+      bookedDates: ['2026-09-20', '2026-09-21'],
+    })
+    expect(booked).toContain('booked on 20 Sep 2026, 21 Sep 2026')
+    expect(booked).toContain('Other days')
+    expect(booked).not.toContain('11111111')
   })
 
   it('asks for dates when they name a kit but not a day', () => {

@@ -106,7 +106,7 @@ export function splitPolicySections(body: string, source: string, path: string):
 
 export function siteOverviewFacts(options: { policies?: boolean } = {}) {
   return [
-    `How it works: ${HOW_IT_WORKS_STEPS.map((step, index) => `${index + 1}. ${step.title} — ${step.copy}`).join(' ')}`,
+    `How it works: ${HOW_IT_WORKS_STEPS.map((step, index) => `${index + 1}. ${step.title}`).join(', ')}. After a booking is sent, message the Facebook page or Instagram to confirm it and ask anything else.`,
     `About: ${ABOUT_TAGLINE} ${APP_NAME} ${ABOUT_INTRO} Based in ${BUSINESS_ADDRESS}. Journey: ${ABOUT_JOURNEY.map(step => step.title).join(', ')}. Values: ${ABOUT_VALUES.map(value => value.title).join(', ')}. Mission: ${ABOUT_MISSION.statement}`,
     ...(options.policies ? POLICY_DOCUMENTS.map(doc => doc.summary) : []),
     'Pages: How it Works, About, FAQs, Terms & Conditions, Privacy Policy, Cookie Policy.',

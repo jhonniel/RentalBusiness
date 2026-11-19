@@ -98,6 +98,33 @@ export async function listProducts(client: Client, filters: {
   return { rows: data ?? [], total: count ?? 0 }
 }
 
+/** Every public product slug for the sitemap. Pages through the catalog so it is not capped at one request. */
+export async function listSitemapProducts(client: Client) {
+  const pageSize = 100
+  const items: Array<{ slug: string, updated_at: string | null }> = []
+
+  for (let page = 0; page < 20; page += 1) {
+    const from = page * pageSize
+    const { data, error } = await client
+      .from('products')
+      .select('slug, updated_at')
+      .in('status', ['active', 'coming_soon'])
+      .order('slug')
+      .range(from, from + pageSize - 1)
+
+    if (error) {
+      throw new AppError('We could not load products.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+    }
+
+    items.push(...(data ?? []))
+    if (!data || data.length < pageSize) {
+      break
+    }
+  }
+
+  return items
+}
+
 export async function listPublicProductNames(client: Client) {
   const { data, error } = await client
     .from('products')

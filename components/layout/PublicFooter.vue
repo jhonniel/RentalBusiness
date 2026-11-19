@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, FACEBOOK_URL } from '~/utils/constants'
+import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, FACEBOOK_URL, INSTAGRAM_URL } from '~/utils/constants'
 
 const year = new Date().getFullYear()
 const { isAuthenticated } = useAuth()
@@ -139,6 +139,18 @@ const { isAuthenticated } = useAuth()
           >
             <UIcon
               name="i-lucide-facebook"
+              class="size-4"
+            />
+          </a>
+          <a
+            :href="INSTAGRAM_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex size-9 items-center justify-center rounded-full border border-white/15 hover:border-white/40 hover:text-white max-sm:size-11"
+            aria-label="JRY Rentals on Instagram"
+          >
+            <UIcon
+              name="i-lucide-instagram"
               class="size-4"
             />
           </a>

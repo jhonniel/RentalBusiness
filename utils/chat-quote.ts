@@ -9,7 +9,7 @@ import { STOREFRONT_KIT_PRODUCTS } from './storefront'
 export const CHAT_QUOTE_MAX_DAYS = 90
 
 export interface ChatQuoteIntent {
-  action: 'none' | 'ask-kit' | 'ask-dates' | 'quote'
+  action: 'none' | 'ask-kit' | 'ask-dates' | 'calendar' | 'quote'
   slugs: string[]
   startsOn: string | null
   endsOn: string | null
@@ -594,6 +594,10 @@ export function parseChatQuoteIntent(question: string, today: string, catalog: C
     return { ...empty, action: 'ask-dates' }
   }
 
+  if (slugs.length && !hasRange && wantsAvailability && !wantsPrice) {
+    return { ...empty, action: 'calendar' }
+  }
+
   return {
     action: 'quote',
     slugs,
@@ -708,6 +712,22 @@ export function formatChatQuoteAnswer(quote: RentalQuote, cta: 'button' | 'link'
   }
 
   return `${quote.product.name} is not available from ${window} (${dayLabel}) — those dates are already booked or blocked. If it frees up, the rental would be ${rental}. The amount to pay would be ${due}, including a ${deposit} deposit. Choose other dates with the ${below} below.`
+}
+
+export function formatChatAvailabilityWindow(kit: {
+  name: string
+  from: string
+  to: string
+  bookedDates: string[]
+}) {
+  const window = `${formatBookingDate(kit.from)} to ${formatBookingDate(kit.to)}`
+  if (!kit.bookedDates.length) {
+    return `${kit.name} is available from ${window}. None of those days are booked. Tell me the pickup and return dates and I can check the price.`
+  }
+  const shown = kit.bookedDates.slice(0, 8).map(date => formatBookingDate(date))
+  const more = kit.bookedDates.length - shown.length
+  const extra = more > 0 ? `, and ${more} more day${more === 1 ? '' : 's'}` : ''
+  return `${kit.name} is booked on ${shown.join(', ')}${extra}. Other days from ${window} are available. Which dates do you want?`
 }
 
 export function formatLiveAvailabilityFacts(kits: Array<{

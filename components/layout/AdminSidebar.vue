@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { adminNavItems } from '~/utils/navigation'
+import { adminNavItems, isAdminNavActive } from '~/utils/navigation'
 
 const route = useRoute()
 
@@ -7,28 +7,6 @@ defineProps<{
   compact?: boolean
   embedded?: boolean
 }>()
-
-function isActive(to?: string) {
-  if (!to) {
-    return false
-  }
-
-  if (to === '/admin') {
-    return route.path === '/admin'
-  }
-
-  if (route.path === to) {
-    return true
-  }
-
-  const moreSpecific = adminNavItems.some(item =>
-    item.to
-    && item.to.length > to.length
-    && (route.path === item.to || route.path.startsWith(`${item.to}/`)),
-  )
-
-  return !moreSpecific && route.path.startsWith(`${to}/`)
-}
 </script>
 
 <template>
@@ -54,7 +32,7 @@ function isActive(to?: string) {
             v-if="item.enabled && item.to"
             :to="item.to"
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-            :class="isActive(item.to)
+            :class="isAdminNavActive(route.path, item.to)
               ? 'bg-lumen-50 text-lumen-800'
               : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'"
           >

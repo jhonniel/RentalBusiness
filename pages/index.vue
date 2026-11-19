@@ -14,14 +14,17 @@ const origin = String(config.public.siteUrl || 'http://localhost:3000')
 useHead({
   script: [
     {
+      key: 'organization-jsonld',
       type: 'application/ld+json',
       innerHTML: JSON.stringify(organizationJsonLd(origin)),
     },
     {
+      key: 'website-jsonld',
       type: 'application/ld+json',
       innerHTML: JSON.stringify(websiteJsonLd(origin)),
     },
     {
+      key: 'howto-jsonld',
       type: 'application/ld+json',
       innerHTML: JSON.stringify(howToJsonLd()),
     },

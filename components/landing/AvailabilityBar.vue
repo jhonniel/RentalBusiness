@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { CatalogProduct } from '~/types/catalog'
 import { calendarDateInZone } from '~/utils/datetime'
-import { addCalendarDays } from '~/utils/expense'
 import { DEFAULT_PICKUP_TIME, defaultRentalReturnOn, formatRentalReturnLabel, resolveRentalWindow } from '~/utils/rental-window'
 
 const props = defineProps<{
@@ -75,24 +74,20 @@ function onSubmit() {
           </select>
         </label>
 
-        <BookingDateField
-          v-model="startsOn"
-          label="Pickup date"
+        <BookingDateRange
+          v-model:starts-on="startsOn"
+          v-model:ends-on="endsOn"
           :product-slug="productSlug || undefined"
-          :until="endsOn || undefined"
-        />
-        <BookingPickupTime
-          v-model="pickupTime"
-          :product-slug="productSlug || undefined"
-          :starts-on="startsOn"
-          :ends-on="endsOn"
-        />
-        <BookingDateField
-          v-model="endsOn"
-          label="Return date"
-          :product-slug="productSlug || undefined"
-          :min="addCalendarDays(startsOn, 1)"
-        />
+        >
+          <template #between>
+            <BookingPickupTime
+              v-model="pickupTime"
+              :product-slug="productSlug || undefined"
+              :starts-on="startsOn"
+              :ends-on="endsOn"
+            />
+          </template>
+        </BookingDateRange>
 
         <UButton
           type="submit"
