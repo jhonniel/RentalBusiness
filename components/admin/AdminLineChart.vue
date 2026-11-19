@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { maskCountedAmount } from '~/utils/count-up'
+
 interface LinePoint {
   label: string
   value: number
@@ -10,11 +12,13 @@ const props = withDefaults(defineProps<{
   formatAxis?: (value: number) => string
   formatLabel?: (label: string) => string
   formatTick?: (label: string) => string
+  concealed?: boolean
 }>(), {
   format: (value: number) => String(value),
   formatAxis: undefined,
   formatLabel: (label: string) => label,
   formatTick: (label: string) => label,
+  concealed: false,
 })
 
 const active = ref<number | null>(null)
@@ -32,11 +36,16 @@ function niceMax(raw: number) {
   return nice * power
 }
 
-const axis = (value: number) => (props.formatAxis ?? props.format)(value)
+const shown = (value: number) => props.concealed ? maskCountedAmount(props.format(value)) : props.format(value)
+const axis = (value: number) => props.concealed
+  ? maskCountedAmount((props.formatAxis ?? props.format)(value))
+  : (props.formatAxis ?? props.format)(value)
 const max = computed(() => niceMax(Math.max(0, ...props.points.map(point => point.value))))
 const total = computed(() => props.points.reduce((sum, point) => sum + point.value, 0))
 const focused = computed(() => active.value === null ? null : props.points[active.value] ?? null)
-const summary = computed(() => props.points.map(point => `${props.formatLabel(point.label)}: ${props.format(point.value)}`).join(', '))
+const summary = computed(() => props.concealed
+  ? 'Sales amounts are hidden'
+  : props.points.map(point => `${props.formatLabel(point.label)}: ${props.format(point.value)}`).join(', '))
 
 const coords = computed(() => props.points.map((point, index) => ({
   x: ((index + 0.5) / Math.max(1, props.points.length)) * 100,
@@ -71,7 +80,7 @@ function hover(event: PointerEvent, index: number | null) {
         {{ focused ? formatLabel(focused.label) : 'Total' }}
       </p>
       <p class="shrink-0 text-lg font-semibold tabular-nums text-stone-900">
-        <AdminCount :value="format(focused ? focused.value : total)" />
+        <AdminCount :value="shown(focused ? focused.value : total)" />
       </p>
     </div>
 
@@ -94,6 +103,7 @@ function hover(event: PointerEvent, index: number | null) {
         </div>
 
         <svg
+          v-if="!concealed"
           :key="animationKey"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -137,17 +147,19 @@ function hover(event: PointerEvent, index: number | null) {
         </svg>
 
         <span
-          v-if="active !== null && coords[active]"
+          v-if="!concealed && active !== null && coords[active]"
           class="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-stone-300"
           :style="{ left: `${coords[active]!.x}%` }"
         />
-        <span
-          v-for="(coord, index) in coords"
-          :key="`dot-${index}`"
-          class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-lumen-700 shadow-sm transition-[width,height] duration-150"
-          :class="[active === index ? 'size-3.5' : 'size-2', play ? 'chart-fade' : 'opacity-0']"
-          :style="{ left: `${coord.x}%`, top: `${coord.y}%`, animationDelay: `${200 + index * 40}ms` }"
-        />
+        <template v-if="!concealed">
+          <span
+            v-for="(coord, index) in coords"
+            :key="`dot-${index}`"
+            class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-lumen-700 shadow-sm transition-[width,height] duration-150"
+            :class="[active === index ? 'size-3.5' : 'size-2', play ? 'chart-fade' : 'opacity-0']"
+            :style="{ left: `${coord.x}%`, top: `${coord.y}%`, animationDelay: `${200 + index * 40}ms` }"
+          />
+        </template>
 
         <div class="absolute inset-0 flex">
           <button
@@ -156,8 +168,8 @@ function hover(event: PointerEvent, index: number | null) {
             type="button"
             data-compact
             class="h-full min-w-0 flex-1 focus-visible:outline-none"
-            :aria-label="`${formatLabel(point.label)}: ${format(point.value)}`"
-            :title="`${formatLabel(point.label)} · ${format(point.value)}`"
+            :aria-label="concealed ? formatLabel(point.label) : `${formatLabel(point.label)}: ${format(point.value)}`"
+            :title="concealed ? formatLabel(point.label) : `${formatLabel(point.label)} · ${format(point.value)}`"
             @pointerenter="hover($event, index)"
             @pointerleave="hover($event, null)"
             @focus="active = index"

@@ -26,6 +26,11 @@ export function splitCountedAmount(value: string): CountedAmount | null {
   }
 }
 
+/** Hides an amount while keeping its currency sign, separators, and length. `₱10,500.00` becomes `₱**,***.**`. */
+export function maskCountedAmount(value: string): string {
+  return value.replace(/\d/g, '*')
+}
+
 export function formatCountedAmount(amount: CountedAmount, current: number): string {
   const formatted = new Intl.NumberFormat('en-PH', {
     minimumFractionDigits: amount.decimals,

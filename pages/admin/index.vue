@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminAnalytics } from '~/types/analytics'
+import { maskCountedAmount } from '~/utils/count-up'
 
 definePageMeta({
   layout: 'admin',
@@ -44,7 +45,13 @@ const commissionerBars = computed(() => (data.value?.commissionerRanks ?? []).sl
 const hiddenCommissioners = computed(() => Math.max(0, (data.value?.commissionerRanks.length ?? 0) - COMMISSIONER_CHART_LIMIT))
 
 const kpis = computed(() => data.value?.kpis)
+const salesVisible = useCookie('jry-admin-dashboard-sales-visible', {
+  default: () => true,
+  sameSite: 'lax',
+  maxAge: 60 * 60 * 24 * 365,
+})
 const money = (value?: number) => value === undefined ? '—' : formatMoney(value)
+const salesMoney = (value?: number) => salesVisible.value ? money(value) : maskCountedAmount(money(value))
 const count = (value?: number) => value === undefined ? '—' : String(value)
 </script>
 
@@ -86,35 +93,49 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
       <AdminStat
         wide
         tone="dark"
-        icon="i-lucide-trending-up"
         label="Actual sales · all time"
-        :value="money(kpis?.totalSales)"
+        :value="salesMoney(kpis?.totalSales)"
         hint="Paid rent after discounts, minus commissions and deposits held."
         to="/admin/sales"
-      />
+      >
+        <template #corner>
+          <button
+            type="button"
+            class="inline-flex size-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+            :aria-pressed="salesVisible"
+            :aria-label="salesVisible ? 'Hide sales numbers' : 'Show sales numbers'"
+            @click.stop="salesVisible = !salesVisible"
+          >
+            <UIcon
+              :name="salesVisible ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+              class="size-4"
+            />
+          </button>
+        </template>
+      </AdminStat>
       <AdminStat
         label="Today"
         icon="i-lucide-sun"
-        :value="money(kpis?.todaySales)"
+        :value="salesMoney(kpis?.todaySales)"
         hint="Actual sales"
       />
       <AdminStat
         label="This month"
         icon="i-lucide-calendar-days"
-        :value="money(kpis?.monthSales)"
+        :value="salesMoney(kpis?.monthSales)"
         hint="Actual sales"
       />
       <AdminStat
         label="Net revenue"
         icon="i-lucide-wallet"
         tone="accent"
-        :value="money(kpis?.netRevenue)"
+        :value="salesMoney(kpis?.netRevenue)"
         to="/admin/reports"
       />
       <AdminStat
         label="All spending"
         icon="i-lucide-receipt"
-        :value="money(kpis?.totalSpent)"
+        :value="salesMoney(kpis?.totalSpent)"
         to="/admin/expenses"
       />
 
@@ -155,7 +176,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
       <AdminStat
         label="Inventory value"
         icon="i-lucide-boxes"
-        :value="money(kpis?.inventoryValue)"
+        :value="salesMoney(kpis?.inventoryValue)"
         to="/admin/inventory"
       />
 
@@ -172,6 +193,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
           :format-axis="formatAxisMoney"
           :format-label="formatDay"
           :format-tick="formatDayTick"
+          :concealed="!salesVisible"
         />
       </AdminTile>
 
@@ -208,6 +230,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
             :total-label="hiddenCommissioners ? `Top ${COMMISSIONER_CHART_LIMIT} total` : 'Total commission'"
             :format="formatMoney"
             :format-axis="formatAxisMoney"
+            :concealed="!salesVisible"
           />
           <p
             v-if="hiddenCommissioners"
@@ -247,7 +270,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
                 <span class="block truncate text-stone-800">{{ expense.name }}</span>
                 <span class="text-xs capitalize text-stone-500">{{ expense.status }} · {{ formatBusinessDate(expense.incurredOn) }}</span>
               </span>
-              <span class="shrink-0 tabular-nums text-stone-900"><AdminCount :value="formatMoney(expense.amount)" /></span>
+              <span class="shrink-0 tabular-nums text-stone-900"><AdminCount :value="salesMoney(expense.amount)" /></span>
             </NuxtLink>
           </li>
           <li
@@ -262,7 +285,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
                 <span class="block truncate text-stone-800">{{ expense.name }}</span>
                 <span class="text-xs text-stone-500">Recurring · next {{ formatBusinessDate(expense.nextOccurrenceOn) }}</span>
               </span>
-              <span class="shrink-0 tabular-nums text-stone-900"><AdminCount :value="formatMoney(expense.amount)" /></span>
+              <span class="shrink-0 tabular-nums text-stone-900"><AdminCount :value="salesMoney(expense.amount)" /></span>
             </NuxtLink>
           </li>
         </ul>

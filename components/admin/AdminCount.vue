@@ -51,7 +51,13 @@ watch(() => props.value, (value, previous) => {
     text.value = value
     return
   }
-  run(next.number, previous ? splitCountedAmount(previous)?.number ?? 0 : 0)
+  const prior = previous ? splitCountedAmount(previous) : null
+  if (!prior) {
+    cancelAnimationFrame(frame)
+    show(next.number)
+    return
+  }
+  run(next.number, prior.number)
 })
 
 onMounted(() => {

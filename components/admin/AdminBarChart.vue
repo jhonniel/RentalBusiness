@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { maskCountedAmount } from '~/utils/count-up'
+
 interface BarPoint {
   key: string
   label: string
@@ -11,10 +13,12 @@ const props = withDefaults(defineProps<{
   totalLabel?: string
   format?: (value: number) => string
   formatAxis?: (value: number) => string
+  concealed?: boolean
 }>(), {
   totalLabel: 'Total',
   format: (value: number) => String(value),
   formatAxis: undefined,
+  concealed: false,
 })
 
 const active = ref<string | null>(null)
@@ -31,11 +35,16 @@ function niceMax(raw: number) {
   return nice * power
 }
 
-const axis = (value: number) => (props.formatAxis ?? props.format)(value)
+const shown = (value: number) => props.concealed ? maskCountedAmount(props.format(value)) : props.format(value)
+const axis = (value: number) => props.concealed
+  ? maskCountedAmount((props.formatAxis ?? props.format)(value))
+  : (props.formatAxis ?? props.format)(value)
 const max = computed(() => niceMax(Math.max(0, ...props.points.map(point => point.value))))
 const total = computed(() => props.points.reduce((sum, point) => sum + point.value, 0))
 const focused = computed(() => props.points.find(point => point.key === active.value) ?? null)
-const summary = computed(() => props.points.map(point => `${point.label}: ${props.format(point.value)}`).join(', '))
+const summary = computed(() => props.concealed
+  ? 'Amounts are hidden'
+  : props.points.map(point => `${point.label}: ${props.format(point.value)}`).join(', '))
 
 function height(value: number) {
   return `${Math.max(0, Math.min(100, (value / max.value) * 100))}%`
@@ -63,7 +72,7 @@ function hover(event: PointerEvent, key: string | null) {
         </template>
       </p>
       <p class="shrink-0 text-lg font-semibold tabular-nums text-stone-900">
-        <AdminCount :value="format(focused ? focused.value : total)" />
+        <AdminCount :value="shown(focused ? focused.value : total)" />
       </p>
     </div>
 
@@ -91,8 +100,8 @@ function hover(event: PointerEvent, key: string | null) {
             type="button"
             data-compact
             class="relative flex h-full min-w-0 flex-1 items-end justify-center"
-            :aria-label="`${point.label}: ${format(point.value)}${point.hint ? `, ${point.hint}` : ''}`"
-            :title="`${point.label} · ${format(point.value)}`"
+            :aria-label="concealed ? point.label : `${point.label}: ${format(point.value)}${point.hint ? `, ${point.hint}` : ''}`"
+            :title="concealed ? point.label : `${point.label} · ${format(point.value)}`"
             @pointerenter="hover($event, point.key)"
             @pointerleave="hover($event, null)"
             @focus="active = point.key"
@@ -100,6 +109,7 @@ function hover(event: PointerEvent, key: string | null) {
             @click="active = point.key"
           >
             <span
+              v-if="!concealed"
               class="pointer-events-none absolute inset-x-0 truncate text-center text-[10px] tabular-nums sm:text-[11px]"
               :class="active === point.key ? 'font-semibold text-stone-900' : 'text-stone-500'"
               :style="{ bottom: `calc(${height(point.value)} + 4px)` }"
@@ -108,10 +118,10 @@ function hover(event: PointerEvent, key: string | null) {
               class="block w-full max-w-14 origin-bottom rounded-t-lg transition-colors"
               :class="[
                 play ? 'chart-grow-y' : 'chart-hold',
-                point.value > 0 ? 'min-h-1' : '',
+                !concealed && point.value > 0 ? 'min-h-1' : '',
                 active === point.key ? 'bg-lumen-500' : active === null ? 'bg-lumen-700' : 'bg-lumen-700/40',
               ]"
-              :style="{ height: height(point.value), animationDelay: `${index * 60}ms` }"
+              :style="{ height: concealed ? '0%' : height(point.value), animationDelay: `${index * 60}ms` }"
             />
           </button>
         </div>
