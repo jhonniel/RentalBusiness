@@ -39,11 +39,20 @@ describe('rental feedback', () => {
     expect(questions.filter(question => question.product === 'DJI Air 3').map(question => question.key)).toContain('dji-air-3:flight')
   })
 
-  it('opens only after the booking is returned or done', () => {
-    expect(canSendFeedback('completed')).toBe(true)
-    expect(canSendFeedback('returned')).toBe(true)
-    expect(canSendFeedback('active')).toBe(false)
-    expect(canSendFeedback('cancelled')).toBe(false)
+  it('opens once the return time has passed, and for a returned or done booking', () => {
+    const now = new Date('2026-11-19T02:40:00.000Z')
+    const passed = { returnAt: '2026-11-19T01:30:00.000Z', endsOn: '2026-11-19' }
+    const ahead = { returnAt: '2026-11-19T03:30:00.000Z', endsOn: '2026-11-19' }
+
+    expect(canSendFeedback({ status: 'completed' }, now)).toBe(true)
+    expect(canSendFeedback({ status: 'returned' }, now)).toBe(true)
+    expect(canSendFeedback({ status: 'approved', ...passed }, now)).toBe(true)
+    expect(canSendFeedback({ status: 'active', ...passed }, now)).toBe(true)
+    expect(canSendFeedback({ status: 'overdue', ...passed }, now)).toBe(true)
+    expect(canSendFeedback({ status: 'approved', ...ahead }, now)).toBe(false)
+    expect(canSendFeedback({ status: 'active', ...ahead }, now)).toBe(false)
+    expect(canSendFeedback({ status: 'pending', ...passed }, now)).toBe(false)
+    expect(canSendFeedback({ status: 'cancelled', ...passed }, now)).toBe(false)
   })
 
   it('requires a 1 to 5 star rating for every question and averages them', () => {

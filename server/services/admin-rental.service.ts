@@ -134,7 +134,11 @@ export async function listAdminRentals(client: Client, query: {
   })
 
   const now = new Date()
-  const doneIds = rows.filter(row => canSendFeedback(row.status as RentalStatus)).map(row => row.id)
+  const doneIds = rows.filter(row => canSendFeedback({
+    status: row.status as RentalStatus,
+    returnAt: row.return_at,
+    endsOn: row.ends_on,
+  }, now)).map(row => row.id)
   const [extensions, feedback] = await Promise.all([
     listExtensionAmountsByRentalIds(client, rows.map(row => row.id)).catch(() => []),
     listLatestFeedbackByRentalIds(client, doneIds).catch(() => new Map<number, FeedbackRequestRow>()),
@@ -161,7 +165,7 @@ export async function listAdminRentals(client: Client, query: {
           pickup_at: row.pickup_at,
           return_at: row.return_at,
         }, now),
-        feedback: canSendFeedback(rental.status)
+        feedback: canSendFeedback(rental, now)
           ? feedbackSummary(feedback.get(row.id))
           : null,
         actualSale: rentalActualSale({

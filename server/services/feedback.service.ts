@@ -88,7 +88,7 @@ async function rentalQuestions(client: Client, rental: AdminRental) {
 }
 
 function toAdminFeedback(rental: AdminRental, row: FeedbackRequestRow | null, ready: boolean, questions: AdminRentalFeedback['questions'], reward: FeedbackRewardVoucher | null = null): AdminRentalFeedback {
-  const canSend = ready && canSendFeedback(rental.status) && !row?.submitted_at
+  const canSend = ready && canSendFeedback(rental) && !row?.submitted_at
   if (!row) {
     return {
       status: 'not_sent',
@@ -149,8 +149,8 @@ export async function sendFeedbackLink(
   input: SendFeedbackLinkInput,
 ): Promise<SentFeedbackLink> {
   const rental = await getAdminRental(client, identifier)
-  if (!canSendFeedback(rental.status)) {
-    throw new AppError('Send a feedback link after the booking is returned or done.', 409, ERROR_CODES.CONFLICT)
+  if (!canSendFeedback(rental)) {
+    throw new AppError('Send a feedback link after the return time.', 409, ERROR_CODES.CONFLICT)
   }
 
   const identity = await findRentalIdentity(client, rental.uuid)
