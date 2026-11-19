@@ -502,15 +502,27 @@ input[type="month"] {
   animation: chart-grow-x 800ms var(--ease-out) both;
 }
 
-.chart-grow-y {
+.chart-grow-y,
+.chart-hold {
   transform-box: fill-box;
   transform-origin: center bottom;
+}
+
+.chart-grow-y {
   animation: chart-grow-y 800ms var(--ease-out) both;
 }
 
-.chart-draw {
+.chart-hold {
+  transform: scaleY(0);
+}
+
+.chart-draw,
+.chart-draw-hold {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
+}
+
+.chart-draw {
   animation: chart-draw 1100ms var(--ease-out) 250ms forwards;
 }
 
@@ -525,8 +537,10 @@ input[type="month"] {
 @media (prefers-reduced-motion: reduce) {
   .chart-grow-x,
   .chart-grow-y,
+  .chart-hold,
   .chart-fade {
     animation: none !important;
+    transform: none !important;
   }
 
   .chart-draw {

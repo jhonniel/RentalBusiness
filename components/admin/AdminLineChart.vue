@@ -18,6 +18,8 @@ const props = withDefaults(defineProps<{
 })
 
 const active = ref<number | null>(null)
+const root = ref<HTMLElement | null>(null)
+const { play, replay } = useChartPlay(root)
 const gradientId = useId()
 
 function niceMax(raw: number) {
@@ -53,6 +55,8 @@ const areaPath = computed(() => {
 
 const animationKey = computed(() => props.points.map(point => `${point.label}=${point.value}`).join(','))
 
+watch(animationKey, () => replay())
+
 function hover(event: PointerEvent, index: number | null) {
   if (event.pointerType === 'mouse') {
     active.value = index
@@ -61,13 +65,13 @@ function hover(event: PointerEvent, index: number | null) {
 </script>
 
 <template>
-  <div>
+  <div ref="root">
     <div class="flex min-h-11 items-baseline justify-between gap-3">
       <p class="min-w-0 truncate text-sm text-stone-500">
         {{ focused ? formatLabel(focused.label) : 'Total' }}
       </p>
       <p class="shrink-0 text-lg font-semibold tabular-nums text-stone-900">
-        {{ format(focused ? focused.value : total) }}
+        <AdminCount :value="format(focused ? focused.value : total)" />
       </p>
     </div>
 
@@ -93,7 +97,8 @@ function hover(event: PointerEvent, index: number | null) {
           :key="animationKey"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
-          class="line-reveal pointer-events-none absolute inset-0 size-full overflow-visible text-lumen-700"
+          class="pointer-events-none absolute inset-0 size-full overflow-visible text-lumen-700"
+          :class="play ? 'line-reveal' : 'line-hold'"
           aria-hidden="true"
         >
           <defs>
@@ -139,8 +144,8 @@ function hover(event: PointerEvent, index: number | null) {
         <span
           v-for="(coord, index) in coords"
           :key="`dot-${index}`"
-          class="chart-fade pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-lumen-700 shadow-sm transition-[width,height] duration-150"
-          :class="active === index ? 'size-3.5' : 'size-2'"
+          class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-lumen-700 shadow-sm transition-[width,height] duration-150"
+          :class="[active === index ? 'size-3.5' : 'size-2', play ? 'chart-fade' : 'opacity-0']"
           :style="{ left: `${coord.x}%`, top: `${coord.y}%`, animationDelay: `${200 + index * 40}ms` }"
         />
 
@@ -176,6 +181,10 @@ function hover(event: PointerEvent, index: number | null) {
 </template>
 
 <style scoped>
+.line-hold {
+  clip-path: inset(-10% 100% -10% 0);
+}
+
 .line-reveal {
   animation: line-reveal 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }

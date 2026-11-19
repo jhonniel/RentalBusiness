@@ -19,6 +19,7 @@ const compact = new Intl.NumberFormat('en-PH', {
 })
 
 const container = ref<HTMLElement | null>(null)
+const { play, replay } = useChartPlay(container)
 const { width: containerWidth } = useElementSize(container)
 const width = computed(() => Math.max(260, Math.round(containerWidth.value) || 720))
 const narrow = computed(() => width.value < 480)
@@ -95,6 +96,8 @@ const profitPath = computed(() => props.points
   .join(' '))
 
 const animationKey = computed(() => `${props.series.join('-')}:${props.points.map(point => `${point.startsOn}=${point.sales}/${point.expenses}/${point.commissions}`).join(',')}`)
+
+watch(animationKey, () => replay())
 
 function barDelay(index: number) {
   return { animationDelay: `${Math.min(600, index * (600 / Math.max(1, props.points.length)))}ms` }
@@ -194,12 +197,13 @@ function pointTitle(point: ReportTrendPoint) {
             :width="barWidth - 1"
             v-bind="rect(point.sales)"
             rx="2"
-            class="chart-grow-y fill-lumen-600"
+            class="fill-lumen-600"
+            :class="play ? 'chart-grow-y' : 'chart-hold'"
             :style="barDelay(index)"
           />
           <g
             v-if="showCost"
-            class="chart-grow-y"
+            :class="play ? 'chart-grow-y' : 'chart-hold'"
             :style="barDelay(index)"
           >
             <rect
@@ -233,7 +237,8 @@ function pointTitle(point: ReportTrendPoint) {
             :d="profitPath"
             fill="none"
             pathLength="1"
-            class="chart-draw stroke-emerald-600"
+            class="stroke-emerald-600"
+            :class="play ? 'chart-draw' : 'chart-draw-hold'"
             stroke-width="2"
             stroke-linejoin="round"
           />
@@ -243,7 +248,8 @@ function pointTitle(point: ReportTrendPoint) {
             :cx="groupX(index) + groupWidth / 2"
             :cy="y(point.profit)"
             r="2.5"
-            class="chart-fade pointer-events-none fill-emerald-600"
+            class="pointer-events-none fill-emerald-600"
+            :class="play ? 'chart-fade' : 'opacity-0'"
             :style="{ animationDelay: `${250 + (index / Math.max(1, points.length)) * 1100}ms` }"
           />
         </g>

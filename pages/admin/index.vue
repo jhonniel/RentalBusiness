@@ -247,7 +247,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
                 <span class="block truncate text-stone-800">{{ expense.name }}</span>
                 <span class="text-xs capitalize text-stone-500">{{ expense.status }} · {{ formatBusinessDate(expense.incurredOn) }}</span>
               </span>
-              <span class="shrink-0 tabular-nums text-stone-900">{{ formatMoney(expense.amount) }}</span>
+              <span class="shrink-0 tabular-nums text-stone-900"><AdminCount :value="formatMoney(expense.amount)" /></span>
             </NuxtLink>
           </li>
           <li
@@ -262,7 +262,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
                 <span class="block truncate text-stone-800">{{ expense.name }}</span>
                 <span class="text-xs text-stone-500">Recurring · next {{ formatBusinessDate(expense.nextOccurrenceOn) }}</span>
               </span>
-              <span class="shrink-0 tabular-nums text-stone-900">{{ formatMoney(expense.amount) }}</span>
+              <span class="shrink-0 tabular-nums text-stone-900"><AdminCount :value="formatMoney(expense.amount)" /></span>
             </NuxtLink>
           </li>
         </ul>
@@ -293,7 +293,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
               <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold text-stone-600">{{ index + 1 }}</span>
               <span class="truncate font-medium text-stone-900">{{ product.name }}</span>
             </span>
-            <span class="shrink-0 text-xs text-stone-600">{{ product.quantity }} rented</span>
+            <span class="shrink-0 text-xs text-stone-600"><AdminCount :value="String(product.quantity)" /> rented</span>
           </li>
         </ul>
         <p

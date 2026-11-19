@@ -18,6 +18,8 @@ const props = withDefaults(defineProps<{
 })
 
 const active = ref<string | null>(null)
+const root = ref<HTMLElement | null>(null)
+const { play, replay } = useChartPlay(root)
 
 function niceMax(raw: number) {
   if (raw <= 0) {
@@ -39,6 +41,8 @@ function height(value: number) {
   return `${Math.max(0, Math.min(100, (value / max.value) * 100))}%`
 }
 
+watch(() => props.points.map(point => `${point.key}=${point.value}`).join(','), () => replay())
+
 function hover(event: PointerEvent, key: string | null) {
   if (event.pointerType === 'mouse') {
     active.value = key
@@ -47,7 +51,7 @@ function hover(event: PointerEvent, key: string | null) {
 </script>
 
 <template>
-  <div>
+  <div ref="root">
     <div class="flex min-h-11 items-baseline justify-between gap-3">
       <p class="min-w-0 truncate text-sm text-stone-500">
         <template v-if="focused">
@@ -59,7 +63,7 @@ function hover(event: PointerEvent, key: string | null) {
         </template>
       </p>
       <p class="shrink-0 text-lg font-semibold tabular-nums text-stone-900">
-        {{ format(focused ? focused.value : total) }}
+        <AdminCount :value="format(focused ? focused.value : total)" />
       </p>
     </div>
 
@@ -101,8 +105,9 @@ function hover(event: PointerEvent, key: string | null) {
               :style="{ bottom: `calc(${height(point.value)} + 4px)` }"
             >{{ axis(point.value) }}</span>
             <span
-              class="chart-grow-y block w-full max-w-14 rounded-t-lg transition-colors"
+              class="block w-full max-w-14 origin-bottom rounded-t-lg transition-colors"
               :class="[
+                play ? 'chart-grow-y' : 'chart-hold',
                 point.value > 0 ? 'min-h-1' : '',
                 active === point.key ? 'bg-lumen-500' : active === null ? 'bg-lumen-700' : 'bg-lumen-700/40',
               ]"

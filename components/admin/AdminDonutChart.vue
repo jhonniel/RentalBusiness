@@ -18,6 +18,8 @@ const RADIUS = 42
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 const active = ref<string | null>(null)
+const root = ref<HTMLElement | null>(null)
+const { play, replay } = useChartPlay(root)
 
 const total = computed(() => props.points.reduce((sum, point) => sum + Math.max(0, point.value), 0))
 
@@ -46,6 +48,8 @@ const focused = computed(() => segments.value.find(segment => segment.label === 
 
 const summary = computed(() => segments.value.map(segment => `${segment.name}: ${segment.value}`).join(', '))
 
+watch(() => props.points.map(point => `${point.label}=${point.value}`).join(','), () => replay())
+
 function hover(event: PointerEvent, label: string | null) {
   if (event.pointerType === 'mouse') {
     active.value = label
@@ -58,7 +62,10 @@ function select(label: string) {
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-4">
+  <div
+    ref="root"
+    class="flex flex-col items-center gap-4"
+  >
     <div class="relative size-36 shrink-0 sm:size-40">
       <svg
         viewBox="0 0 100 100"
@@ -81,20 +88,21 @@ function select(label: string) {
           cy="50"
           :r="RADIUS"
           fill="none"
-          class="donut-segment cursor-pointer transition-[stroke-width,opacity] duration-200"
+          class="cursor-pointer transition-[stroke-width,opacity] duration-200"
+          :class="play ? 'donut-segment' : ''"
           :stroke="segment.color"
           :stroke-width="active === segment.label ? 18 : 14"
           :stroke-dasharray="segment.dash"
           :stroke-dashoffset="segment.offset"
           :opacity="active && active !== segment.label ? 0.35 : 1"
-          :style="{ animationDelay: segment.delay }"
+          :style="play ? { animationDelay: segment.delay } : { strokeDasharray: '0 264' }"
           @pointerenter="hover($event, segment.label)"
           @pointerleave="hover($event, null)"
           @click="select(segment.label)"
         />
       </svg>
       <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span class="text-2xl font-semibold tabular-nums text-stone-900">{{ focused ? focused.value : total }}</span>
+        <span class="text-2xl font-semibold tabular-nums text-stone-900"><AdminCount :value="String(focused ? focused.value : total)" /></span>
         <span class="max-w-[5.5rem] truncate text-[11px] capitalize text-stone-500">{{ focused ? `${focused.name} · ${focused.percent}%` : totalLabel }}</span>
       </div>
     </div>

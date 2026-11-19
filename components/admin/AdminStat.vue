@@ -57,7 +57,7 @@ const TONES: Record<StatTone, string> = {
         class="truncate font-semibold tabular-nums tracking-tight"
         :class="[wide ? 'text-3xl sm:text-4xl' : 'text-xl sm:text-2xl', valueTone === 'bad' ? 'text-red-600' : valueTone === 'good' ? 'text-emerald-700' : '']"
       >
-        {{ value }}
+        <AdminCount :value="value" />
       </p>
       <p
         v-if="hint"
