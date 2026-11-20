@@ -2,9 +2,9 @@
 import type { PublicRental, PublicRentalHistoryEntry, RentalPaymentChange, RentalQuote } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { fieldErrors } from '~/utils/auth-validation'
-import { calendarDateInZone } from '~/utils/datetime'
+import { calendarDateInZone, formatBusinessDateTime } from '~/utils/datetime'
 import { continueAdminRentalSchema } from '~/utils/rental-validation'
-import { defaultRentalReturnOn, formatRentalReturnLabel, normalizePickupTime, resolveRentalWindow } from '~/utils/rental-window'
+import { MAX_RENTAL_HOURS, MIN_RENTAL_HOURS, defaultRentalReturnOn, formatRentalReturnLabel, normalizePickupTime, resolveHourlyRentalWindow, resolveRentalWindow } from '~/utils/rental-window'
 import { canModifyAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
 
 definePageMeta({
@@ -51,6 +51,7 @@ const form = reactive({
   endsOn: rental.value?.endsOn || defaultRentalReturnOn(today),
   pickupTime: normalizePickupTime(rental.value?.pickupTime),
   quantity: rental.value?.items[0]?.quantity || 1,
+  hours: rental.value?.billedHours || 1,
   firstName: rental.value?.customer?.firstName || '',
   lastName: rental.value?.customer?.lastName || '',
   phone: rental.value?.customer?.phone || '',
@@ -65,11 +66,18 @@ const quoting = ref(false)
 type AdminQuote = RentalQuote & { commissionAmount?: number, paymentChange?: RentalPaymentChange | null }
 const quote = ref<AdminQuote | null>(null)
 
-const rentalWindow = computed(() => resolveRentalWindow({
-  startsOn: form.startsOn,
-  endsOn: form.endsOn,
-  pickupTime: form.pickupTime,
-}))
+const hourlyBooking = computed(() => rental.value?.billingUnit === 'hour')
+const rentalWindow = computed(() => hourlyBooking.value
+  ? resolveHourlyRentalWindow({
+      startsOn: form.startsOn,
+      pickupTime: form.pickupTime,
+      hours: form.hours,
+    })
+  : resolveRentalWindow({
+      startsOn: form.startsOn,
+      endsOn: form.endsOn,
+      pickupTime: form.pickupTime,
+    }))
 const productSlug = computed(() => rental.value?.items[0]?.product.slug || '')
 const canModify = computed(() => rental.value ? canModifyAdminRental(rental.value) : false)
 const listedCommissioner = computed(() => {
@@ -86,6 +94,7 @@ watch(rental, (value) => {
   form.endsOn = value.endsOn <= value.startsOn ? defaultRentalReturnOn(value.startsOn) : value.endsOn
   form.pickupTime = normalizePickupTime(value.pickupTime)
   form.quantity = value.items[0]?.quantity || 1
+  form.hours = value.billedHours || 1
   form.firstName = value.customer?.firstName || ''
   form.lastName = value.customer?.lastName || ''
   form.phone = value.customer?.phone || ''
@@ -118,6 +127,7 @@ async function refreshQuote() {
         endsOn: form.endsOn,
         pickupTime: form.pickupTime,
         quantity: form.quantity,
+        ...(hourlyBooking.value ? { hours: form.hours } : {}),
         exceptRentalUuid: rental.value?.uuid,
         ...(form.commissionerUuid ? { commissionerUuid: form.commissionerUuid } : {}),
       },
@@ -136,7 +146,7 @@ async function refreshQuote() {
 }
 
 watchDebounced(
-  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.commissionerUuid, productSlug.value, rental.value?.uuid],
+  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.hours, form.commissionerUuid, productSlug.value, rental.value?.uuid, hourlyBooking.value],
   () => {
     void refreshQuote()
   },
@@ -150,7 +160,11 @@ async function onSubmit() {
 
   formError.value = ''
   errors.value = {}
-  const parsed = continueAdminRentalSchema.safeParse(form)
+  const parsed = continueAdminRentalSchema.safeParse({
+    ...form,
+    endsOn: hourlyBooking.value ? rentalWindow.value.endsOn : form.endsOn,
+    hours: hourlyBooking.value ? form.hours : undefined,
+  })
   if (!parsed.success) {
     errors.value = fieldErrors(parsed.error)
     formError.value = parsed.error.issues[0]?.message || 'Please check the submitted information.'
@@ -279,9 +293,24 @@ async function onSubmit() {
                 />
               </template>
             </BookingDateRange>
+            <label
+              v-if="hourlyBooking"
+              class="block text-sm"
+            >
+              <span class="mb-1.5 block text-stone-700">Hours</span>
+              <UInput
+                v-model.number="form.hours"
+                type="number"
+                :min="MIN_RENTAL_HOURS"
+                :max="MAX_RENTAL_HOURS"
+                step="1"
+                :disabled="pending || !canModify"
+              />
+            </label>
           </div>
           <p class="mt-3 text-sm text-stone-600">
-            Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}
+            <template v-if="hourlyBooking">Return {{ formatBusinessDateTime(rentalWindow.returnAt) }}</template>
+            <template v-else>Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}</template>
           </p>
           <p
             v-if="quoteError"

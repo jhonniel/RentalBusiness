@@ -3,6 +3,8 @@ import { calendarDateInZone, inclusiveDayCount, isPastBusinessDate, toDate } fro
 import { addCalendarDays } from './expense'
 
 export const DEFAULT_PICKUP_TIME = '09:00'
+export const MIN_RENTAL_HOURS = 1
+export const MAX_RENTAL_HOURS = 24
 export const PICKUP_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export function isPickupTime(value: string): boolean {
@@ -112,6 +114,42 @@ export function resolveRentalWindow(input: {
     pickupTime,
     pickupAt: businessDateTimeToUtc(input.startsOn, pickupTime),
     returnAt: businessDateTimeToUtc(endsOn, pickupTime),
+  }
+}
+
+export function resolveHourlyRentalWindow(input: {
+  startsOn: string
+  pickupTime: string
+  hours: number
+}) {
+  const pickupTime = isPickupTime(input.pickupTime) ? input.pickupTime : DEFAULT_PICKUP_TIME
+  const hours = Math.min(MAX_RENTAL_HOURS, Math.max(MIN_RENTAL_HOURS, Math.trunc(input.hours) || MIN_RENTAL_HOURS))
+  if (!isCalendarDate(input.startsOn)) {
+    return {
+      startsOn: input.startsOn || '',
+      endsOn: '',
+      days: 0,
+      hours,
+      pickupTime,
+      pickupAt: '',
+      returnAt: '',
+      billingUnit: 'hour' as const,
+    }
+  }
+
+  const pickupAt = businessDateTimeToUtc(input.startsOn, pickupTime)
+  const returnAtDate = new Date(Date.parse(pickupAt) + hours * 3_600_000)
+  const returnAt = returnAtDate.toISOString()
+
+  return {
+    startsOn: input.startsOn,
+    endsOn: calendarDateInZone(returnAtDate),
+    days: 0,
+    hours,
+    pickupTime,
+    pickupAt,
+    returnAt,
+    billingUnit: 'hour' as const,
   }
 }
 

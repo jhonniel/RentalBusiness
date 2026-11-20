@@ -7,6 +7,7 @@ import {
   calendarDayOverlapsWindow,
   isPastBusinessDateTime,
   pickupTimeSlots,
+  resolveHourlyRentalWindow,
   resolveRentalWindow,
 } from './rental-window'
 
@@ -252,6 +253,7 @@ export function unavailablePickupTimes(input: {
   productUuid: string
   startsOn: string
   endsOn?: string
+  hours?: number
   stock?: AvailabilityStock
   requestedQuantity?: number
 }): string[] {
@@ -267,11 +269,17 @@ export function unavailablePickupTimes(input: {
       return true
     }
 
-    const window = resolveRentalWindow({
-      startsOn: input.startsOn,
-      endsOn: input.endsOn || addCalendarDays(input.startsOn, 1),
-      pickupTime: time,
-    })
+    const window = input.hours
+      ? resolveHourlyRentalWindow({
+          startsOn: input.startsOn,
+          pickupTime: time,
+          hours: input.hours,
+        })
+      : resolveRentalWindow({
+          startsOn: input.startsOn,
+          endsOn: input.endsOn || addCalendarDays(input.startsOn, 1),
+          pickupTime: time,
+        })
     return quantityCannotBeFulfilled(bookedQuantityFromRentals(
       input.bookings,
       input.productUuid,

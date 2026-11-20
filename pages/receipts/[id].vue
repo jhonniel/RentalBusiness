@@ -210,7 +210,12 @@ function printReceipt() {
             </p>
           </div>
           <p class="text-right tabular-nums">
-            {{ formatMoney(item.dailyPrice, snapshot.currency) }} / day × {{ rentedDays }} day{{ rentedDays === 1 ? '' : 's' }}
+            <template v-if="item.billingUnit === 'hour' && item.billedHours">
+              {{ formatMoney(item.hourlyPrice, snapshot.currency) }} / hour × {{ item.billedHours }} hour{{ item.billedHours === 1 ? '' : 's' }}
+            </template>
+            <template v-else>
+              {{ formatMoney(item.dailyPrice, snapshot.currency) }} / day × {{ rentedDays }} day{{ rentedDays === 1 ? '' : 's' }}
+            </template>
           </p>
         </li>
       </ul>
@@ -224,7 +229,7 @@ function printReceipt() {
           class="flex justify-between gap-4"
         >
           <dt class="text-stone-600">
-            Long-stay discount
+            {{ snapshot.items.some(item => item.billingUnit === 'hour') ? 'Hourly discount' : 'Long-stay discount' }}
           </dt>
           <dd class="tabular-nums text-emerald-700">
             −{{ formatMoney(receipt.discounts.longStay, snapshot.currency) }}

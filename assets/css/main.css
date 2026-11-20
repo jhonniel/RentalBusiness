@@ -169,6 +169,14 @@ input[type="month"] {
   .page-leave-active,
   .page-enter-from,
   .page-leave-to,
+  .billing-swap-enter-active,
+  .billing-swap-leave-active,
+  .billing-swap-enter-from,
+  .billing-swap-leave-to,
+  .billing-fade-enter-active,
+  .billing-fade-leave-active,
+  .billing-fade-enter-from,
+  .billing-fade-leave-to,
   .chat-support-enter-active,
   .chat-support-leave-active,
   .chat-support-enter-from,
@@ -191,6 +199,38 @@ input[type="month"] {
 
 .page-enter-from,
 .page-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.billing-swap-enter-active,
+.billing-swap-leave-active {
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 220ms var(--ease-out);
+}
+
+.billing-swap-enter-from,
+.billing-swap-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.billing-swap-leave-active {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+}
+
+.billing-fade-enter-active,
+.billing-fade-leave-active {
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+
+.billing-fade-enter-from,
+.billing-fade-leave-to {
   opacity: 0;
   transform: translateY(6px);
 }

@@ -22,6 +22,8 @@ export interface PublicWaiverInvite {
     startsOn: string
     endsOn: string
     pickupTime: string
+    billingUnit?: 'day' | 'hour'
+    billedHours?: number | null
     items: PublicRentalItem[]
     totalAmount: number
     depositAmount: number

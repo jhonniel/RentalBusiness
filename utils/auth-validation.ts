@@ -103,15 +103,55 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
 
+const FIELD_LABELS: Record<string, string> = {
+  firstName: 'First name',
+  lastName: 'Last name',
+  phone: 'Mobile number',
+  email: 'Email',
+  password: 'Password',
+  currentPassword: 'Current password',
+  startsOn: 'Pickup date',
+  endsOn: 'Return date',
+  pickupTime: 'Pickup time',
+  hours: 'Hours',
+  quantity: 'Units',
+  productSlug: 'Equipment',
+  productUuid: 'Equipment',
+  notes: 'Notes',
+  name: 'Name',
+  hourlyPrice: 'Hourly rate',
+  hourlyLess: 'Less per hour',
+  hourlyLessHours: 'Hours off',
+  hourlyLessMinHours: 'Minimum hours',
+  dailyPrice: 'Daily rate',
+  categoryUuid: 'Category',
+}
+
+export function namedFieldMessage(key: string, message: string) {
+  const label = FIELD_LABELS[key]
+  if (!label || message.toLowerCase().includes(label.toLowerCase())) {
+    return message
+  }
+  if (/^invalid input:/i.test(message) || message === 'Required') {
+    return `${label} is required.`
+  }
+  return `${label}: ${message}`
+}
+
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const result: Record<string, string> = {}
 
   for (const issue of error.issues) {
     const key = issue.path[0]
     if (typeof key === 'string' && !result[key]) {
-      result[key] = issue.message
+      result[key] = namedFieldMessage(key, issue.message)
     }
   }
 
   return result
+}
+
+export function fieldErrorSummary(error: z.ZodError) {
+  const messages = Object.values(fieldErrors(error))
+  return messages.length ? messages.join(' ') : 'Please check the submitted information.'
 }

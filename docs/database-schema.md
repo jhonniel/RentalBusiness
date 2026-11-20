@@ -46,7 +46,8 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `id`, `uuid`, `slug` (unique, generated from `name`), `sku` (unique, generated from `name`; not shown on product forms)
 - `category_id` → product_categories
 - `name`, `description`, `short_description`
-- `daily_price`, `weekly_price`, `monthly_price`, `long_stay_less`, `long_stay_min_days`, `deposit_amount`, `late_fee`, `commission_per_day`, `replacement_value`
+- `daily_price`, `weekly_price`, `monthly_price`, `hourly_enabled`, `hourly_price`, `hourly_late_fee`, `hourly_discount`, `hourly_less`, `hourly_less_hours`, `hourly_less_min_hours`, `long_stay_less`, `long_stay_min_days`, `deposit_amount`, `late_fee`, `commission_per_day`, `replacement_value`
+- `hourly_enabled` is off unless an admin turns it on for that equipment. `hourly_price` is required and must be above 0 while hourly rental is on. A booking then charges `hourly_price × hours × quantity` for 1 to 24 hours. The long-stay less does not apply. Daily bookings stay on the daily price. `hourly_late_fee` is charged for each hour an hourly booking is returned late, including a part of an hour. Daily bookings keep `late_fee`. `hourly_discount` is `none`, `per_hour`, or `hours`. A booking of at least `hourly_less_min_hours` subtracts `hourly_less` for each hour, or `hourly_less_hours` of the hourly rate, for each unit. A shorter booking pays the full hourly rate. The deposit is not reduced.
 - `long_stay_less` is a per-day amount. `long_stay_min_days` is the booking length that turns it on (default 3). A booking that reaches that length subtracts `long_stay_less × days × quantity`. A zero less turns it off. The deposit is not reduced.
 - `hidden_price_fields` (`text[]`, default `{}`) — which of `daily`, `weekly`, `monthly`, `deposit`, `late_fee`, `replacement_value` stay off the public catalog. Stored amounts still apply to quotes and bookings, except `weekly_price` and `monthly_price`, which are display-only; `quote_rental_line` charges the daily price per day less `long_stay_less`.
 - `quantity`, `status` (`draft` \| `active` \| `coming_soon` \| `hidden` \| `archived`). `coming_soon` is public and labeled, but not bookable.
@@ -61,7 +62,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 **rental_late_fees**
 
-- One row per booking once an admin changes the late fee type, voids, restores, or pays it, or the rental is marked done while late: `fee_type`, `custom_amount`, `stopped_at`, `paid_amount`, `paid_at`, `payment_id`, `voided_at`, `voided_by`, `void_reason`, `updated_by`. Unique on `rental_id`. The amount itself is computed on the server. Admin select only; the server writes with the service-role key. Added in `20261024000000_rental_late_fees.sql`.
+- One row per booking once an admin changes the late fee type, voids, restores, or pays it, or the rental is marked done while late: `fee_type`, `custom_amount`, `stopped_at`, `paid_amount`, `paid_at`, `payment_id`, `voided_at`, `voided_by`, `void_reason`, `updated_by`. Unique on `rental_id`. The amount itself is computed on the server. `fee_type` `hourly` uses `products.hourly_late_fee` for each hour late and only applies to an hourly booking. Admin select only; the server writes with the service-role key. Added in `20261024000000_rental_late_fees.sql`. `hourly` was added in `20261120120000_hourly_late_fee.sql`.
 
 **rental_extensions**
 
@@ -105,6 +106,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `customer_id` → profiles
 - `status` (see rental statuses below)
 - `starts_on`, `ends_on` (date, business calendar — pickup date and return date)
+- `billing_unit` (`day` or `hour`, default `day`) and `billed_hours` (1–24, only when `billing_unit` is `hour`). An hourly booking is due back that many hours after pickup.
 - `pickup_at`, `return_at` (timestamptz UTC). Return is the same Asia/Manila clock time as pickup on the return date. A 5-day rental picked up at 1:00 PM is due back at 1:00 PM on the fifth day after pickup.
 - `subtotal`, `deposit_amount`, `discount_amount`, `tax_amount`, `total_amount`
 - `notes`, `admin_notes`
@@ -113,7 +115,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 **rental_items**
 
 - `id`, `uuid`, `rental_id`, `product_id`
-- `quantity`, `daily_price`, `line_total`
+- `quantity`, `daily_price`, `line_total`, `billing_unit`, `billed_hours`, `hourly_price`
 
 **rental_status_history**
 

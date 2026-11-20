@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PublicRental, RentalListResponse } from '~/types/rental'
+import { useSignInRedirect } from '~/composables/useSignInRedirect'
 import { BUSINESS_TIMEZONE } from '~/utils/constants'
 import { customerRentalNextLabel, customerRentalNextPath } from '~/utils/rental'
 
@@ -14,11 +15,12 @@ useSiteMeta({
 })
 
 const { profile } = useAuth()
-const { data, error, pending } = await useFetch<RentalListResponse>('/api/rentals', {
+const { data, error, pending, refresh } = await useFetch<RentalListResponse>('/api/rentals', {
   query: { pageSize: 50 },
 })
 const hasData = computed(() => Boolean(data.value))
 const remote = useRemoteState(error, pending, hasData)
+useSignInRedirect(error)
 
 const greeting = computed(() => {
   const hour = Number(new Intl.DateTimeFormat('en-US', {
@@ -99,7 +101,16 @@ function cardTo(rental: PublicRental) {
         tone="alert"
         title="Dashboard could not load"
         description="Try again in a moment. Your rental counts will appear here when the request succeeds."
-      />
+      >
+        <UButton
+          color="neutral"
+          variant="outline"
+          :loading="pending"
+          @click="refresh()"
+        >
+          Try again
+        </UButton>
+      </CatalogNotice>
 
       <div
         v-else-if="remote.loading"

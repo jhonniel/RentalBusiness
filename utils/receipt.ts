@@ -49,9 +49,21 @@ export function receiptDiscounts(rental: {
   endsOn: string
   discountAmount: number
   voucher: { code: string } | null
-  items: Array<{ dailyPrice: number, quantity: number, lineTotal: number }>
+  items: Array<{
+    dailyPrice: number
+    quantity: number
+    lineTotal: number
+    billingUnit?: 'day' | 'hour'
+    billedHours?: number | null
+    hourlyPrice?: number | null
+  }>
 }, days: number) {
-  const regular = rental.items.reduce((sum, item) => sum + Math.max(0, item.dailyPrice) * Math.max(0, item.quantity) * Math.max(0, days), 0)
+  const regular = rental.items.reduce((sum, item) => {
+    if (item.billingUnit === 'hour' && item.hourlyPrice && item.billedHours) {
+      return sum + Math.max(0, item.hourlyPrice) * item.billedHours * Math.max(0, item.quantity)
+    }
+    return sum + Math.max(0, item.dailyPrice) * Math.max(0, item.quantity) * Math.max(0, days)
+  }, 0)
   const charged = rental.items.reduce((sum, item) => sum + Math.max(0, item.lineTotal), 0)
   return {
     longStay: Math.max(0, Math.round((regular - charged) * 100) / 100),

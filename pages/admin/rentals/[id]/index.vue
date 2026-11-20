@@ -777,7 +777,7 @@ async function removeRental() {
                 v-if="sales.baseRateDiscount > 0"
                 class="flex justify-between gap-4 pl-3 text-stone-600"
               >
-                <dt>Long-stay discount</dt>
+                <dt>{{ rental.billingUnit === 'hour' ? 'Hourly discount' : 'Long-stay discount' }}</dt>
                 <dd>−{{ formatMoney(sales.baseRateDiscount) }}</dd>
               </div>
               <div class="flex justify-between gap-4 pl-3 text-stone-700">

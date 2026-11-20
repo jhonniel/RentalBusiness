@@ -29,6 +29,13 @@ interface ProductRow {
   daily_price: number
   weekly_price: number | null
   monthly_price: number | null
+  hourly_enabled?: boolean | null
+  hourly_price?: number | null
+  hourly_late_fee?: number | null
+  hourly_discount?: 'none' | 'per_hour' | 'hours' | null
+  hourly_less?: number | null
+  hourly_less_hours?: number | null
+  hourly_less_min_hours?: number | null
   long_stay_less?: number | null
   long_stay_min_days?: number | null
   deposit_amount: number
@@ -141,6 +148,13 @@ export function toPublicProduct(row: ProductRow, images: ImageRow[], supabaseUrl
     dailyPrice: Number(row.daily_price),
     weeklyPrice: row.weekly_price === null ? null : Number(row.weekly_price),
     monthlyPrice: row.monthly_price === null ? null : Number(row.monthly_price),
+    hourlyEnabled: Boolean(row.hourly_enabled),
+    hourlyPrice: row.hourly_price === null || row.hourly_price === undefined ? null : Number(row.hourly_price),
+    hourlyLateFee: Number(row.hourly_late_fee ?? 0),
+    hourlyDiscount: row.hourly_discount === 'per_hour' || row.hourly_discount === 'hours' ? row.hourly_discount : 'none',
+    hourlyLess: Number(row.hourly_less ?? 0),
+    hourlyLessHours: Math.min(24, Math.max(0, Math.trunc(Number(row.hourly_less_hours ?? 0)))),
+    hourlyLessMinHours: Math.min(24, Math.max(1, Math.trunc(Number(row.hourly_less_min_hours ?? 1)) || 1)),
     longStayLess: Number(row.long_stay_less ?? 0),
     longStayMinDays: Math.max(1, Number(row.long_stay_min_days ?? 3) || 3),
     depositAmount: Number(row.deposit_amount),
@@ -180,6 +194,13 @@ export function toCatalogProduct(row: ProductRow, images: ImageRow[], supabaseUr
     dailyPrice: isPriceFieldHidden(hidden, 'daily') ? null : product.dailyPrice,
     weeklyPrice: isPriceFieldHidden(hidden, 'weekly') ? null : product.weeklyPrice,
     monthlyPrice: isPriceFieldHidden(hidden, 'monthly') ? null : product.monthlyPrice,
+    hourlyEnabled: product.hourlyEnabled,
+    hourlyPrice: product.hourlyEnabled ? product.hourlyPrice : null,
+    hourlyLateFee: product.hourlyEnabled && !isPriceFieldHidden(hidden, 'lateFee') ? product.hourlyLateFee : null,
+    hourlyDiscount: product.hourlyEnabled ? product.hourlyDiscount : 'none',
+    hourlyLess: product.hourlyLess,
+    hourlyLessHours: product.hourlyLessHours,
+    hourlyLessMinHours: product.hourlyLessMinHours,
     longStayLess: product.longStayLess,
     longStayMinDays: product.longStayMinDays,
     depositAmount: isPriceFieldHidden(hidden, 'deposit') ? null : product.depositAmount,

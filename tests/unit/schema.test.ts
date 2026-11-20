@@ -559,3 +559,59 @@ describe('rental extensions', () => {
     expect(rentalExtensions).not.toMatch(/grant[^;]*(update|delete)[^;]*rental_extensions/)
   })
 })
+
+describe('hourly rental', () => {
+  const hourlyRental = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261120000000_hourly_rental.sql'),
+    'utf8',
+  )
+
+  it('lets an admin enable an hourly rate and prices that booking by the hour', () => {
+    expect(hourlyRental).toContain('hourly_enabled boolean not null default false')
+    expect(hourlyRental).toContain('hourly rental is not enabled for this equipment')
+    expect(hourlyRental).toContain('billing_unit = \'hour\' and billed_hours between 1 and 24')
+    expect(hourlyRental).toContain('new.line_total := round((v_product.hourly_price * v_hours * greatest(1, new.quantity))::numeric, 2)')
+  })
+})
+
+describe('hourly late fee', () => {
+  const hourlyLateFee = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261120120000_hourly_late_fee.sql'),
+    'utf8',
+  )
+
+  it('stores a per-hour late fee that daily bookings do not use', () => {
+    expect(hourlyLateFee).toContain('hourly_late_fee numeric(12, 2) not null default 0')
+    expect(hourlyLateFee).toContain('check (hourly_late_fee >= 0)')
+    expect(hourlyLateFee).toContain('\'hourly\'')
+  })
+})
+
+describe('hourly discount', () => {
+  const hourlyDiscount = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261120130000_hourly_discount.sql'),
+    'utf8',
+  )
+
+  it('stores a less per hour or a number of hours off after a minimum', () => {
+    expect(hourlyDiscount).toContain('hourly_discount text not null default \'none\'')
+    expect(hourlyDiscount).toContain('hourly_discount in (\'none\', \'per_hour\', \'hours\')')
+    expect(hourlyDiscount).toContain('if v_hours >= v_min_hours then')
+    expect(hourlyDiscount).toContain('v_product.hourly_less')
+    expect(hourlyDiscount).toContain('v_product.hourly_less_hours')
+    expect(hourlyDiscount).toContain('v_product.long_stay_less')
+    expect(hourlyDiscount).toContain('::numeric, 2)')
+  })
+})
+
+describe('hourly line rounding', () => {
+  const hourlyRound = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261120140000_hourly_line_round.sql'),
+    'utf8',
+  )
+
+  it('rounds the hourly total as numeric', () => {
+    expect(hourlyRound).toContain('round((v_product.hourly_price * v_hours * greatest(1, new.quantity))::numeric, 2)')
+    expect(hourlyRound).not.toContain('trunc(new.quantity)')
+  })
+})

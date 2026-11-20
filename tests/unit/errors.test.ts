@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { queryLoadError } from '../../server/utils/errors'
 import { AppError, ERROR_CODES, mentionsSupportContact, SUPPORT_MESSAGE, toClientError } from '../../utils/errors'
 
 describe('toClientError', () => {
@@ -31,6 +32,26 @@ describe('toClientError', () => {
       409,
       ERROR_CODES.CONFLICT,
     )).message).toBe('Those dates are not available. Another request already holds that kit.')
+  })
+})
+
+describe('queryLoadError', () => {
+  it('asks the customer to sign in when the query ran without access', () => {
+    const error = queryLoadError('We could not load rentals.', {
+      code: '42501',
+      message: 'permission denied for table rental_requests',
+    })
+    expect(error.statusCode).toBe(401)
+    expect(error.message).toBe('Please sign in to continue.')
+  })
+
+  it('keeps a real query failure as a load error', () => {
+    const error = queryLoadError('We could not load rentals.', {
+      code: '42703',
+      message: 'column rental_items.hourly_price does not exist',
+    })
+    expect(error.statusCode).toBe(500)
+    expect(error.message).toBe('We could not load rentals.')
   })
 })
 

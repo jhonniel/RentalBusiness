@@ -175,6 +175,26 @@ describe('waiver mapper', () => {
     expect(scheduled).toContain('6 hours or more, and up to 12 hours, after the return time: half a day of the rented item.')
     expect(scheduled).toContain('More than 12 hours after the return time: charged as 1 day of rent.')
     expect(scheduled).not.toContain('per day')
+
+    const hourly = renderWaiverBody(
+      'Agreement version: JRY-WAIVER-v1.2\nEquipment on this rental:\n{{RENTAL_EQUIPMENT}}\n\nLess than 6 hours after the return time, the late fee is ₱300.00.\n\n6 hours or more, and up to 12 hours, after the return time, the late fee is half a day of the rented item.\n\nMore than 12 hours after the return time, the late return is charged as 1 day of rent.\n',
+      [{
+        quantity: 1,
+        billingUnit: 'hour',
+        product: {
+          name: 'Starlink Mini',
+          depositAmount: 8000,
+          lateFee: 300,
+          hourlyLateFee: 55,
+          replacementValue: 28000,
+        },
+      }],
+    )
+    expect(hourly).toContain(`Late fee: ${formatMoney(55)} per hour`)
+    expect(hourly).toContain(`For this hourly rental, the late fee is ${formatMoney(55)} for each hour after the agreed return time.`)
+    expect(hourly).toContain('The daily late-return schedule does not apply to this booking.')
+    expect(hourly).not.toContain('half a day of the rented item')
+    expect(hourly).not.toContain('per day')
   })
 
   it('shows only the rented equipment clause and bolds that equipment', () => {

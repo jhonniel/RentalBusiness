@@ -27,6 +27,32 @@ describe('late fee amounts', () => {
     expect(computeLateFee({ type: 'full_day', hoursLate: 2, dailyRent: 900 })).toBe(900)
     expect(computeLateFee({ type: 'custom', hoursLate: 2, dailyRent: 900, customAmount: 250 })).toBe(250)
     expect(computeLateFee({ type: 'custom', hoursLate: 0, dailyRent: 900, customAmount: 250 })).toBe(0)
+    expect(computeLateFee({ type: 'hourly', hoursLate: 0.2, dailyRent: 900, hourlyLateFee: 50 })).toBe(50)
+    expect(computeLateFee({ type: 'hourly', hoursLate: 3, dailyRent: 900, hourlyLateFee: 50 })).toBe(150)
+    expect(computeLateFee({ type: 'hourly', hoursLate: 3, dailyRent: 900, hourlyLateFee: 0 })).toBe(0)
+  })
+
+  it('uses the hourly late fee only for an hourly booking', () => {
+    const rental = {
+      status: 'active' as const,
+      billingUnit: 'hour' as const,
+      returnAt,
+      items: [{
+        uuid: 'i',
+        quantity: 2,
+        dailyPrice: 900,
+        lineTotal: 100,
+        billingUnit: 'hour' as const,
+        product: { uuid: 'p', slug: 's', name: 'Starlink Mini', sku: 'SKU', depositAmount: 500, lateFee: 300, hourlyLateFee: 40, replacementValue: null },
+      }],
+    }
+    expect(buildLateFee(rental, null, true, new Date('2026-10-24T04:00:00.000Z'))).toMatchObject({
+      type: 'hourly',
+      status: 'accruing',
+      amount: 160,
+      hoursLate: 2,
+    })
+    expect(buildLateFee({ ...rental, billingUnit: 'day', items: [{ ...rental.items[0], billingUnit: 'day' }] }, null, true, new Date('2026-10-24T04:10:00.000Z')).type).toBe('schedule')
   })
 
   it('needs an amount for a custom late fee', () => {

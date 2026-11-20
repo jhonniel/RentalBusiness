@@ -105,7 +105,7 @@ export async function reconcileCommissionExpense(
 export async function assignedCommission(
   client: Client,
   commissionerUuid: string,
-  window: { productUuid: string, startsOn: string, endsOn: string, quantity: number },
+  window: { productUuid: string, startsOn: string, endsOn: string, quantity: number, hours?: number | null },
 ) {
   const commissioner = await findProfileKeyByUuid(client, commissionerUuid)
   if (!commissioner || commissioner.role !== 'commissioner') {
@@ -117,7 +117,7 @@ export async function assignedCommission(
   return {
     commissioner,
     commissionPerDay,
-    commissionAmount: commissionAmount(commissionPerDay, window.startsOn, window.endsOn, window.quantity),
+    commissionAmount: commissionAmount(commissionPerDay, window.startsOn, window.endsOn, window.quantity, window.hours),
   }
 }
 
@@ -125,7 +125,7 @@ export async function applyLinkedCommissioner(
   client: Client,
   rental: { id: number, uuid: string, code: string, status: string },
   customerProfileId: number,
-  booking: { productUuid: string, productName: string, startsOn: string, endsOn: string, quantity: number },
+  booking: { productUuid: string, productName: string, startsOn: string, endsOn: string, quantity: number, hours?: number | null },
 ) {
   const commissionerUuid = await findLinkedCommissionerUuid(client, customerProfileId)
   if (!commissionerUuid) {
@@ -139,6 +139,7 @@ export async function applyLinkedCommissioner(
     startsOn: booking.startsOn,
     endsOn: booking.endsOn,
     days: rentalPeriodDays(booking.startsOn, booking.endsOn),
+    hours: booking.hours,
     quantity: booking.quantity,
   })
 }
@@ -153,6 +154,7 @@ export async function syncAssignedCommission(
     startsOn: string
     endsOn: string
     days: number
+    hours?: number | null
     quantity: number
     /** The rent this commission is earned on and how much of it is still unpaid. Its share waits until it is paid. */
     paidRent?: { rent: number, balanceDue: number }
@@ -221,7 +223,7 @@ export async function quoteCommissionerRental(client: Client, input: QuoteInput)
   return {
     ...quote,
     commissionPerDay,
-    commissionAmount: commissionAmount(commissionPerDay, quote.startsOn, quote.endsOn, quote.quantity),
+    commissionAmount: commissionAmount(commissionPerDay, quote.startsOn, quote.endsOn, quote.quantity, quote.hours),
   }
 }
 
@@ -261,6 +263,8 @@ export async function createCommissionerRental(
     ends_on: quote.endsOn,
     pickup_at: quote.pickupAt,
     return_at: quote.returnAt,
+    billing_unit: quote.billingUnit,
+    billed_hours: quote.billingUnit === 'hour' ? quote.hours : null,
     status: 'pending',
     subtotal: quote.subtotal,
     deposit_amount: quote.depositAmount,
@@ -277,6 +281,9 @@ export async function createCommissionerRental(
       quantity: quote.quantity,
       daily_price: quote.dailyPrice,
       line_total: quote.lineTotal,
+      billing_unit: quote.billingUnit,
+      billed_hours: quote.billingUnit === 'hour' ? quote.hours : null,
+      hourly_price: quote.billingUnit === 'hour' ? quote.hourlyPrice : null,
     })
 
     await insertRentalStatusHistory(client, {

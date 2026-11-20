@@ -1,4 +1,5 @@
 import type { z } from 'zod'
+import { fieldErrorSummary } from './auth-validation'
 import { AppError, ERROR_CODES } from './errors'
 
 export function parseWithSchema<T>(schema: z.ZodType<T>, data: unknown): T {
@@ -6,7 +7,7 @@ export function parseWithSchema<T>(schema: z.ZodType<T>, data: unknown): T {
 
   if (!result.success) {
     throw new AppError(
-      'Please check the submitted information.',
+      fieldErrorSummary(result.error),
       422,
       ERROR_CODES.VALIDATION_ERROR,
       { cause: result.error },

@@ -4,6 +4,9 @@ export interface ReceiptSnapshotItem {
   quantity: number
   dailyPrice: number
   lineTotal: number
+  billingUnit?: 'day' | 'hour'
+  billedHours?: number | null
+  hourlyPrice?: number | null
 }
 
 export type ReceiptPurpose = 'booking' | 'extension' | 'late_fee' | 'balance'

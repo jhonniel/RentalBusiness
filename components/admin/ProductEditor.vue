@@ -29,6 +29,13 @@ const form = reactive({
   dailyPrice: props.product?.dailyPrice ?? 0,
   weeklyPrice: props.product?.weeklyPrice ?? '',
   monthlyPrice: props.product?.monthlyPrice ?? '',
+  hourlyEnabled: props.product?.hourlyEnabled ?? false,
+  hourlyPrice: props.product?.hourlyPrice ?? '',
+  hourlyLateFee: props.product?.hourlyLateFee ?? 0,
+  hourlyDiscount: props.product?.hourlyDiscount ?? 'none',
+  hourlyLess: props.product?.hourlyLess ?? 0,
+  hourlyLessHours: props.product?.hourlyLessHours ?? 0,
+  hourlyLessMinHours: props.product?.hourlyLessMinHours ?? 1,
   longStayLess: props.product?.longStayLess ?? 0,
   longStayMinDays: props.product?.longStayMinDays ?? 3,
   depositAmount: props.product?.depositAmount ?? 0,
@@ -72,6 +79,8 @@ async function onSubmit() {
     ...fields,
     weeklyPrice: form.weeklyPrice === '' ? null : form.weeklyPrice,
     monthlyPrice: form.monthlyPrice === '' ? null : form.monthlyPrice,
+    hourlyPrice: form.hourlyPrice === '' ? null : form.hourlyPrice,
+    hourlyLateFee: form.hourlyLateFee === '' ? 0 : form.hourlyLateFee,
     replacementValue: form.replacementValue === '' ? null : form.replacementValue,
     hiddenPriceFields: PRICE_FIELD_KEYS.filter(key => hideOnStorefront[key]),
     includedAccessories: accessories.split(',').map(item => item.trim()).filter(Boolean),
@@ -91,15 +100,15 @@ async function onSubmit() {
   try {
     const result = props.product
       ? await $fetch<PublicProduct>(`/api/admin/products/${props.product.uuid}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: parsed.data,
-      })
+          method: 'PATCH',
+          headers: authHeaders(),
+          body: parsed.data,
+        })
       : await $fetch<PublicProduct>('/api/admin/products', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: parsed.data,
-      })
+          method: 'POST',
+          headers: authHeaders(),
+          body: parsed.data,
+        })
 
     toast.add({ title: 'Product saved', color: 'success' })
     emit('saved', result.uuid)
@@ -283,8 +292,153 @@ async function onSubmit() {
           >{{ errors.longStayMinDays }}</span>
         </label>
       </div>
+      <div class="mt-4 rounded-lg border border-stone-200 p-4">
+        <label class="flex items-center gap-2 text-sm text-stone-700">
+          <input
+            v-model="form.hourlyEnabled"
+            type="checkbox"
+            :disabled="pending"
+          >
+          Allow hourly rental
+        </label>
+        <p class="mt-1 text-xs text-stone-500">
+          Only this equipment can be booked by the hour. The customer picks the hours, and the rent is this rate times those hours.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="mb-1.5 block text-stone-700">Hourly rate (₱)</span>
+          <UInput
+            v-model="form.hourlyPrice"
+            class="w-full sm:max-w-xs"
+            type="number"
+            min="0"
+            step="0.01"
+            :disabled="pending || !form.hourlyEnabled"
+          />
+          <span
+            v-if="errors.hourlyPrice"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.hourlyPrice }}</span>
+        </label>
+        <label class="mt-3 block text-sm">
+          <span class="mb-1.5 block text-stone-700">Hourly late fee (₱)</span>
+          <UInput
+            v-model="form.hourlyLateFee"
+            class="w-full sm:max-w-xs"
+            type="number"
+            min="0"
+            step="0.01"
+            :disabled="pending || !form.hourlyEnabled"
+          />
+          <span class="mt-1 block text-xs text-stone-500">
+            Charged for each hour an hourly booking is returned late, including a part of an hour. Daily bookings keep the late fee above.
+          </span>
+          <span
+            v-if="errors.hourlyLateFee"
+            class="mt-1 block text-xs text-red-700"
+          >{{ errors.hourlyLateFee }}</span>
+        </label>
+        <fieldset class="mt-4 space-y-3">
+          <legend class="text-sm text-stone-700">
+            Hourly discount
+          </legend>
+          <div class="flex flex-col gap-2 text-sm text-stone-700">
+            <label class="flex items-center gap-2">
+              <input
+                v-model="form.hourlyDiscount"
+                type="radio"
+                value="none"
+                :disabled="pending || !form.hourlyEnabled"
+              >
+              No hourly discount
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                v-model="form.hourlyDiscount"
+                type="radio"
+                value="per_hour"
+                :disabled="pending || !form.hourlyEnabled"
+              >
+              Less per hour
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                v-model="form.hourlyDiscount"
+                type="radio"
+                value="hours"
+                :disabled="pending || !form.hourlyEnabled"
+              >
+              Number of hours off
+            </label>
+          </div>
+          <label
+            v-if="form.hourlyDiscount === 'per_hour'"
+            class="block text-sm"
+          >
+            <span class="mb-1.5 block text-stone-700">Less per hour (₱)</span>
+            <UInput
+              v-model="form.hourlyLess"
+              class="w-full sm:max-w-xs"
+              type="number"
+              min="0"
+              step="0.01"
+              :disabled="pending || !form.hourlyEnabled"
+            />
+            <span class="mt-1 block text-xs text-stone-500">
+              Taken off each hour of the booking, for each unit, once the minimum hours is reached.
+            </span>
+            <span
+              v-if="errors.hourlyLess"
+              class="mt-1 block text-xs text-red-700"
+            >{{ errors.hourlyLess }}</span>
+          </label>
+          <label
+            v-else-if="form.hourlyDiscount === 'hours'"
+            class="block text-sm"
+          >
+            <span class="mb-1.5 block text-stone-700">Hours off</span>
+            <UInput
+              v-model="form.hourlyLessHours"
+              class="w-full sm:max-w-xs"
+              type="number"
+              min="1"
+              max="24"
+              step="1"
+              :disabled="pending || !form.hourlyEnabled"
+            />
+            <span class="mt-1 block text-xs text-stone-500">
+              That many hours of the hourly rate are taken off, for each unit, once the minimum hours is reached.
+            </span>
+            <span
+              v-if="errors.hourlyLessHours"
+              class="mt-1 block text-xs text-red-700"
+            >{{ errors.hourlyLessHours }}</span>
+          </label>
+          <label
+            v-if="form.hourlyDiscount !== 'none'"
+            class="block text-sm"
+          >
+            <span class="mb-1.5 block text-stone-700">Minimum hours</span>
+            <UInput
+              v-model="form.hourlyLessMinHours"
+              class="w-full sm:max-w-xs"
+              type="number"
+              min="1"
+              max="24"
+              step="1"
+              :disabled="pending || !form.hourlyEnabled"
+            />
+            <span class="mt-1 block text-xs text-stone-500">
+              The booking must be at least this many hours. A shorter booking pays the full hourly rate.
+            </span>
+            <span
+              v-if="errors.hourlyLessMinHours"
+              class="mt-1 block text-xs text-red-700"
+            >{{ errors.hourlyLessMinHours }}</span>
+          </label>
+        </fieldset>
+      </div>
       <p class="mt-2 text-xs text-stone-500">
-        Set the less to 0 to turn it off. Otherwise a booking that reaches the day count is reduced by the less times the days, for each unit. A ₱100 less from 3 days removes ₱300 on one unit. The deposit is not reduced.
+        Set the less to 0 to turn it off. Otherwise a booking that reaches the day count is reduced by the less times the days, for each unit. A ₱100 less from 3 days removes ₱300 on one unit. The deposit is not reduced. This daily less does not apply to an hourly booking.
       </p>
       <label class="mt-4 block text-sm">
         <span class="mb-1.5 block text-stone-700">Commission per day (₱)</span>

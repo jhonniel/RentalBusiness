@@ -24,6 +24,9 @@ const emit = defineEmits<{
 const toast = useToast()
 const { formatMoney } = useCurrency()
 const fee = computed(() => props.rental.lateFee ?? null)
+const typeOptions = computed(() => LATE_FEE_TYPES.filter(item => (
+  item !== 'hourly' || props.rental.billingUnit === 'hour' || fee.value?.type === 'hourly'
+)))
 
 const type = ref<LateFeeType>('schedule')
 const customAmount = ref<number | string>('')
@@ -218,7 +221,7 @@ function markPaid() {
             :disabled="Boolean(busy)"
           >
             <option
-              v-for="item in LATE_FEE_TYPES"
+              v-for="item in typeOptions"
               :key="item"
               :value="item"
             >

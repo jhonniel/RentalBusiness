@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NotificationListResponse, PublicNotification } from '~/types/notification'
+import { useSignInRedirect } from '~/composables/useSignInRedirect'
 import { formatBusinessDateTime } from '~/utils/datetime'
 
 definePageMeta({
@@ -19,6 +20,7 @@ const { data, error, pending, refresh } = await useFetch<NotificationListRespons
 
 const hasData = computed(() => Boolean(data.value))
 const remote = useRemoteState(error, pending, hasData)
+useSignInRedirect(error)
 
 async function markRead(item: PublicNotification) {
   if (item.readAt) {

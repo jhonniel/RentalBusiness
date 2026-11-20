@@ -3,6 +3,20 @@ import { logger } from './logger'
 
 export { AppError, ERROR_CODES, toClientError }
 
+export function queryLoadError(message: string, error: { code?: string, message?: string }) {
+  const code = error.code ?? ''
+  const text = error.message ?? ''
+  if (
+    code === '42501'
+    || code === 'PGRST301'
+    || /jwt|not authenticated|permission denied/i.test(text)
+  ) {
+    return new AppError('Please sign in to continue.', 401, ERROR_CODES.UNAUTHORIZED, { cause: error })
+  }
+
+  return new AppError(message, 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+}
+
 export function createInternalError(cause?: unknown): AppError {
   return new AppError(
     SUPPORT_MESSAGE,

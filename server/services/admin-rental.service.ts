@@ -313,6 +313,7 @@ export async function createAdminRental(
     endsOn: input.endsOn,
     pickupTime: input.pickupTime,
     quantity: input.quantity,
+    hours: input.hours,
   }, {
     confirmedOnly: true,
   })
@@ -333,6 +334,8 @@ export async function createAdminRental(
     ends_on: quote.endsOn,
     pickup_at: quote.pickupAt,
     return_at: quote.returnAt,
+    billing_unit: quote.billingUnit,
+    billed_hours: quote.billingUnit === 'hour' ? quote.hours : null,
     status: 'draft',
     subtotal: quote.subtotal,
     deposit_amount: quote.depositAmount,
@@ -349,6 +352,9 @@ export async function createAdminRental(
       quantity: quote.quantity,
       daily_price: quote.dailyPrice,
       line_total: quote.lineTotal,
+      billing_unit: quote.billingUnit,
+      billed_hours: quote.billingUnit === 'hour' ? quote.hours : null,
+      hourly_price: quote.billingUnit === 'hour' ? quote.hourlyPrice : null,
     })
 
     await insertRentalStatusHistory(client, {
@@ -650,6 +656,7 @@ async function quoteAdminExtension(
     endsOn,
     pickupTime: rental.pickupTime,
     quantity: item.quantity,
+    hours: 'billedHours' in rental ? rental.billedHours ?? undefined : undefined,
   }, {
     exceptRentalUuid: rental.uuid,
     allowPastStart: true,
@@ -1411,6 +1418,7 @@ export async function continueAdminRental(
     endsOn: input.endsOn,
     pickupTime: input.pickupTime,
     quantity: input.quantity,
+    hours: input.hours ?? rental.billedHours ?? undefined,
   }, {
     exceptRentalUuid: rental.uuid,
     allowPastStart: true,
@@ -1443,12 +1451,17 @@ export async function continueAdminRental(
     subtotal: quote.subtotal,
     depositAmount: quote.depositAmount,
     totalAmount: Math.max(0, quote.totalAmount - discount),
+    billingUnit: quote.billingUnit,
+    billedHours: quote.hours,
   })
 
   await updateRentalItemByRentalId(client, identity.id, {
     quantity: quote.quantity,
     dailyPrice: quote.dailyPrice,
     lineTotal: quote.lineTotal,
+    billingUnit: quote.billingUnit,
+    billedHours: quote.hours,
+    hourlyPrice: quote.hourlyPrice,
   })
 
   const commission = await syncConfirmedCommission(client, {
@@ -1675,7 +1688,7 @@ async function advanceAdminRentalStatus(
   event: H3Event,
   client: Client,
   profileId: number,
-  rental: { uuid: string, code: string, status: string, items: { product: { uuid: string }, quantity: number }[], startsOn: string, endsOn: string, pickupTime: string },
+  rental: { uuid: string, code: string, status: string, billedHours?: number | null, items: { product: { uuid: string }, quantity: number }[], startsOn: string, endsOn: string, pickupTime: string },
   nextStatus: RentalStatus,
   note: string,
 ) {

@@ -17,6 +17,9 @@ export interface PublicRentalItem {
   quantity: number
   dailyPrice: number
   lineTotal: number
+  billingUnit?: 'day' | 'hour'
+  billedHours?: number | null
+  hourlyPrice?: number | null
   product: {
     uuid: string
     slug: string
@@ -24,6 +27,7 @@ export interface PublicRentalItem {
     sku: string
     depositAmount: number
     lateFee: number
+    hourlyLateFee?: number | null
     replacementValue: number | null
   }
 }
@@ -37,6 +41,8 @@ export interface PublicRental {
   pickupTime: string
   pickupAt: string
   returnAt: string
+  billingUnit?: 'day' | 'hour'
+  billedHours?: number | null
   subtotal: number
   depositAmount: number
   discountAmount: number
@@ -202,6 +208,9 @@ export interface RentalQuote {
   days: number
   quantity: number
   dailyPrice: number
+  billingUnit?: 'day' | 'hour'
+  hours?: number | null
+  hourlyPrice?: number | null
   rentAmount: number
   lessAmount: number
   lineTotal: number

@@ -2,17 +2,23 @@ import { z } from 'zod'
 import { RENTAL_STATUSES } from './constants'
 import { LATE_FEE_TYPES } from './late-fee'
 import { calendarDateInZone, isPastBusinessDate } from './datetime'
-import { DEFAULT_PICKUP_TIME, isPastBusinessDateTime, isPickupTime } from './rental-window'
+import { DEFAULT_PICKUP_TIME, MAX_RENTAL_HOURS, MIN_RENTAL_HOURS, isPastBusinessDateTime, isPickupTime } from './rental-window'
 
 const pickupTimeField = z.string().trim().default(DEFAULT_PICKUP_TIME).refine(isPickupTime, {
   message: 'Choose a pickup time.',
 })
+
+const optionalHours = z.preprocess(
+  value => value === '' || value === null ? undefined : value,
+  z.coerce.number({ error: 'Hours is required.' }).int('Enter a whole number of hours.').min(MIN_RENTAL_HOURS, 'Choose at least 1 hour.').max(MAX_RENTAL_HOURS, 'Hourly rental can be at most 24 hours.').optional(),
+)
 
 const rentalWindow = {
   startsOn: z.string().date('Choose a start date.'),
   endsOn: z.string().date('Choose a return date.'),
   pickupTime: pickupTimeField,
   quantity: z.coerce.number().int().min(1).max(99).default(1),
+  hours: optionalHours,
 }
 
 function addDateWindowChecks<T extends z.ZodType<{ startsOn: string, endsOn: string, pickupTime: string }>>(schema: T) {
@@ -158,6 +164,7 @@ export const updateWaiverInviteScheduleSchema = addWindowChecks(z.object({
   startsOn: z.string().date('Choose a start date.'),
   endsOn: z.string().date('Choose a return date.'),
   pickupTime: pickupTimeField,
+  hours: optionalHours,
 }).strict())
 
 export type CreateRentalInput = z.infer<typeof createRentalSchema>

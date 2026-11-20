@@ -53,6 +53,28 @@ useHead({
 
 const specEntries = computed(() => Object.entries(product.value?.specifications ?? {}))
 const priceRows = computed(() => product.value ? visibleCatalogPrices(product.value) : [])
+const billing = ref<'day' | 'hour'>('day')
+const dayRateKeys = new Set(['daily', 'weekly', 'monthly'])
+const shownPrices = computed(() => {
+  const current = product.value
+  if (!current) {
+    return []
+  }
+  const rows = priceRows.value.filter((row) => {
+    if (billing.value !== 'hour') {
+      return true
+    }
+    return !dayRateKeys.has(row.key) && row.key !== 'lateFee'
+  })
+  if (billing.value === 'hour' && current.hourlyEnabled) {
+    const hourRows = [
+      ...(current.hourlyPrice !== null ? [{ key: 'hourly', label: 'Hourly', amount: current.hourlyPrice }] : []),
+      ...(current.hourlyLateFee ? [{ key: 'hourlyLateFee', label: 'Late fee / hour', amount: current.hourlyLateFee }] : []),
+    ]
+    return [...hourRows, ...rows]
+  }
+  return rows
+})
 </script>
 
 <template>
@@ -114,24 +136,30 @@ const priceRows = computed(() => product.value ? visibleCatalogPrices(product.va
           {{ product.shortDescription || product.description }}
         </p>
 
-        <dl
-          v-if="priceRows.length"
-          class="mt-8 grid gap-3 text-sm"
+        <Transition
+          name="billing-fade"
+          mode="out-in"
         >
-          <div
-            v-for="(row, index) in priceRows"
-            :key="row.key"
-            class="flex justify-between gap-4 border-b border-stone-200 pb-3 last:border-0 last:pb-0"
-            :class="index === 0 ? 'font-medium' : ''"
+          <dl
+            v-if="shownPrices.length"
+            :key="billing"
+            class="mt-8 grid gap-3 text-sm"
           >
-            <dt class="text-stone-500">
-              {{ row.label }}
-            </dt>
-            <dd class="text-stone-900">
-              {{ formatMoney(row.amount) }}
-            </dd>
-          </div>
-        </dl>
+            <div
+              v-for="(row, index) in shownPrices"
+              :key="row.key"
+              class="flex justify-between gap-4 border-b border-stone-200 pb-3 last:border-0 last:pb-0"
+              :class="index === 0 ? 'font-medium' : ''"
+            >
+              <dt class="text-stone-500">
+                {{ row.label }}
+              </dt>
+              <dd class="text-right text-stone-900 tabular-nums">
+                {{ formatMoney(row.amount) }}
+              </dd>
+            </div>
+          </dl>
+        </Transition>
 
         <CatalogNotice
           v-if="product.comingSoon"
@@ -142,9 +170,18 @@ const priceRows = computed(() => product.value ? visibleCatalogPrices(product.va
 
         <template v-else>
           <AvailabilityChecker
+            v-model:billing="billing"
             class="mt-6"
             :product-uuid="product.uuid"
             :product-slug="product.slug"
+            :hourly-enabled="product.hourlyEnabled"
+            :hourly-price="product.hourlyPrice"
+            :hourly-late-fee="product.hourlyLateFee"
+            :hourly-discount="product.hourlyDiscount"
+            :hourly-less="product.hourlyLess"
+            :hourly-less-hours="product.hourlyLessHours"
+            :hourly-less-min-hours="product.hourlyLessMinHours"
+            :daily-price="product.dailyPrice"
             :initial-starts-on="typeof route.query.startsOn === 'string' ? route.query.startsOn : undefined"
             :initial-ends-on="typeof route.query.endsOn === 'string' ? route.query.endsOn : undefined"
             :initial-pickup-time="typeof route.query.pickupTime === 'string' ? route.query.pickupTime : undefined"

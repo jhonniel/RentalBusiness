@@ -1,5 +1,79 @@
 import { describe, expect, it } from 'vitest'
-import { addMoney, inclusiveRentalDays, quoteExtensionLine, quoteRentalLine } from '../../utils/pricing'
+import { addMoney, inclusiveRentalDays, quoteExtensionLine, quoteHourlyRentalLine, quoteRentalLine } from '../../utils/pricing'
+
+describe('hourly rental quotes', () => {
+  it('multiplies the hourly rate by the hours and the quantity', () => {
+    expect(quoteHourlyRentalLine({
+      hourlyPrice: 250,
+      depositAmount: 500,
+      quantity: 2,
+      hours: 3,
+    })).toMatchObject({
+      hours: 3,
+      rentAmount: 1500,
+      lessAmount: 0,
+      lineTotal: 1500,
+      depositAmount: 1000,
+    })
+  })
+
+  it('takes a less per hour once the booking reaches the minimum hours', () => {
+    const below = quoteHourlyRentalLine({
+      hourlyPrice: 55,
+      depositAmount: 500,
+      quantity: 2,
+      hours: 2,
+      hourlyDiscount: 'per_hour',
+      hourlyLess: 10,
+      hourlyLessMinHours: 3,
+    })
+    expect(below).toMatchObject({ rentAmount: 220, lessAmount: 0, lineTotal: 220, depositAmount: 1000 })
+
+    expect(quoteHourlyRentalLine({
+      hourlyPrice: 55,
+      depositAmount: 0,
+      quantity: 2,
+      hours: 4,
+      hourlyDiscount: 'per_hour',
+      hourlyLess: 10,
+      hourlyLessMinHours: 3,
+    })).toMatchObject({ rentAmount: 440, lessAmount: 80, lineTotal: 360 })
+  })
+
+  it('takes a number of hours off once the booking reaches the minimum hours', () => {
+    expect(quoteHourlyRentalLine({
+      hourlyPrice: 55,
+      depositAmount: 0,
+      quantity: 1,
+      hours: 3,
+      hourlyDiscount: 'hours',
+      hourlyLessHours: 1,
+      hourlyLessMinHours: 4,
+    }).lessAmount).toBe(0)
+
+    expect(quoteHourlyRentalLine({
+      hourlyPrice: 55,
+      depositAmount: 0,
+      quantity: 2,
+      hours: 4,
+      hourlyDiscount: 'hours',
+      hourlyLessHours: 1,
+      hourlyLessMinHours: 4,
+    })).toMatchObject({ rentAmount: 440, lessAmount: 110, lineTotal: 330 })
+  })
+
+  it('does not discount more than the hourly rent', () => {
+    expect(quoteHourlyRentalLine({
+      hourlyPrice: 55,
+      depositAmount: 0,
+      quantity: 1,
+      hours: 1,
+      hourlyDiscount: 'per_hour',
+      hourlyLess: 100,
+      hourlyLessMinHours: 1,
+    })).toMatchObject({ rentAmount: 55, lessAmount: 55, lineTotal: 0 })
+  })
+})
 
 describe('inclusive rental days', () => {
   it('counts same-day as one day and Sept 11-13 as three', () => {

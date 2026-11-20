@@ -17,6 +17,7 @@ const props = defineProps<{
   quantity?: number
   startsOn?: string
   endsOn?: string
+  hours?: number
   flexible?: boolean
   ownPickupAt?: string | null
   ownReturnAt?: string | null
@@ -78,6 +79,7 @@ const booked = computed(() => {
     productUuid,
     startsOn: props.startsOn,
     endsOn: props.endsOn,
+    hours: props.hours,
     stock: {
       quantity: calendar.value?.capacity ?? 1,
       damagedQuantity: 0,

@@ -5,11 +5,11 @@ import type { PublicWaiverAcceptance } from '~/types/waiver'
 import type { PublicRentalIdentity } from '~/types/rental'
 import { fieldErrors } from '~/utils/auth-validation'
 import { identityUploadFormData } from '~/utils/browser-image'
-import { formatBusinessDate } from '~/utils/datetime'
+import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
 import { renderWaiverBody } from '~/utils/waiver'
 import { acceptWaiverInviteSchema, completeWaiverInviteContactSchema } from '~/utils/waiver-validation'
 import { updateWaiverInviteScheduleSchema } from '~/utils/rental-validation'
-import { defaultRentalReturnOn, formatPickupClock, formatRentalReturnLabel } from '~/utils/rental-window'
+import { MAX_RENTAL_HOURS, MIN_RENTAL_HOURS, defaultRentalReturnOn, formatPickupClock, formatRentalReturnLabel, resolveHourlyRentalWindow } from '~/utils/rental-window'
 
 definePageMeta({
   layout: 'blank',
@@ -29,6 +29,13 @@ const contactReady = ref(false)
 const startsOn = ref('')
 const endsOn = ref('')
 const pickupTime = ref('')
+const hours = ref(1)
+const hourlyBooking = computed(() => invite.value?.rental.billingUnit === 'hour')
+const hourlyWindow = computed(() => resolveHourlyRentalWindow({
+  startsOn: startsOn.value,
+  pickupTime: pickupTime.value || '09:00',
+  hours: hours.value,
+}))
 const scheduleReady = ref(false)
 const dateCalendar = ref<AvailabilityCalendar | null>(null)
 const errors = ref<Record<string, string>>({})
@@ -157,6 +164,7 @@ watch(invite, (value) => {
     endsOn.value = value.rental.endsOn
     startsOn.value = value.rental.startsOn
     pickupTime.value = value.rental.pickupTime || '09:00'
+    hours.value = value.rental.billedHours || 1
     scheduleReady.value = true
   }
   if (value.canEditSchedule && !dateCalendar.value) {
@@ -215,8 +223,9 @@ async function onSubmit() {
     ? updateWaiverInviteScheduleSchema.safeParse({
         token: token.value,
         startsOn: startsOn.value,
-        endsOn: endsOn.value,
+        endsOn: hourlyBooking.value ? hourlyWindow.value.endsOn : endsOn.value,
         pickupTime: pickupTime.value,
+        hours: hourlyBooking.value ? hours.value : undefined,
       })
     : null
   if (schedule && !schedule.success) {
@@ -423,7 +432,8 @@ async function onUploadIdentity() {
                 Return
               </dt>
               <dd class="mt-1 text-sm text-[#12201a]">
-                {{ formatRentalReturnLabel(invite.canEditSchedule ? endsOn : invite.rental.endsOn, invite.canEditSchedule ? pickupTime : invite.rental.pickupTime) }}
+                <template v-if="hourlyBooking && invite.canEditSchedule">{{ formatBusinessDateTime(hourlyWindow.returnAt) }}</template>
+                <template v-else>{{ formatRentalReturnLabel(invite.canEditSchedule ? endsOn : invite.rental.endsOn, invite.canEditSchedule ? pickupTime : invite.rental.pickupTime) }}</template>
               </dd>
             </div>
           </dl>
@@ -446,11 +456,27 @@ async function onUploadIdentity() {
                     v-model="pickupTime"
                     :availability="dateCalendar"
                     :starts-on="startsOn"
-                    :ends-on="endsOn"
+                    :ends-on="hourlyBooking ? hourlyWindow.endsOn : endsOn"
+                    :hours="hourlyBooking ? hours : undefined"
                     :disabled="pending"
                   />
                 </template>
               </BookingDateRange>
+              <label
+                v-if="hourlyBooking"
+                class="block text-sm sm:col-span-2"
+              >
+                <span class="mb-1.5 block text-xs font-medium text-[#5b6b64]">Hours</span>
+                <input
+                  v-model.number="hours"
+                  type="number"
+                  :min="MIN_RENTAL_HOURS"
+                  :max="MAX_RENTAL_HOURS"
+                  step="1"
+                  class="w-full rounded-xl border border-[#12201a]/15 bg-white px-3 py-2 text-base"
+                  :disabled="pending"
+                >
+              </label>
             </div>
             <p
               v-if="errors.startsOn || errors.endsOn || errors.pickupTime"

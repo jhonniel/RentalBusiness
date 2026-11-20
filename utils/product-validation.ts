@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DEFAULT_PICKUP_TIME, isPastBusinessDateTime, isPickupTime } from './rental-window'
+import { DEFAULT_PICKUP_TIME, MAX_RENTAL_HOURS, MIN_RENTAL_HOURS, isPastBusinessDateTime, isPickupTime } from './rental-window'
 import { EQUIPMENT_STATUSES, PRICE_FIELD_KEYS, PRODUCT_STATUSES } from './constants'
 import { calendarDateInZone, isPastBusinessDate } from './datetime'
 
@@ -25,6 +25,13 @@ export const productInputSchema = z.object({
   shortDescription: z.string().trim().max(280).default(''),
   dailyPrice: money,
   weeklyPrice: optionalMoney,
+  hourlyEnabled: z.boolean().default(false),
+  hourlyPrice: optionalMoney,
+  hourlyLateFee: money.default(0),
+  hourlyDiscount: z.enum(['none', 'per_hour', 'hours']).default('none'),
+  hourlyLess: money.default(0),
+  hourlyLessHours: z.coerce.number().int().min(0).max(24).default(0),
+  hourlyLessMinHours: z.coerce.number().int().min(1, 'Use at least 1 hour.').max(24, 'Use 24 hours or fewer.').default(1),
   monthlyPrice: optionalMoney,
   longStayLess: money.default(0),
   longStayMinDays: z.coerce.number().int().min(1, 'Use at least 1 day.').default(3),
@@ -57,6 +64,15 @@ export const productInputSchema = z.object({
 ) <= data.quantity, {
   message: 'Reserved, rented, damaged, maintenance, and lost units cannot exceed total quantity.',
   path: ['quantity'],
+}).refine(data => !data.hourlyEnabled || (typeof data.hourlyPrice === 'number' && data.hourlyPrice > 0), {
+  message: 'Enter an hourly rate above 0.',
+  path: ['hourlyPrice'],
+}).refine(data => data.hourlyDiscount !== 'per_hour' || data.hourlyLess > 0, {
+  message: 'Enter a less per hour above 0.',
+  path: ['hourlyLess'],
+}).refine(data => data.hourlyDiscount !== 'hours' || data.hourlyLessHours >= 1, {
+  message: 'Enter how many hours to take off.',
+  path: ['hourlyLessHours'],
 })
 
 export const productListQuerySchema = z.object({
@@ -116,6 +132,10 @@ export const availabilityQuerySchema = z.object({
     message: 'Choose a pickup time.',
   }),
   quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1.').max(99).default(1),
+  hours: z.preprocess(
+    value => value === '' || value === null || value === undefined ? undefined : value,
+    z.coerce.number().int().min(MIN_RENTAL_HOURS, 'Choose at least 1 hour.').max(MAX_RENTAL_HOURS, 'Hourly rental can be at most 24 hours.').optional(),
+  ),
 }).strict().refine(data => Boolean(data.productUuid || data.productSlug), {
   message: 'Choose a product.',
   path: ['productUuid'],

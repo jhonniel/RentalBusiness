@@ -79,6 +79,8 @@ function toPublicWaiverInviteRental(rental: Awaited<ReturnType<typeof getAdminRe
     startsOn: rental.startsOn,
     endsOn: rental.endsOn,
     pickupTime: rental.pickupTime,
+    billingUnit: rental.billingUnit,
+    billedHours: rental.billedHours,
     items: rental.items,
     totalAmount: rental.totalAmount,
     depositAmount: rental.depositAmount,
@@ -622,6 +624,7 @@ export async function updateWaiverInviteSchedule(
     endsOn: input.endsOn,
     pickupTime: input.pickupTime,
     quantity: item.quantity,
+    hours: input.hours ?? rental.billedHours ?? undefined,
   }, {
     exceptRentalUuid: rental.uuid,
   })
@@ -646,12 +649,17 @@ export async function updateWaiverInviteSchedule(
     subtotal: quote.subtotal,
     depositAmount: quote.depositAmount,
     totalAmount: Math.max(0, quote.totalAmount - discount),
+    billingUnit: quote.billingUnit,
+    billedHours: quote.hours,
   })
 
   await updateRentalItemByRentalId(client, identity.id, {
     quantity: quote.quantity,
     dailyPrice: quote.dailyPrice,
     lineTotal: quote.lineTotal,
+    billingUnit: quote.billingUnit,
+    billedHours: quote.hours,
+    hourlyPrice: quote.hourlyPrice,
   })
 
   await insertRentalStatusHistory(client, {

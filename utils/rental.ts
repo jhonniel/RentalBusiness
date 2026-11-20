@@ -15,6 +15,7 @@ interface ProductRef {
   sku: string
   deposit_amount?: number | null
   late_fee?: number | null
+  hourly_late_fee?: number | null
   replacement_value?: number | null
 }
 
@@ -23,6 +24,9 @@ interface ItemRow {
   quantity: number
   daily_price: number
   line_total: number
+  billing_unit?: string | null
+  billed_hours?: number | null
+  hourly_price?: number | null
   products: ProductRef | ProductRef[] | null
 }
 
@@ -34,6 +38,8 @@ interface RentalRow {
   ends_on: string
   pickup_at?: string | null
   return_at?: string | null
+  billing_unit?: string | null
+  billed_hours?: number | null
   subtotal: number
   deposit_amount: number
   discount_amount: number
@@ -89,6 +95,9 @@ export function toPublicRentalItem(row: ItemRow): PublicRentalItem {
     quantity: row.quantity,
     dailyPrice: Number(row.daily_price),
     lineTotal: Number(row.line_total),
+    billingUnit: row.billing_unit === 'hour' ? 'hour' : 'day',
+    billedHours: row.billing_unit === 'hour' && row.billed_hours ? Number(row.billed_hours) : null,
+    hourlyPrice: row.hourly_price === null || row.hourly_price === undefined ? null : Number(row.hourly_price),
     product: {
       uuid: product.uuid,
       slug: product.slug,
@@ -96,6 +105,7 @@ export function toPublicRentalItem(row: ItemRow): PublicRentalItem {
       sku: product.sku,
       depositAmount: Number(product.deposit_amount ?? 0),
       lateFee: Number(product.late_fee ?? 0),
+      hourlyLateFee: Number(product.hourly_late_fee ?? 0),
       replacementValue: product.replacement_value === null || product.replacement_value === undefined
         ? null
         : Number(product.replacement_value),
@@ -121,6 +131,8 @@ export function toPublicRental(row: RentalRow): PublicRental {
           endsOn: row.ends_on,
           pickupTime: DEFAULT_PICKUP_TIME,
         })),
+    billingUnit: row.billing_unit === 'hour' ? 'hour' : 'day',
+    billedHours: row.billing_unit === 'hour' && row.billed_hours ? Number(row.billed_hours) : null,
     subtotal: Number(row.subtotal),
     depositAmount: Number(row.deposit_amount),
     discountAmount: Number(row.discount_amount),
@@ -273,7 +285,12 @@ export function rentalSalesBreakdown(rental: Pick<PublicRental, 'items' | 'start
   const extensionTotal = extensions.reduce((sum, extension) => sum + toMinorUnits(extension.addedAmount), 0)
   const lineTotal = rental.items.reduce((sum, item) => sum + toMinorUnits(item.lineTotal), 0)
   const baseRent = Math.max(0, lineTotal - extensionTotal)
-  const baseListRent = rental.items.reduce((sum, item) => sum + toMinorUnits(item.dailyPrice * baseDays * item.quantity), 0)
+  const baseListRent = rental.items.reduce((sum, item) => {
+    if (item.billingUnit === 'hour' && item.hourlyPrice && item.billedHours) {
+      return sum + toMinorUnits(item.hourlyPrice * item.billedHours * item.quantity)
+    }
+    return sum + toMinorUnits(item.dailyPrice * baseDays * item.quantity)
+  }, 0)
   const rent = toMinorUnits(Math.max(0, rental.totalAmount))
   const pendingExtension = Math.min(rent, toMinorUnits(Math.max(0, rental.pendingExtensionAmount ?? 0)))
   const pendingBalance = Math.min(rent - pendingExtension, toMinorUnits(Math.max(0, rental.paymentBalance?.balanceDue ?? 0)))

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
+import { useSignInRedirect } from '~/composables/useSignInRedirect'
 import { formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
 import { canCustomerPayRental, canSubmitRentalRequest, customerRentalNextLabel, customerRentalNextPath } from '~/utils/rental'
 import { productVisual } from '~/utils/storefront'
@@ -27,6 +28,8 @@ if (error.value?.statusCode === 404) {
     statusMessage: 'Rental not found',
   })
 }
+
+useSignInRedirect(error)
 
 useSiteMeta({
   title: rental.value ? `Rental ${rental.value.code}` : 'Rental',
@@ -163,6 +166,21 @@ async function cancelRental() {
       title="Rentals are not connected"
       description="Add live Supabase credentials to load this request."
     />
+
+    <CatalogNotice
+      v-else-if="error && !rental"
+      tone="alert"
+      title="This rental could not load"
+      description="Try again in a moment."
+    >
+      <UButton
+        color="neutral"
+        variant="outline"
+        @click="refresh()"
+      >
+        Try again
+      </UButton>
+    </CatalogNotice>
 
     <div
       v-else-if="rental"

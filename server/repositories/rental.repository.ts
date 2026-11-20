@@ -5,7 +5,7 @@ import { BOOKED_RENTAL_STATUSES, CALENDAR_RENTAL_STATUSES, CANCELLED_RENTAL_STAT
 import { addCalendarDays } from '../../utils/expense'
 import { rentalCodeCandidates, type RentalHistoryRow } from '../../utils/rental'
 import { businessDateTimeToUtc } from '../../utils/rental-window'
-import { AppError, ERROR_CODES } from '../utils/errors'
+import { AppError, ERROR_CODES, queryLoadError } from '../utils/errors'
 
 type Client = SupabaseClient<Database>
 
@@ -19,6 +19,8 @@ const RENTAL_SELECT = `
   ends_on,
   pickup_at,
   return_at,
+  billing_unit,
+  billed_hours,
   subtotal,
   deposit_amount,
   discount_amount,
@@ -42,6 +44,9 @@ const RENTAL_SELECT = `
     quantity,
     daily_price,
     line_total,
+    billing_unit,
+    billed_hours,
+    hourly_price,
     products (
       uuid,
       slug,
@@ -49,6 +54,7 @@ const RENTAL_SELECT = `
       sku,
       deposit_amount,
       late_fee,
+      hourly_late_fee,
       replacement_value
     )
   ),
@@ -207,6 +213,8 @@ export async function updateRentalDraft(
     subtotal: number
     depositAmount: number
     totalAmount: number
+    billingUnit?: 'day' | 'hour'
+    billedHours?: number | null
   },
 ) {
   const { data, error } = await client
@@ -216,6 +224,12 @@ export async function updateRentalDraft(
       ends_on: values.endsOn,
       pickup_at: values.pickupAt,
       return_at: values.returnAt,
+      ...(values.billingUnit
+        ? {
+            billing_unit: values.billingUnit,
+            billed_hours: values.billingUnit === 'hour' ? values.billedHours ?? null : null,
+          }
+        : {}),
       notes: values.notes,
       subtotal: values.subtotal,
       deposit_amount: values.depositAmount,
@@ -245,6 +259,8 @@ export async function updateRentalSchedule(
     subtotal: number
     depositAmount: number
     totalAmount: number
+    billingUnit?: 'day' | 'hour'
+    billedHours?: number | null
   },
 ) {
   const { data, error } = await client
@@ -254,6 +270,12 @@ export async function updateRentalSchedule(
       ends_on: values.endsOn,
       pickup_at: values.pickupAt,
       return_at: values.returnAt,
+      ...(values.billingUnit
+        ? {
+            billing_unit: values.billingUnit,
+            billed_hours: values.billingUnit === 'hour' ? values.billedHours ?? null : null,
+          }
+        : {}),
       notes: values.notes,
       subtotal: values.subtotal,
       deposit_amount: values.depositAmount,
@@ -300,6 +322,9 @@ export async function updateRentalItemByRentalId(
     quantity: number
     dailyPrice: number
     lineTotal: number
+    billingUnit?: 'day' | 'hour'
+    billedHours?: number | null
+    hourlyPrice?: number | null
   },
 ) {
   const { error } = await client
@@ -308,6 +333,13 @@ export async function updateRentalItemByRentalId(
       quantity: values.quantity,
       daily_price: values.dailyPrice,
       line_total: values.lineTotal,
+      ...(values.billingUnit
+        ? {
+            billing_unit: values.billingUnit,
+            billed_hours: values.billingUnit === 'hour' ? values.billedHours ?? null : null,
+            hourly_price: values.billingUnit === 'hour' ? values.hourlyPrice ?? null : null,
+          }
+        : {}),
     })
     .eq('rental_id', rentalId)
 
@@ -379,7 +411,7 @@ export async function findRentalByUuid(client: Client, uuid: string) {
     .maybeSingle()
 
   if (error) {
-    throw new AppError('We could not load that rental.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+    throw queryLoadError('We could not load that rental.', error)
   }
 
   return data
@@ -394,7 +426,7 @@ export async function findRentalByCode(client: Client, code: string) {
     .maybeSingle()
 
   if (error) {
-    throw new AppError('We could not load that rental.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+    throw queryLoadError('We could not load that rental.', error)
   }
 
   return data
@@ -486,7 +518,7 @@ export async function listRentals(client: Client, filters: {
   const { data, error, count } = await query
 
   if (error) {
-    throw new AppError('We could not load rentals.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+    throw queryLoadError('We could not load rentals.', error)
   }
 
   return { rows: data ?? [], total: count ?? 0 }

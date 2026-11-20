@@ -10,6 +10,7 @@ import {
   normalizePickupTime,
   rentalPeriodDays,
   rentalScheduleChange,
+  resolveHourlyRentalWindow,
   resolveRentalWindow,
 } from '../../utils/rental-window'
 
@@ -28,6 +29,29 @@ describe('empty booking dates', () => {
     })
     expect(formatRentalReturnLabel('', '10:00')).toBe('after you choose the dates')
     expect(addCalendarDays('2026-10-31', 1)).toBe('2026-11-01')
+  })
+})
+
+describe('hourly rental window', () => {
+  it('returns the kit that many hours after pickup, including after midnight', () => {
+    expect(resolveHourlyRentalWindow({
+      startsOn: '2026-11-20',
+      pickupTime: '09:00',
+      hours: 3,
+    })).toMatchObject({
+      endsOn: '2026-11-20',
+      hours: 3,
+      returnAt: '2026-11-20T04:00:00.000Z',
+    })
+    expect(resolveHourlyRentalWindow({
+      startsOn: '2026-11-20',
+      pickupTime: '20:00',
+      hours: 5,
+    })).toMatchObject({
+      endsOn: '2026-11-21',
+      hours: 5,
+      returnAt: '2026-11-20T17:00:00.000Z',
+    })
   })
 })
 

@@ -3,6 +3,7 @@ import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { customerRentalGroup, amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
+import { fieldErrorSummary, fieldErrors } from '../../utils/auth-validation'
 import { createAdminRentalSchema, createRentalSchema, rentalQuoteQuerySchema, adminRentalQuoteSchema } from '../../utils/rental-validation'
 import { isPastBusinessDateTime } from '../../utils/rental-window'
 
@@ -46,6 +47,24 @@ describe('rental validation', () => {
       firstName: 'Ana',
       lastName: 'Reyes',
     }).success).toBe(false)
+  })
+
+  it('names each required field on an incomplete request', () => {
+    const result = createRentalSchema.safeParse({
+      productSlug: 'sony-a7-iv',
+      startsOn: addCalendarDays(calendarDateInZone(), 1),
+      endsOn: addCalendarDays(calendarDateInZone(), 2),
+      hours: Number.NaN,
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(fieldErrors(result.error)).toMatchObject({
+        firstName: 'First name is required.',
+        lastName: 'Last name is required.',
+        hours: 'Hours is required.',
+      })
+      expect(fieldErrorSummary(result.error)).toContain('Hours is required.')
+    }
   })
 
   it('rejects a quote that includes an internal product id', () => {

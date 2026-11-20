@@ -3,10 +3,12 @@ import { formatMoney } from './currency'
 
 export interface WaiverEquipmentItem {
   quantity: number
+  billingUnit?: 'day' | 'hour' | null
   product: {
     name: string
     depositAmount?: number | null
     lateFee?: number | null
+    hourlyLateFee?: number | null
     replacementValue?: number | null
   }
 }
@@ -210,7 +212,20 @@ export function waiverDisplayLines(body: string): WaiverTextPart[][] {
   })
 }
 
+export function isHourlyWaiverItem(item: WaiverEquipmentItem) {
+  return item.billingUnit === 'hour'
+}
+
+export function hourlyWaiverLateFee(items: WaiverEquipmentItem[]) {
+  const hourly = items.filter(isHourlyWaiverItem)
+  if (!hourly.length) {
+    return null
+  }
+  return hourly.reduce((sum, item) => sum + Math.max(0, item.product.hourlyLateFee ?? 0) * Math.max(0, item.quantity), 0)
+}
+
 export function waiverEquipmentLines(items: WaiverEquipmentItem[], lateFeeSchedule = false): string {
+  const hourly = items.some(isHourlyWaiverItem)
   if (!items.length) {
     return lateFeeSchedule
       ? `- None listed on this rental.\n${WAIVER_LATE_FEE_SCHEDULE}`
@@ -222,7 +237,10 @@ export function waiverEquipmentLines(items: WaiverEquipmentItem[], lateFeeSchedu
     if (item.product.depositAmount !== undefined) {
       lines.push(waiverMoneyLine('Deposit', item.product.depositAmount))
     }
-    if (!lateFeeSchedule && item.product.lateFee !== undefined) {
+    if (isHourlyWaiverItem(item)) {
+      lines.push(waiverMoneyLine('Late fee', item.product.hourlyLateFee ?? 0, ' per hour'))
+    }
+    else if (!lateFeeSchedule && item.product.lateFee !== undefined) {
       lines.push(waiverMoneyLine('Late fee', item.product.lateFee, ' per day'))
     }
     if (item.product.replacementValue !== undefined) {
@@ -231,7 +249,27 @@ export function waiverEquipmentLines(items: WaiverEquipmentItem[], lateFeeSchedu
     return lines.join('\n')
   }).join('\n')
 
+  if (hourly) {
+    return list
+  }
   return lateFeeSchedule ? `${list}\n${WAIVER_LATE_FEE_SCHEDULE}` : list
+}
+
+function applyHourlyLateFeeClause(body: string, amount: number) {
+  const fee = formatMoney(amount)
+  return body
+    .replace(
+      'Less than 6 hours after the return time, the late fee is ₱300.00.',
+      `For this hourly rental, the late fee is ${fee} for each hour after the agreed return time.`,
+    )
+    .replace(
+      '6 hours or more, and up to 12 hours, after the return time, the late fee is half a day of the rented item.',
+      'Each hour, including a part of an hour, adds that amount for each unit.',
+    )
+    .replace(
+      'More than 12 hours after the return time, the late return is charged as 1 day of rent.',
+      'The daily late-return schedule does not apply to this booking.',
+    )
 }
 
 export function adminSignedWaiverPath(identifier: string) {
@@ -243,6 +281,7 @@ export function adminSignedWaiverUrl(origin: string, identifier: string) {
 }
 
 export function renderWaiverBody(body: string, items: WaiverEquipmentItem[]): string {
+  const hourlyLateFee = hourlyWaiverLateFee(items)
   const list = waiverEquipmentLines(items, body.includes('JRY-WAIVER-v1.2'))
   const withEquipment = body.includes('{{RENTAL_EQUIPMENT}}')
     ? body.replaceAll('{{RENTAL_EQUIPMENT}}', list)
@@ -250,6 +289,7 @@ export function renderWaiverBody(body: string, items: WaiverEquipmentItem[]): st
         /Equipment may include, but is not limited to:\r?\n(?:- .+\r?\n)+/,
         `Equipment on this rental:\n${list}\n`,
       )
+  const stated = hourlyLateFee === null ? withEquipment : applyHourlyLateFeeClause(withEquipment, hourlyLateFee)
 
-  return waiverSectionsForRental(withEquipment, items)
+  return waiverSectionsForRental(stated, items)
 }

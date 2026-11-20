@@ -153,6 +153,13 @@ export interface Database {
           daily_price: number
           weekly_price: number | null
           monthly_price: number | null
+          hourly_enabled: boolean
+          hourly_price: number | null
+          hourly_late_fee: number
+          hourly_discount: 'none' | 'per_hour' | 'hours'
+          hourly_less: number
+          hourly_less_hours: number
+          hourly_less_min_hours: number
           long_stay_less: number
           long_stay_min_days: number
           deposit_amount: number
@@ -188,6 +195,13 @@ export interface Database {
           short_description?: string
           weekly_price?: number | null
           monthly_price?: number | null
+          hourly_enabled?: boolean
+          hourly_price?: number | null
+          hourly_late_fee?: number
+          hourly_discount?: 'none' | 'per_hour' | 'hours'
+          hourly_less?: number
+          hourly_less_hours?: number
+          hourly_less_min_hours?: number
           long_stay_less?: number
           long_stay_min_days?: number
           deposit_amount?: number
@@ -214,6 +228,13 @@ export interface Database {
           daily_price?: number
           weekly_price?: number | null
           monthly_price?: number | null
+          hourly_enabled?: boolean
+          hourly_price?: number | null
+          hourly_late_fee?: number
+          hourly_discount?: 'none' | 'per_hour' | 'hours'
+          hourly_less?: number
+          hourly_less_hours?: number
+          hourly_less_min_hours?: number
           long_stay_less?: number
           long_stay_min_days?: number
           deposit_amount?: number
@@ -339,6 +360,8 @@ export interface Database {
           ends_on: string
           pickup_at: string
           return_at: string
+          billing_unit: string
+          billed_hours: number | null
           subtotal: number
           deposit_amount: number
           discount_amount: number
@@ -355,6 +378,8 @@ export interface Database {
           ends_on: string
           pickup_at: string
           return_at: string
+          billing_unit?: string
+          billed_hours?: number | null
           commissioner_id?: number | null
           commission_per_day?: number
           commission_amount?: number
@@ -375,6 +400,8 @@ export interface Database {
           ends_on?: string
           pickup_at?: string
           return_at?: string
+          billing_unit?: string
+          billed_hours?: number | null
           subtotal?: number
           deposit_amount?: number
           discount_amount?: number
@@ -412,6 +439,9 @@ export interface Database {
           quantity: number
           daily_price: number
           line_total: number
+          billing_unit: string
+          billed_hours: number | null
+          hourly_price: number | null
           created_at: string
         }
         Insert: {
@@ -420,12 +450,18 @@ export interface Database {
           quantity: number
           daily_price: number
           line_total: number
+          billing_unit?: string
+          billed_hours?: number | null
+          hourly_price?: number | null
           uuid?: string
         }
         Update: {
           quantity?: number
           daily_price?: number
           line_total?: number
+          billing_unit?: string
+          billed_hours?: number | null
+          hourly_price?: number | null
         }
         Relationships: [
           {

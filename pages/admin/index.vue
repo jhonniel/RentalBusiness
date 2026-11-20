@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminAnalytics } from '~/types/analytics'
+import { useSignInRedirect } from '~/composables/useSignInRedirect'
 import { maskCountedAmount } from '~/utils/count-up'
 
 definePageMeta({
@@ -16,6 +17,7 @@ const { formatMoney } = useCurrency()
 const { data, error, pending } = await useFetch<AdminAnalytics>('/api/admin/analytics')
 const hasData = computed(() => Boolean(data.value))
 const remote = useRemoteState(error, pending, hasData)
+useSignInRedirect(error)
 const dayLabel = new Intl.DateTimeFormat('en-PH', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 const compactMoney = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', notation: 'compact', maximumFractionDigits: 1 })
 const formatDay = (date: string) => dayLabel.format(new Date(`${date}T00:00:00Z`))

@@ -8,8 +8,8 @@ import { evaluateAvailability } from '../../utils/availability'
 import { EMAIL_TEMPLATES } from '../../utils/email'
 import { rentalSubmittedStaffEmail } from '../../utils/email-templates'
 import { isPastBusinessDate } from '../../utils/datetime'
-import { quoteRentalLine } from '../../utils/pricing'
-import { resolveRentalWindow } from '../../utils/rental-window'
+import { quoteHourlyRentalLine, quoteRentalLine } from '../../utils/pricing'
+import { resolveHourlyRentalWindow, resolveRentalWindow } from '../../utils/rental-window'
 import { isRentalCode, toPublicRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { isUuid } from '../../utils/slug'
@@ -118,7 +118,14 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
   hasBlockedDates: boolean
 }> {
   const product = await loadActiveProduct(client, query)
-  const window = resolveRentalWindow(query)
+  const hourly = typeof query.hours === 'number'
+  const window = hourly
+    ? resolveHourlyRentalWindow({
+        startsOn: query.startsOn,
+        pickupTime: query.pickupTime,
+        hours: query.hours,
+      })
+    : resolveRentalWindow(query)
   if (!options?.allowPastStart && isPastBusinessDate(window.startsOn)) {
     throw new AppError('Those dates are in the past.', 422, ERROR_CODES.VALIDATION_ERROR)
   }
@@ -140,17 +147,31 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     requestedQuantity: query.quantity,
     hasBlockedDates,
   })
-  const days = window.days
-  const line = quoteRentalLine({
-    dailyPrice: Number(product.daily_price),
-    weeklyPrice: product.weekly_price === null ? null : Number(product.weekly_price),
-    monthlyPrice: product.monthly_price === null ? null : Number(product.monthly_price),
-    depositAmount: Number(product.deposit_amount),
-    longStayLess: Number(product.long_stay_less ?? 0),
-    longStayMinDays: Number(product.long_stay_min_days ?? 3),
-    quantity: query.quantity,
-    days,
-  })
+  const hourlyPrice = Number(product.hourly_price)
+  if (hourly && (!product.hourly_enabled || !(hourlyPrice > 0))) {
+    throw new AppError('Hourly rental is not available for this equipment.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+  const line = hourly
+    ? quoteHourlyRentalLine({
+        hourlyPrice,
+        depositAmount: Number(product.deposit_amount),
+        quantity: query.quantity,
+        hours: window.hours,
+        hourlyDiscount: product.hourly_discount,
+        hourlyLess: Number(product.hourly_less ?? 0),
+        hourlyLessHours: Number(product.hourly_less_hours ?? 0),
+        hourlyLessMinHours: Number(product.hourly_less_min_hours ?? 1),
+      })
+    : quoteRentalLine({
+        dailyPrice: Number(product.daily_price),
+        weeklyPrice: product.weekly_price === null ? null : Number(product.weekly_price),
+        monthlyPrice: product.monthly_price === null ? null : Number(product.monthly_price),
+        depositAmount: Number(product.deposit_amount),
+        longStayLess: Number(product.long_stay_less ?? 0),
+        longStayMinDays: Number(product.long_stay_min_days ?? 3),
+        quantity: query.quantity,
+        days: window.days,
+      })
 
   return {
     product: {
@@ -164,9 +185,12 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     pickupTime: window.pickupTime,
     pickupAt: window.pickupAt,
     returnAt: window.returnAt,
-    days: line.days,
+    days: 'days' in line ? line.days : window.days,
+    hours: hourly ? window.hours : null,
+    billingUnit: hourly ? 'hour' as const : 'day' as const,
+    hourlyPrice: hourly ? hourlyPrice : null,
     quantity: line.quantity,
-    dailyPrice: line.dailyPrice,
+    dailyPrice: Number(product.daily_price),
     rentAmount: line.rentAmount,
     lessAmount: line.lessAmount,
     lineTotal: line.lineTotal,
@@ -233,6 +257,8 @@ export async function createRental(
     ends_on: quote.endsOn,
     pickup_at: quote.pickupAt,
     return_at: quote.returnAt,
+    billing_unit: quote.billingUnit,
+    billed_hours: quote.billingUnit === 'hour' ? quote.hours : null,
     status: 'draft',
     subtotal: quote.subtotal,
     deposit_amount: quote.depositAmount,
@@ -249,6 +275,9 @@ export async function createRental(
       quantity: quote.quantity,
       daily_price: quote.dailyPrice,
       line_total: quote.lineTotal,
+      billing_unit: quote.billingUnit,
+      billed_hours: quote.billingUnit === 'hour' ? quote.hours : null,
+      hourly_price: quote.billingUnit === 'hour' ? quote.hourlyPrice : null,
     })
 
     await insertRentalStatusHistory(client, {
@@ -277,6 +306,7 @@ export async function createRental(
       startsOn: quote.startsOn,
       endsOn: quote.endsOn,
       quantity: quote.quantity,
+      hours: quote.hours,
     })
   }
   catch (error) {
@@ -359,6 +389,7 @@ export async function submitOwnRental(event: H3Event, client: Client, profileId:
     endsOn: rental.endsOn,
     pickupTime: rental.pickupTime,
     quantity: item.quantity,
+    hours: rental.billedHours ?? undefined,
   }, {
     exceptRentalUuid: rental.uuid,
   })
@@ -434,6 +465,7 @@ export async function rescheduleOwnRental(
     endsOn: input.endsOn,
     pickupTime: input.pickupTime,
     quantity: item.quantity,
+    hours: input.hours ?? rental.billedHours ?? undefined,
   }, {
     exceptRentalUuid: rental.uuid,
   })
@@ -485,12 +517,17 @@ export async function rescheduleOwnRental(
     subtotal: quote.subtotal,
     depositAmount: quote.depositAmount,
     totalAmount,
+    billingUnit: quote.billingUnit,
+    billedHours: quote.hours,
   }
   await updateRentalDraft(admin, rental.uuid, schedule)
   await updateRentalItemByRentalId(admin, identity.id, {
     quantity: quote.quantity,
     dailyPrice: quote.dailyPrice,
     lineTotal: quote.lineTotal,
+    billingUnit: quote.billingUnit,
+    billedHours: quote.hours,
+    hourlyPrice: quote.hourlyPrice,
   })
   await updateRentalDraft(admin, rental.uuid, schedule)
 
@@ -505,6 +542,7 @@ export async function rescheduleOwnRental(
         startsOn: quote.startsOn,
         endsOn: quote.endsOn,
         days: quote.days,
+        hours: quote.hours,
         quantity: quote.quantity,
       })
     }

@@ -80,6 +80,9 @@ function buildSnapshot(input: {
       quantity: item.quantity,
       dailyPrice: item.dailyPrice,
       lineTotal: item.lineTotal,
+      ...(item.billingUnit === 'hour'
+        ? { billingUnit: 'hour' as const, billedHours: item.billedHours, hourlyPrice: item.hourlyPrice }
+        : {}),
     })),
     amounts: {
       subtotal: input.rental.subtotal,

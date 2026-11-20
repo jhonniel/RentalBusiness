@@ -12,7 +12,7 @@ import {
 } from '../../utils/availability'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone, inclusiveDayCount, isPastBusinessDate } from '../../utils/datetime'
-import { DEFAULT_PICKUP_TIME, businessDateTimeToUtc, resolveRentalWindow } from '../../utils/rental-window'
+import { DEFAULT_PICKUP_TIME, businessDateTimeToUtc, resolveHourlyRentalWindow, resolveRentalWindow } from '../../utils/rental-window'
 import { isBookableProductStatus } from '../../utils/constants'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
@@ -49,13 +49,24 @@ export async function getProductAvailability(client: Client, query: {
   endsOn: string
   pickupTime?: string
   quantity: number
+  hours?: number
 }): Promise<AvailabilityResponse> {
   const row = await loadActiveProduct(client, query.productUuid, query.productSlug)
-  const window = resolveRentalWindow({
-    startsOn: query.startsOn,
-    endsOn: query.endsOn,
-    pickupTime: query.pickupTime || DEFAULT_PICKUP_TIME,
-  })
+  const hourly = typeof query.hours === 'number'
+  if (hourly && (!row.hourly_enabled || !(Number(row.hourly_price) > 0))) {
+    throw new AppError('Hourly rental is not available for this equipment.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+  const window = hourly
+    ? resolveHourlyRentalWindow({
+        startsOn: query.startsOn,
+        pickupTime: query.pickupTime || DEFAULT_PICKUP_TIME,
+        hours: query.hours,
+      })
+    : resolveRentalWindow({
+        startsOn: query.startsOn,
+        endsOn: query.endsOn,
+        pickupTime: query.pickupTime || DEFAULT_PICKUP_TIME,
+      })
   if (isPastBusinessDate(window.startsOn)) {
     throw new AppError('Those dates are in the past.', 422, ERROR_CODES.VALIDATION_ERROR)
   }

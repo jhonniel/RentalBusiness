@@ -230,6 +230,7 @@ async function deleteProduct(uuid: string) {
               </td>
               <td class="px-4 py-3 text-stone-600">
                 {{ money(product.dailyPrice) }}/day
+                <span v-if="product.hourlyEnabled && product.hourlyPrice !== null"> · {{ money(product.hourlyPrice) }}/hour</span>
               </td>
               <td class="px-4 py-3 text-stone-600">
                 {{ product.availableQuantity }} / {{ product.quantity }}

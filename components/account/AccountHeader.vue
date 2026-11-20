@@ -49,20 +49,7 @@ async function handleLogout() {
         <UButton
           color="neutral"
           variant="outline"
-          square
-          class="rounded-lg border-[#12201a]/15 sm:hidden"
-          aria-label="Sign out"
-          @click="handleLogout"
-        >
-          <UIcon
-            name="i-lucide-log-out"
-            class="size-4"
-          />
-        </UButton>
-        <UButton
-          color="neutral"
-          variant="outline"
-          class="hidden rounded-lg border-[#12201a]/15 sm:inline-flex"
+          class="rounded-lg border-[#12201a]/15 px-2.5 text-[#12201a] sm:px-3"
           @click="handleLogout"
         >
           Sign out

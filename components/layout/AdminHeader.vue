@@ -42,16 +42,12 @@ const { profile, logout } = useAuth()
       <span class="rounded-full bg-stone-100 px-2 py-1">PHP</span>
       <UButton
         color="neutral"
-        variant="ghost"
-        size="xs"
-        aria-label="Sign out"
+        variant="outline"
+        size="sm"
+        class="shrink-0 px-2.5"
         @click="logout"
       >
-        <UIcon
-          name="i-lucide-log-out"
-          class="size-4 lg:hidden"
-        />
-        <span class="hidden lg:inline">Sign out</span>
+        Sign out
       </UButton>
     </div>
   </header>

@@ -28,6 +28,13 @@ export interface PublicProduct {
   dailyPrice: number
   weeklyPrice: number | null
   monthlyPrice: number | null
+  hourlyEnabled: boolean
+  hourlyPrice: number | null
+  hourlyLateFee: number
+  hourlyDiscount: 'none' | 'per_hour' | 'hours'
+  hourlyLess: number
+  hourlyLessHours: number
+  hourlyLessMinHours: number
   longStayLess: number
   longStayMinDays: number
   depositAmount: number
@@ -97,6 +104,13 @@ export interface CatalogProduct {
   dailyPrice: number | null
   weeklyPrice: number | null
   monthlyPrice: number | null
+  hourlyEnabled: boolean
+  hourlyPrice: number | null
+  hourlyLateFee: number | null
+  hourlyDiscount: 'none' | 'per_hour' | 'hours'
+  hourlyLess: number
+  hourlyLessHours: number
+  hourlyLessMinHours: number
   longStayLess: number
   longStayMinDays: number
   depositAmount: number | null

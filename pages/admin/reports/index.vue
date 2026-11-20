@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminReport, ReportBarItem, ReportCharts, ReportType } from '~/types/report'
+import { useSignInRedirect } from '~/composables/useSignInRedirect'
 import { REPORT_TYPES } from '~/types/report'
 import { calendarDateInZone } from '~/utils/datetime'
 import { monthStart } from '~/utils/analytics'
@@ -36,6 +37,7 @@ const { data, error, pending } = await useFetch<AdminReport>(
 
 const hasData = computed(() => Boolean(data.value))
 const remote = useRemoteState(error, pending, hasData)
+useSignInRedirect(error)
 const csvHref = computed(() => {
   const params = new URLSearchParams({
     startsOn: startsOn.value,

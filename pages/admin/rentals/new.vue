@@ -3,10 +3,11 @@ import type { PublicProduct } from '~/types/catalog'
 import type { PublicRental, RentalQuote } from '~/types/rental'
 import { fieldErrors } from '~/utils/auth-validation'
 import { identityUploadFormData } from '~/utils/browser-image'
-import { calendarDateInZone } from '~/utils/datetime'
+import { calendarDateInZone, formatBusinessDateTime } from '~/utils/datetime'
 import { IMAGE_UPLOAD_ACCEPT, IMAGE_UPLOAD_HELP } from '~/utils/image-upload'
+import { hourlyDiscountNote } from '~/utils/pricing'
 import { createAdminRentalSchema } from '~/utils/rental-validation'
-import { DEFAULT_PICKUP_TIME, defaultRentalReturnOn, formatRentalReturnLabel, resolveRentalWindow } from '~/utils/rental-window'
+import { DEFAULT_PICKUP_TIME, MAX_RENTAL_HOURS, MIN_RENTAL_HOURS, defaultRentalReturnOn, formatRentalReturnLabel, resolveHourlyRentalWindow, resolveRentalWindow } from '~/utils/rental-window'
 
 definePageMeta({
   layout: 'admin',
@@ -35,12 +36,14 @@ const customerSearch = refDebounced(customerSearchInput, 300)
 const productSearchInput = ref('')
 const productSearch = refDebounced(productSearchInput, 300)
 const selectedCustomer = ref<CustomerOption | null>(null)
-const selectedProduct = ref<Pick<PublicProduct, 'uuid' | 'slug' | 'name'> | null>(null)
+const selectedProduct = ref<Pick<PublicProduct, 'uuid' | 'slug' | 'name' | 'dailyPrice' | 'hourlyEnabled' | 'hourlyPrice' | 'hourlyDiscount' | 'hourlyLess' | 'hourlyLessHours' | 'hourlyLessMinHours'> | null>(null)
+const billing = ref<'day' | 'hour'>('day')
 const form = reactive({
   startsOn: today,
   endsOn: defaultRentalReturnOn(today),
   pickupTime: DEFAULT_PICKUP_TIME,
   quantity: 1,
+  hours: 1,
   firstName: '',
   lastName: '',
   phone: '',
@@ -93,11 +96,31 @@ watch(productSearch, (value) => {
 })
 
 const unavailable = computed(() => customerError.value?.statusCode === 503 || productError.value?.statusCode === 503)
-const rentalWindow = computed(() => resolveRentalWindow({
-  startsOn: form.startsOn,
-  endsOn: form.endsOn,
-  pickupTime: form.pickupTime,
-}))
+const hourlyBooking = computed(() => billing.value === 'hour' && Boolean(selectedProduct.value?.hourlyEnabled))
+const discountNote = computed(() => hourlyBooking.value && selectedProduct.value
+  ? hourlyDiscountNote(selectedProduct.value, formatMoney)
+  : '')
+const activeRateLabel = computed(() => {
+  const product = selectedProduct.value
+  if (!product?.hourlyEnabled) {
+    return ''
+  }
+  if (hourlyBooking.value) {
+    return product.hourlyPrice ? `${formatMoney(product.hourlyPrice)} per hour` : ''
+  }
+  return `${formatMoney(product.dailyPrice)} per day`
+})
+const rentalWindow = computed(() => hourlyBooking.value
+  ? resolveHourlyRentalWindow({
+      startsOn: form.startsOn,
+      pickupTime: form.pickupTime,
+      hours: form.hours,
+    })
+  : resolveRentalWindow({
+      startsOn: form.startsOn,
+      endsOn: form.endsOn,
+      pickupTime: form.pickupTime,
+    }))
 
 watch(() => form.startsOn, (value, previous) => {
   if (!value) {
@@ -136,7 +159,15 @@ function chooseProduct(product: PublicProduct) {
     uuid: product.uuid,
     slug: product.slug,
     name: product.name,
+    dailyPrice: product.dailyPrice,
+    hourlyEnabled: product.hourlyEnabled,
+    hourlyPrice: product.hourlyPrice,
+    hourlyDiscount: product.hourlyDiscount,
+    hourlyLess: product.hourlyLess,
+    hourlyLessHours: product.hourlyLessHours,
+    hourlyLessMinHours: product.hourlyLessMinHours,
   }
+  billing.value = 'day'
   productSearchInput.value = ''
 }
 
@@ -157,6 +188,7 @@ async function refreshQuote() {
         endsOn: form.endsOn,
         pickupTime: form.pickupTime,
         quantity: form.quantity,
+        ...(hourlyBooking.value ? { hours: form.hours } : {}),
       },
     })
   }
@@ -173,7 +205,7 @@ async function refreshQuote() {
 }
 
 watch(
-  () => [selectedProduct.value?.uuid, form.startsOn, form.endsOn, form.pickupTime, form.quantity].join('|'),
+  () => [selectedProduct.value?.uuid, form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.hours, billing.value].join('|'),
   () => {
     refreshQuote()
   },
@@ -217,6 +249,8 @@ async function onSubmit() {
     endsOn: form.endsOn,
     pickupTime: form.pickupTime,
     quantity: form.quantity,
+    hours: hourlyBooking.value ? form.hours : undefined,
+    endsOn: rentalWindow.value.endsOn || form.endsOn,
     notes: form.notes,
     customerUuid: clientMode.value === 'existing' ? selectedCustomer.value?.uuid : undefined,
     firstName: form.firstName,
@@ -331,7 +365,7 @@ async function onSubmit() {
 
     <form
       v-else
-      class="grid items-start gap-6 xl:grid-cols-[minmax(0,36rem)_22rem]"
+      class="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,36rem)_22rem]"
       method="post"
       @submit.prevent="onSubmit"
     >
@@ -514,9 +548,17 @@ async function onSubmit() {
             v-if="selectedProduct"
             class="mt-4 flex items-center justify-between gap-3 rounded-lg border border-lumen-200 bg-lumen-50 px-3 py-3"
           >
-            <p class="min-w-0 truncate text-sm font-medium text-stone-900">
-              {{ selectedProduct.name }}
-            </p>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-stone-900">
+                {{ selectedProduct.name }}
+              </p>
+              <p
+                v-if="selectedProduct.hourlyEnabled"
+                class="text-xs text-stone-600"
+              >
+                This equipment can be booked by the hour.
+              </p>
+            </div>
             <button
               type="button"
               class="shrink-0 text-xs font-medium text-lumen-800"
@@ -562,12 +604,16 @@ async function onSubmit() {
             >
               <button
                 type="button"
-                class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50"
+                class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-left text-sm hover:bg-stone-50 max-sm:min-h-11"
                 :class="selectedProduct?.uuid === product.uuid ? 'bg-lumen-50' : ''"
                 @click="chooseProduct(product)"
               >
-                <span class="min-w-0 truncate font-medium text-stone-900">{{ product.name }}</span>
-                <span class="shrink-0 text-xs text-stone-500">{{ product.sku }}</span>
+                <span class="min-w-0 flex-1 truncate font-medium text-stone-900">{{ product.name }}</span>
+                <span class="shrink-0 text-xs text-stone-500 tabular-nums">{{ formatMoney(product.dailyPrice) }}/day</span>
+                <span
+                  v-if="product.hourlyEnabled"
+                  class="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600"
+                >Hourly</span>
               </button>
             </li>
           </ul>
@@ -588,40 +634,128 @@ async function onSubmit() {
           >
             Choose the equipment first, then set the pickup and return.
           </p>
-          <div class="mt-4 grid gap-4 sm:grid-cols-2">
-            <BookingDateRange
-              v-model:starts-on="form.startsOn"
-              v-model:ends-on="form.endsOn"
-              :product-slug="selectedProduct?.slug"
-              :quantity="form.quantity"
-              :disabled="pending || !selectedProduct"
-              flexible
+          <BillingUnitSwitch
+            v-if="selectedProduct?.hourlyEnabled"
+            v-model="billing"
+            tone="admin"
+            class="mt-4"
+          />
+          <p
+            v-if="selectedProduct?.hourlyEnabled"
+            class="mt-3 min-h-6 text-sm font-medium text-stone-800"
+          >
+            <Transition
+              name="billing-fade"
+              mode="out-in"
             >
-              <template #between>
+              <span
+                v-if="activeRateLabel"
+                :key="billing"
+                class="inline-block tabular-nums"
+              >{{ activeRateLabel }}</span>
+            </Transition>
+          </p>
+          <div class="relative">
+            <Transition name="billing-swap">
+              <div
+                v-if="hourlyBooking"
+                key="hour"
+                class="mt-4 grid gap-4 sm:grid-cols-2"
+              >
+                <BookingDateField
+                  v-model="form.startsOn"
+                  label="Pickup date"
+                  :product-slug="selectedProduct?.slug"
+                  :quantity="form.quantity"
+                  :disabled="pending || !selectedProduct"
+                  flexible
+                />
                 <BookingPickupTime
                   v-model="form.pickupTime"
                   :product-slug="selectedProduct?.slug"
                   :starts-on="form.startsOn"
-                  :ends-on="form.endsOn"
+                  :ends-on="rentalWindow.endsOn"
+                  :hours="form.hours"
                   :disabled="pending || !selectedProduct"
                   flexible
                 />
-              </template>
-            </BookingDateRange>
-            <label class="block text-sm">
-              <span class="mb-1.5 block text-stone-700">Quantity</span>
-              <UInput
-                v-model.number="form.quantity"
-                class="w-full"
-                type="number"
-                min="1"
-                max="99"
-                :disabled="pending"
-              />
-            </label>
+                <label class="block text-sm sm:col-span-2">
+                  <span class="mb-1.5 block text-stone-700">Hours</span>
+                  <UInput
+                    v-model.number="form.hours"
+                    class="w-full"
+                    type="number"
+                    inputmode="numeric"
+                    size="lg"
+                    :min="MIN_RENTAL_HOURS"
+                    :max="MAX_RENTAL_HOURS"
+                    step="1"
+                    :disabled="pending"
+                  />
+                  <span class="mt-1 block text-xs leading-5 text-stone-500">
+                    From 1 to 24 hours. The total is calculated from the hourly rate.
+                    <template v-if="discountNote">
+                      {{ discountNote }}
+                    </template>
+                  </span>
+                </label>
+                <label class="block text-sm sm:col-span-2 sm:max-w-xs">
+                  <span class="mb-1.5 block text-stone-700">Quantity</span>
+                  <UInput
+                    v-model.number="form.quantity"
+                    class="w-full"
+                    type="number"
+                    min="1"
+                    max="99"
+                    :disabled="pending"
+                  />
+                </label>
+              </div>
+              <div
+                v-else
+                key="day"
+                class="mt-4 grid gap-4 sm:grid-cols-2"
+              >
+                <BookingDateRange
+                  v-model:starts-on="form.startsOn"
+                  v-model:ends-on="form.endsOn"
+                  :product-slug="selectedProduct?.slug"
+                  :quantity="form.quantity"
+                  :disabled="pending || !selectedProduct"
+                  flexible
+                >
+                  <template #between>
+                    <BookingPickupTime
+                      v-model="form.pickupTime"
+                      :product-slug="selectedProduct?.slug"
+                      :starts-on="form.startsOn"
+                      :ends-on="form.endsOn"
+                      :disabled="pending || !selectedProduct"
+                      flexible
+                    />
+                  </template>
+                </BookingDateRange>
+                <label class="block text-sm">
+                  <span class="mb-1.5 block text-stone-700">Quantity</span>
+                  <UInput
+                    v-model.number="form.quantity"
+                    class="w-full"
+                    type="number"
+                    min="1"
+                    max="99"
+                    :disabled="pending"
+                  />
+                </label>
+              </div>
+            </Transition>
           </div>
-          <p class="mt-4 rounded-lg bg-stone-50 px-3 py-2 text-sm text-stone-700">
-            Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}
+          <p class="mt-4 rounded-lg bg-stone-50 px-3 py-2 text-sm leading-6 text-stone-700">
+            <template v-if="hourlyBooking">
+              Return {{ formatBusinessDateTime(rentalWindow.returnAt) }}
+            </template>
+            <template v-else>
+              Return {{ formatRentalReturnLabel(rentalWindow.endsOn, rentalWindow.pickupTime) }}
+            </template>
           </p>
           <p
             v-if="quoteError"
@@ -712,7 +846,12 @@ async function onSubmit() {
             </div>
             <div class="flex justify-between gap-4">
               <dt class="text-stone-500">
-                {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
+                <template v-if="quote.billingUnit === 'hour'">
+                  {{ quote.hours }} hour{{ quote.hours === 1 ? '' : 's' }}
+                </template>
+                <template v-else>
+                  {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
+                </template>
               </dt>
               <dd>{{ formatMoney(quote.rentAmount) }}</dd>
             </div>

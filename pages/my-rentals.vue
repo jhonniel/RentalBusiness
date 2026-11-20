@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PublicRental, RentalListResponse } from '~/types/rental'
+import { useSignInRedirect } from '~/composables/useSignInRedirect'
 import type { CustomerRentalGroup } from '~/utils/rental'
 import { formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
 import { customerRentalGroup, customerRentalNextLabel, customerRentalNextPath } from '~/utils/rental'
@@ -15,11 +16,12 @@ useSiteMeta({
   path: '/my-rentals',
 })
 
-const { data, error, pending } = await useFetch<RentalListResponse>('/api/rentals', {
+const { data, error, pending, refresh } = await useFetch<RentalListResponse>('/api/rentals', {
   query: { pageSize: 20 },
 })
 const hasData = computed(() => Boolean(data.value))
 const remote = useRemoteState(error, pending, hasData)
+useSignInRedirect(error)
 const items = computed(() => data.value?.items ?? [])
 
 type Filter = 'all' | CustomerRentalGroup
@@ -104,7 +106,16 @@ function steps(rental: PublicRental) {
         tone="alert"
         title="Rentals could not load"
         description="Try again in a moment. Your requests will appear here when the list succeeds."
-      />
+      >
+        <UButton
+          color="neutral"
+          variant="outline"
+          :loading="pending"
+          @click="refresh()"
+        >
+          Try again
+        </UButton>
+      </CatalogNotice>
 
       <div
         v-else-if="remote.loading"

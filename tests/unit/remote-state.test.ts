@@ -14,7 +14,17 @@ describe('remoteState', () => {
   it('treats other status codes as failed', () => {
     expect(remoteState({ statusCode: 500, pending: false, hasData: false })).toMatchObject({
       unavailable: false,
+      signedOut: false,
       failed: true,
+    })
+  })
+
+  it('keeps a signed-out response on the loading path', () => {
+    expect(remoteState({ statusCode: 401, pending: false, hasData: false })).toMatchObject({
+      signedOut: true,
+      failed: false,
+      loading: true,
+      empty: false,
     })
   })
 

@@ -1,7 +1,7 @@
 import type { PublicRental, RentalLateFee } from '~/types/rental'
 import type { RentalStatus } from './constants'
 
-export const LATE_FEE_TYPES = ['schedule', 'product', 'half_day', 'full_day', 'custom'] as const
+export const LATE_FEE_TYPES = ['schedule', 'product', 'half_day', 'full_day', 'hourly', 'custom'] as const
 export type LateFeeType = (typeof LATE_FEE_TYPES)[number]
 
 export const LATE_FEE_TYPE_LABELS: Record<LateFeeType, string> = {
@@ -9,6 +9,7 @@ export const LATE_FEE_TYPE_LABELS: Record<LateFeeType, string> = {
   product: 'Equipment late fee per day',
   half_day: 'Half a day of rent per day late',
   full_day: '1 day of rent per day late',
+  hourly: 'Equipment late fee per hour',
   custom: 'Custom amount',
 }
 
@@ -17,6 +18,7 @@ export const LATE_FEE_TYPE_HINTS: Record<LateFeeType, string> = {
   product: 'The late fee set on the equipment, for each day late.',
   half_day: 'Half of the daily rent, for each day late.',
   full_day: 'The full daily rent, for each day late.',
+  hourly: 'The hourly late fee set on the equipment, for each hour late. A part of an hour counts as one hour. Daily bookings do not use this.',
   custom: 'A fixed amount you enter. It applies once the booking is late.',
 }
 
@@ -46,6 +48,7 @@ export function computeLateFee(input: {
   hoursLate: number
   dailyRent: number
   productLateFee?: number
+  hourlyLateFee?: number
   customAmount?: number | null
 }) {
   const { hoursLate } = input
@@ -70,6 +73,8 @@ export function computeLateFee(input: {
       return money((daily / 2) * daysLate)
     case 'full_day':
       return money(daily * daysLate)
+    case 'hourly':
+      return money(Math.max(0, input.hourlyLateFee ?? 0) * Math.ceil(hoursLate))
     case 'custom':
       return money(input.customAmount ?? 0)
   }
@@ -109,7 +114,22 @@ export interface LateFeeRecord {
   void_reason: string | null
 }
 
-type LateFeeRental = Pick<PublicRental, 'status' | 'returnAt' | 'items'>
+type LateFeeRental = Pick<PublicRental, 'status' | 'returnAt' | 'items'> & {
+  billingUnit?: 'day' | 'hour' | null
+}
+
+function hourlyBooking(rental: LateFeeRental) {
+  return rental.billingUnit === 'hour' || rental.items.some(item => item.billingUnit === 'hour')
+}
+
+function hourlyLateFeeTotal(rental: LateFeeRental) {
+  return rental.items.reduce((sum, item) => {
+    if (item.billingUnit !== 'hour') {
+      return sum
+    }
+    return sum + Math.max(0, item.product.hourlyLateFee ?? 0) * Math.max(0, item.quantity)
+  }, 0)
+}
 
 function optionalNumber(value: number | null | undefined) {
   return value === null || value === undefined ? null : Number(value)
@@ -121,15 +141,17 @@ export function buildLateFee(
   available: boolean,
   now: Date = new Date(),
 ): RentalLateFee {
-  const type = row?.fee_type ?? 'schedule'
+  const hourly = hourlyBooking(rental)
+  const type = row?.fee_type ?? (hourly ? 'hourly' : 'schedule')
   const out = LATE_FEE_OUT_STATUSES.includes(rental.status)
   const asOf = row?.paid_at ?? row?.stopped_at ?? (out ? now.toISOString() : null)
   const { hoursLate, daysLate } = asOf ? lateDuration(rental.returnAt, asOf) : { hoursLate: 0, daysLate: 0 }
   const dailyRent = rental.items.reduce((sum, item) => sum + Math.max(0, item.dailyPrice) * Math.max(0, item.quantity), 0)
   const productLateFee = rental.items.reduce((sum, item) => sum + Math.max(0, item.product.lateFee ?? 0) * Math.max(0, item.quantity), 0)
+  const hourlyLateFee = hourlyLateFeeTotal(rental)
   const customAmount = optionalNumber(row?.custom_amount)
   const paidAmount = optionalNumber(row?.paid_amount)
-  const amount = paidAmount ?? computeLateFee({ type, hoursLate, dailyRent, productLateFee, customAmount })
+  const amount = paidAmount ?? computeLateFee({ type, hoursLate, dailyRent, productLateFee, hourlyLateFee, customAmount })
 
   return {
     uuid: row?.uuid ?? null,

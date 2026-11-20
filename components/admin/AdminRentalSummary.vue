@@ -23,7 +23,8 @@ const depositChange = computed(() => payment.value
     <dl class="mt-4 space-y-2 text-sm">
       <div class="flex justify-between gap-4">
         <dt class="text-stone-500">
-          {{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}
+          <template v-if="quote.billingUnit === 'hour'">{{ quote.hours }} hour{{ quote.hours === 1 ? '' : 's' }}</template>
+          <template v-else>{{ quote.days }} day{{ quote.days === 1 ? '' : 's' }}</template>
         </dt>
         <dd>{{ formatMoney(quote.rentAmount) }}</dd>
       </div>

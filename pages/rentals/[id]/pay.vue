@@ -42,6 +42,7 @@ const canSubmit = computed(() =>
 const canPay = computed(() => rental.value ? canCustomerPayRental(rental.value) : false)
 const selectedMethodUuid = ref('')
 const paymentSent = ref(false)
+const confirmOpen = ref(false)
 const qrOpen = ref(false)
 const selectedMethod = computed(() => (
   paymentMethods.value?.find(method => method.uuid === selectedMethodUuid.value) ?? null
@@ -102,6 +103,11 @@ async function submitRequest() {
   finally {
     submitting.value = false
   }
+}
+
+function confirmPaymentSent() {
+  paymentSent.value = true
+  confirmOpen.value = true
 }
 
 async function copyValue(value: string, label: string) {
@@ -407,7 +413,7 @@ async function copyValue(value: string, label: string) {
                 size="lg"
                 icon="i-lucide-send"
                 class="mt-5 w-full justify-center rounded-full sm:w-auto"
-                @click="paymentSent = true"
+                @click="confirmPaymentSent"
               >
                 I've sent the payment
               </UButton>
@@ -566,6 +572,12 @@ async function copyValue(value: string, label: string) {
           Back to rental
         </UButton>
       </aside>
+
+      <BookingConfirmDialog
+        v-model:open="confirmOpen"
+        :booking-code="rental.code"
+        @copy="copyValue(rental.code, 'Booking code')"
+      />
 
       <UModal
         v-if="selectedMethod?.qrUrl"
