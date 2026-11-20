@@ -125,7 +125,7 @@ function printReceipt() {
 
       <div class="mt-5 text-center">
         <h1 class="text-lg font-semibold tracking-wide text-stone-900 uppercase">
-          Official receipt
+          Invoice
         </h1>
         <p class="mt-0.5 font-mono text-sm text-stone-700">
           {{ receipt.receiptNumber }}
