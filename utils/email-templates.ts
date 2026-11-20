@@ -1,8 +1,10 @@
-import type { ReceiptSnapshot } from '~/types/receipt'
-import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL } from './constants'
+import type { PublicReceipt, ReceiptSnapshot } from '~/types/receipt'
+import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, FACEBOOK_URL, RECEIPT_RECEIVED_BY } from './constants'
 import { formatMoney } from './currency'
-import { formatBusinessDate } from './datetime'
+import { formatBusinessDate, formatBusinessDateTime } from './datetime'
 import { escapeHtml } from './email'
+import { RECEIPT_PURPOSE_LABELS } from './receipt'
+import { rentalPeriodDays } from './rental-window'
 
 function publicOrigin() {
   return String(process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -96,6 +98,168 @@ export function receiptIssuedEmail(snapshot: ReceiptSnapshot, receiptUrl: string
 
   return {
     subject: `${APP_NAME} receipt ${snapshot.receiptNumber}`,
+    html,
+  }
+}
+
+function slipRow(label: string, value: string) {
+  return `<tr>
+    <td style="padding:3px 6px 3px 0;color:#57534e;vertical-align:top;">${escapeHtml(label)}</td>
+    <td style="padding:3px 0;text-align:right;vertical-align:top;">${escapeHtml(value)}</td>
+  </tr>`
+}
+
+function slipLine(left: string, right: string) {
+  return `<tr>
+    <td style="padding:4px 6px 4px 0;border-top:1px dashed #d6d3d1;vertical-align:top;">${left}</td>
+    <td style="padding:4px 0;border-top:1px dashed #d6d3d1;text-align:right;vertical-align:top;white-space:nowrap;">${right}</td>
+  </tr>`
+}
+
+export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 'issuedAt' | 'snapshot' | 'statement' | 'business' | 'rental' | 'discounts'>) {
+  const snapshot = receipt.snapshot
+  const business = {
+    name: receipt.business?.name || snapshot.business.name || APP_NAME,
+    address: receipt.business?.address || snapshot.business.address || BUSINESS_ADDRESS,
+    email: receipt.business?.email || snapshot.business.email || BUSINESS_EMAIL,
+    phone: receipt.business?.phone || snapshot.business.phone || '',
+  }
+  const purpose = snapshot.purpose ?? receipt.statement?.lines.find(line => line.current)?.purpose ?? 'booking'
+  const purposeLabel = snapshot.description
+    || receipt.statement?.lines.find(line => line.current)?.label
+    || RECEIPT_PURPOSE_LABELS[purpose]
+  const startsOn = receipt.rental?.startsOn || snapshot.rental.startsOn
+  const endsOn = receipt.rental?.endsOn || snapshot.rental.endsOn
+  const days = startsOn && endsOn ? rentalPeriodDays(startsOn, endsOn) : 0
+  const pickup = receipt.rental?.pickupAt
+    ? formatBusinessDateTime(receipt.rental.pickupAt)
+    : formatBusinessDate(startsOn)
+  const returned = receipt.rental?.returnAt
+    ? formatBusinessDateTime(receipt.rental.returnAt)
+    : formatBusinessDate(endsOn)
+  const paid = snapshot.payment.paidAt ? formatBusinessDate(snapshot.payment.paidAt) : 'Paid'
+  const money = (amount: number) => escapeHtml(formatMoney(amount, snapshot.currency))
+  const website = publicOrigin()
+  const websiteLabel = website.replace(/^https?:\/\//, '')
+  const facebookLabel = FACEBOOK_URL.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
+  const hourly = snapshot.items.some(item => item.billingUnit === 'hour')
+
+  const itemRows = purpose === 'booking'
+    ? snapshot.items.map((item) => {
+        const detail = item.billingUnit === 'hour' && item.billedHours
+          ? `${formatMoney(item.hourlyPrice, snapshot.currency)} / hour × ${item.billedHours} hour${item.billedHours === 1 ? '' : 's'}`
+          : `${formatMoney(item.dailyPrice, snapshot.currency)} / day × ${days} day${days === 1 ? '' : 's'}`
+        return slipLine(
+          `<div style="font-weight:600;">${escapeHtml(item.name)}</div><div style="color:#57534e;">Qty ${item.quantity}</div>`,
+          escapeHtml(detail),
+        )
+      }).join('')
+    : slipLine(
+        `<div style="font-weight:600;">${escapeHtml(purposeLabel)}</div><div style="color:#57534e;">${escapeHtml(snapshot.items.map(item => item.name).join(', '))}</div>`,
+        money(snapshot.amounts.paidAmount),
+      )
+
+  const discountRows = purpose === 'booking' && receipt.discounts
+    ? [
+        receipt.discounts.longStay > 0
+          ? slipRow(hourly ? 'Hourly discount' : 'Long-stay discount', `−${formatMoney(receipt.discounts.longStay, snapshot.currency)}`)
+          : '',
+        receipt.discounts.voucher > 0
+          ? slipRow(
+              receipt.discounts.voucherCode ? `Voucher ${receipt.discounts.voucherCode}` : 'Voucher',
+              `−${formatMoney(receipt.discounts.voucher, snapshot.currency)}`,
+            )
+          : '',
+      ].join('')
+    : ''
+
+  const paymentRows = (receipt.statement?.lines ?? []).map(line => slipLine(
+    `<div style="font-weight:600;">${escapeHtml(line.label)}</div><div style="color:#57534e;">${escapeHtml(line.receiptNumber)} · ${escapeHtml(formatBusinessDate(line.issuedAt))}</div>`,
+    money(line.amount),
+  )).join('')
+  const paymentSection = paymentRows
+    ? `<tr>
+            <td style="padding:8px;border-top:1px dashed #a8a29e;">
+              <div style="font-weight:700;">Payments on this booking</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;">
+                ${paymentRows}
+                <tr>
+                  <td style="padding:6px 6px 0 0;border-top:1px solid #a8a29e;font-weight:700;">Total paid</td>
+                  <td style="padding:6px 0 0;border-top:1px solid #a8a29e;text-align:right;font-weight:700;">${money(receipt.statement?.totalPaid ?? 0)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+    : ''
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(`Acknowledgement Receipt ${receipt.receiptNumber}`)}</title>
+</head>
+<body style="margin:0;background:#f5f5f4;color:#1c1917;font-family:Geist,ui-sans-serif,system-ui,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 8px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="220" cellpadding="0" cellspacing="0" style="width:58mm;max-width:58mm;background:#ffffff;color:#1c1917;font-size:12px;line-height:1.35;">
+          <tr>
+            <td align="center" style="padding:8px 8px 10px;border-bottom:1px dashed #a8a29e;">
+              <img src="${escapeHtml(`${publicOrigin()}/logo.png?v=12`)}" alt="${escapeHtml(business.name)}" width="120" height="57" style="display:block;margin:0 auto 6px;border:0;width:120px;height:auto;">
+              <div style="font-weight:700;">${escapeHtml(business.name)}</div>
+              <div style="color:#57534e;">${escapeHtml(business.address || '')}</div>
+              <div style="color:#57534e;">${escapeHtml(business.email || '')}${business.phone ? ` · ${escapeHtml(business.phone)}` : ''}</div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:10px 8px 4px;">
+              <div style="font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Acknowledgement Receipt</div>
+              <div style="font-family:ui-monospace,monospace;">${escapeHtml(receipt.receiptNumber)}</div>
+              <div style="margin-top:4px;">${escapeHtml(purposeLabel)}</div>
+              <div style="color:#57534e;">Issued ${escapeHtml(formatBusinessDate(receipt.issuedAt))}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 8px 8px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;">
+                ${slipRow('Rental', snapshot.rental.code)}
+                ${slipRow('Customer', snapshot.customer.name)}
+                ${slipRow('Pickup', pickup)}
+                ${slipRow('Return', returned)}
+                ${slipRow('Payment', `${snapshot.payment.provider} · ${paid}`)}
+                ${slipRow('Received by', RECEIPT_RECEIVED_BY)}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 8px 8px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;">
+                ${itemRows}
+                ${discountRows}
+              </table>
+            </td>
+          </tr>
+          ${paymentSection}
+          <tr>
+            <td align="center" style="padding:10px 8px;border-top:1px dashed #a8a29e;color:#57534e;">
+              <div style="font-weight:600;color:#1c1917;">Thank you for renting with ${escapeHtml(business.name)}!</div>
+              <div style="margin-top:8px;"><a href="${escapeHtml(website)}" style="color:#1c1917;text-decoration:none;">${escapeHtml(websiteLabel)}</a></div>
+              <div><a href="${escapeHtml(FACEBOOK_URL)}" style="color:#1c1917;text-decoration:none;">${escapeHtml(facebookLabel)}</a></div>
+              <div><a href="mailto:${escapeHtml(business.email || '')}" style="color:#1c1917;text-decoration:none;">${escapeHtml(business.email || '')}</a></div>
+              ${business.phone ? `<div>${escapeHtml(business.phone)}</div>` : ''}
+              <div style="margin-top:8px;">Keep this receipt for your records.</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  return {
+    subject: `${APP_NAME} acknowledgement receipt ${receipt.receiptNumber}`,
     html,
   }
 }

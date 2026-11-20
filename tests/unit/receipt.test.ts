@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
-import { feedbackRequestEmail, receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
+import { feedbackRequestEmail, receiptCopyEmail, receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
 import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptDiscounts, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
-import { receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
+import { receiptEmailSchema, receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
 const snapshot = {
   receiptNumber: '',
@@ -42,6 +42,12 @@ describe('receipt validation', () => {
     expect(isReceiptNumber('RCP-20260913-00001')).toBe(true)
     expect(receiptIdentifierSchema.parse('RCP-20260913-00001')).toBe('RCP-20260913-00001')
     expect(receiptIdentifierSchema.safeParse('9').success).toBe(false)
+  })
+
+  it('requires an email address before an acknowledgement receipt can be sent', () => {
+    expect(receiptEmailSchema.safeParse({}).success).toBe(false)
+    expect(receiptEmailSchema.safeParse({ email: 'not-an-email' }).success).toBe(false)
+    expect(receiptEmailSchema.parse({ email: ' guest@example.com ' }).email).toBe('guest@example.com')
   })
 
   it('requires a rental reference for reminders', () => {
@@ -172,6 +178,23 @@ describe('email templates', () => {
     expect(invite.html).toContain('/waivers/sign/11111111-1111-4111-8111-111111111111')
     expect(invite.html).toContain('&lt;script&gt;')
     expect(invite.html).not.toContain('<script>alert(1)</script>')
+
+    const copy = receiptCopyEmail({
+      receiptNumber: 'RCP-20260913-00001',
+      issuedAt: '2026-09-13T00:00:00.000Z',
+      snapshot: {
+        ...snapshot,
+        receiptNumber: 'RCP-20260913-00001',
+        customer: { name: '<script>alert(1)</script>', email: 'ana@example.com' },
+      },
+    })
+    expect(copy.subject).toContain('RCP-20260913-00001')
+    expect(copy.html).toContain('width:58mm')
+    expect(copy.html).toContain('Acknowledgement Receipt')
+    expect(copy.html).toContain('Received by')
+    expect(copy.html).toContain('Jhonniel Ygay')
+    expect(copy.html).toContain('&lt;script&gt;')
+    expect(copy.html).not.toContain('<script>alert(1)</script>')
 
     const feedback = feedbackRequestEmail({
       customerName: '<script>alert(1)</script>',

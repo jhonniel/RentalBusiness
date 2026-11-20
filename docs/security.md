@@ -136,6 +136,7 @@ Phase 9 additions:
 - One receipt per payment; email sends are idempotent on `(template, payload_hash)`
 - Receipt snapshots omit internal ids
 - Reminder sends require an admin session
+- A signed-in reader can email a receipt they can already open. The address is the one they submit. The same receipt is sent once to each address (`receipt.copy` plus that address)
 - `SMTP_PASS` stays on the server; missing SMTP credentials log a failed send and do not roll back the receipt
 
 Phase 10 additions:

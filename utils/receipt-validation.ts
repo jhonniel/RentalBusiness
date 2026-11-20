@@ -8,6 +8,10 @@ export const receiptIdentifierSchema = z.string().trim().min(1).max(40).refine(
   'Choose a valid receipt.',
 )
 
+export const receiptEmailSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.').max(254),
+}).strict()
+
 export const rentalReminderSchema = z.object({
   rentalUuid: z.string().uuid().optional(),
   rentalCode: z.string().trim().max(40).optional(),

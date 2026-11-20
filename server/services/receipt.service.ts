@@ -5,7 +5,7 @@ import type { ReceiptSnapshot } from '../../types/receipt'
 import type { RentalReminderInput } from '../../utils/receipt-validation'
 import { APP_NAME, BUSINESS_CURRENCY } from '../../utils/constants'
 import { EMAIL_TEMPLATES } from '../../utils/email'
-import { receiptIssuedEmail, rentalReminderEmail } from '../../utils/email-templates'
+import { receiptCopyEmail, receiptIssuedEmail, rentalReminderEmail } from '../../utils/email-templates'
 import { RECEIPT_PURPOSE_LABELS, buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptDiscounts, toPublicReceipt } from '../../utils/receipt'
 import { rentalPeriodDays } from '../../utils/rental-window'
 import { formatBookingDate } from '../../utils/datetime'
@@ -231,6 +231,32 @@ export async function getOwnReceipt(client: Client, identifier: string) {
       : undefined,
     discounts: rentalRow ? currentDiscounts(rentalRow) : undefined,
   }
+}
+
+export async function sendOwnReceiptCopy(event: H3Event, client: Client, identifier: string, email: string) {
+  const receipt = await getOwnReceipt(client, identifier)
+  const message = receiptCopyEmail(receipt)
+  const admin = getSupabaseAdminClient()
+  const result = await sendTemplatedEmail(admin, {
+    to: email,
+    template: EMAIL_TEMPLATES.RECEIPT_COPY,
+    entityKey: `${receipt.uuid}:${email.toLowerCase()}`,
+    subject: message.subject,
+    html: message.html,
+  })
+
+  await recordAudit(event, admin, {
+    action: 'email.receipt_copy',
+    entity: 'receipts',
+    entityId: receipt.uuid,
+    next: { status: result?.status ?? 'failed' },
+  })
+
+  if (result?.status !== 'sent') {
+    throw new AppError('We could not email that acknowledgement receipt. Try again in a moment.', 409, ERROR_CODES.CONFLICT)
+  }
+
+  return { status: 'sent' as const }
 }
 
 export async function sendRentalReminder(event: H3Event, input: RentalReminderInput) {

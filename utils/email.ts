@@ -1,5 +1,6 @@
 export const EMAIL_TEMPLATES = {
   RECEIPT_ISSUED: 'receipt.issued',
+  RECEIPT_COPY: 'receipt.copy',
   RENTAL_REMINDER_PICKUP: 'rental.reminder.pickup',
   RENTAL_REMINDER_RETURN: 'rental.reminder.return',
   AUTH_SIGNUP_CONFIRM: 'auth.signup.confirm',

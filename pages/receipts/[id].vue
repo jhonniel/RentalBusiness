@@ -2,7 +2,7 @@
 import type { PublicReceipt } from '~/types/receipt'
 import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
 import { rentalPeriodDays } from '~/utils/rental-window'
-import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, BUSINESS_PHONE, FACEBOOK_URL } from '~/utils/constants'
+import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, BUSINESS_PHONE, FACEBOOK_URL, RECEIPT_RECEIVED_BY } from '~/utils/constants'
 import { RECEIPT_58MM_PRINT_CSS, RECEIPT_PURPOSE_LABELS } from '~/utils/receipt'
 
 definePageMeta({
@@ -55,6 +55,16 @@ const rentedDays = computed(() => rentalDates.value.startsOn && rentalDates.valu
 const currentLine = computed(() => statement.value?.lines.find(line => line.current) ?? null)
 const purpose = computed(() => snapshot.value?.purpose ?? currentLine.value?.purpose ?? 'booking')
 const purposeLabel = computed(() => snapshot.value?.description || currentLine.value?.label || RECEIPT_PURPOSE_LABELS[purpose.value])
+const emailTo = ref('')
+const sending = ref(false)
+const toast = useToast()
+
+watch(receipt, (value) => {
+  if (emailTo.value.trim()) {
+    return
+  }
+  emailTo.value = value?.snapshot.customer.email?.trim() || ''
+}, { immediate: true })
 
 useHead({
   style: [{
@@ -66,16 +76,69 @@ useHead({
 function printReceipt() {
   window.print()
 }
+
+async function sendInvoice() {
+  const email = emailTo.value.trim()
+  if (!email) {
+    toast.add({ title: 'Email is required.', color: 'error' })
+    return
+  }
+
+  sending.value = true
+  try {
+    await $fetch(`/api/receipts/${identifier.value}/email`, {
+      method: 'POST',
+      body: { email },
+    })
+    toast.add({ title: 'Acknowledgement receipt sent.', color: 'success' })
+  }
+  catch (error) {
+    const payload = typeof error === 'object' && error && 'data' in error
+      ? (error as { data?: { message?: string } }).data
+      : null
+    toast.add({
+      title: payload?.message || 'We could not email that acknowledgement receipt.',
+      color: 'error',
+    })
+  }
+  finally {
+    sending.value = false
+  }
+}
 </script>
 
 <template>
-  <article class="receipt-paper mx-auto max-w-2xl px-4 py-10 sm:px-6">
-    <div class="flex flex-wrap items-center justify-end gap-3 print:hidden">
-      <div class="flex flex-wrap gap-2">
+  <article class="receipt-paper mx-auto w-full max-w-2xl min-w-0 px-4 py-10 sm:px-6">
+    <div class="flex w-full min-w-0 flex-col gap-2 print:hidden">
+      <form
+        class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center"
+        @submit.prevent="sendInvoice"
+      >
+        <UInput
+          v-model="emailTo"
+          type="email"
+          autocomplete="email"
+          placeholder="name@example.com"
+          aria-label="Email address"
+          class="w-full min-w-0 sm:flex-1"
+          :disabled="sending || !snapshot"
+        />
+        <UButton
+          type="submit"
+          icon="i-lucide-mail"
+          class="w-full shrink-0 justify-center whitespace-nowrap [word-spacing:normal] sm:w-auto"
+          :loading="sending"
+          :disabled="!snapshot"
+        >
+          Email acknowledgement receipt
+        </UButton>
+      </form>
+      <div class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:justify-end">
         <UButton
           color="neutral"
           variant="outline"
           icon="i-lucide-printer"
+          class="w-full justify-center whitespace-nowrap [word-spacing:normal] sm:w-auto"
           @click="printReceipt"
         >
           Print (58 mm)
@@ -85,6 +148,7 @@ function printReceipt() {
           :to="`/rentals/${snapshot.rental.code}`"
           color="neutral"
           variant="ghost"
+          class="w-full justify-center sm:w-auto"
         >
           Back
         </UButton>
@@ -100,7 +164,7 @@ function printReceipt() {
 
     <section
       v-else-if="receipt && snapshot"
-      class="mt-8 rounded-2xl border border-stone-200 bg-white p-6"
+      class="mt-8 min-w-0 rounded-2xl border border-stone-200 bg-white p-4 sm:p-6"
     >
       <header class="receipt-header flex flex-col items-center border-b border-dashed border-stone-300 pb-5 text-center">
         <img
@@ -125,7 +189,7 @@ function printReceipt() {
 
       <div class="mt-5 text-center">
         <h1 class="text-lg font-semibold tracking-wide text-stone-900 uppercase">
-          Invoice
+          Acknowledgement Receipt
         </h1>
         <p class="mt-0.5 font-mono text-sm text-stone-700">
           {{ receipt.receiptNumber }}
@@ -138,12 +202,12 @@ function printReceipt() {
         </p>
       </div>
 
-      <dl class="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+      <dl class="mt-6 grid gap-3 text-sm md:grid-cols-2">
         <div>
           <dt class="text-stone-500">
             Rental
           </dt>
-          <dd class="font-medium text-stone-900">
+          <dd class="font-medium break-words text-stone-900">
             {{ snapshot.rental.code }}
           </dd>
         </div>
@@ -151,7 +215,7 @@ function printReceipt() {
           <dt class="text-stone-500">
             Customer
           </dt>
-          <dd class="font-medium text-stone-900">
+          <dd class="font-medium break-words text-stone-900">
             {{ snapshot.customer.name }}
           </dd>
         </div>
@@ -159,19 +223,33 @@ function printReceipt() {
           <dt class="text-stone-500">
             Pickup
           </dt>
-          <dd>{{ receipt.rental?.pickupAt ? formatBusinessDateTime(receipt.rental.pickupAt) : formatBusinessDate(rentalDates.startsOn) }}</dd>
+          <dd class="break-words">
+            {{ receipt.rental?.pickupAt ? formatBusinessDateTime(receipt.rental.pickupAt) : formatBusinessDate(rentalDates.startsOn) }}
+          </dd>
         </div>
         <div>
           <dt class="text-stone-500">
             Return
           </dt>
-          <dd>{{ receipt.rental?.returnAt ? formatBusinessDateTime(receipt.rental.returnAt) : formatBusinessDate(rentalDates.endsOn) }}</dd>
+          <dd class="break-words">
+            {{ receipt.rental?.returnAt ? formatBusinessDateTime(receipt.rental.returnAt) : formatBusinessDate(rentalDates.endsOn) }}
+          </dd>
         </div>
         <div>
           <dt class="text-stone-500">
             Payment
           </dt>
-          <dd>{{ snapshot.payment.provider }} · {{ snapshot.payment.paidAt ? formatBusinessDate(snapshot.payment.paidAt) : 'Paid' }}</dd>
+          <dd class="break-words">
+            {{ snapshot.payment.provider }} · {{ snapshot.payment.paidAt ? formatBusinessDate(snapshot.payment.paidAt) : 'Paid' }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-stone-500">
+            Received by
+          </dt>
+          <dd class="receipt-received-by">
+            {{ RECEIPT_RECEIVED_BY }}
+          </dd>
         </div>
       </dl>
 

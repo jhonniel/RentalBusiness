@@ -318,12 +318,13 @@ Receipts are issued by the server when a payment is confirmed. Customers may rea
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/receipts/[id]` | By `uuid` or `RCP-` number |
+| POST | `/api/receipts/[id]/email` | Email the 58 mm acknowledgement receipt. Body is `{ email }`. The page prefills the address saved on the receipt, and the sender can replace it. One successful send per receipt and address |
 | POST | `/api/admin/rentals/remind` | Admin pickup or return reminder |
 
 **Remind body:** rental uuid or code, `type`: `pickup` \| `return`  
-**Rate limit:** 20 reminder sends / minute / admin
+**Rate limit:** 8 acknowledgement receipt emails / minute / user; 20 reminder sends / minute / admin
 
-Print view: `/receipts/[number]` (signed-in owner, blank layout).
+Print view: `/receipts/[number]` (signed-in owner, blank layout). The same page can email that 58 mm acknowledgement receipt.
 
 ### Admin operations
 
