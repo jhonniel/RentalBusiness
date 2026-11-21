@@ -357,6 +357,9 @@ export async function createAdminRental(
       hourly_price: quote.billingUnit === 'hour' ? quote.hourlyPrice : null,
     })
 
+    const { persistRentalAddonLines } = await import('./addon.service')
+    await persistRentalAddonLines(client, created.id, quote.addons ?? [])
+
     await insertRentalStatusHistory(client, {
       rentalId: created.id,
       fromStatus: null,

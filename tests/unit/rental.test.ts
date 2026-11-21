@@ -185,6 +185,7 @@ describe('rental mapper', () => {
     expect(rental.items[0]?.product.lateFee).toBe(0)
     expect(rental.items[0]?.product.replacementValue).toBeNull()
     expect(rental.voucher).toBeNull()
+    expect(rental.addons).toEqual([])
     expect(isRentalCode(rental.code)).toBe(true)
     expect(isRentalCode('JRY-20261005-00011')).toBe(true)
     expect(isRentalCode('LUM-20261005-00011')).toBe(true)

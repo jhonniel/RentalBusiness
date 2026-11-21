@@ -35,6 +35,7 @@ import {
 } from '../repositories/rental.repository'
 import { cancelOpenPaymentsByRentalId, findPaidPaymentByRentalId } from '../repositories/payment.repository'
 import { getSupabaseAdminClient } from '../utils/supabase'
+import { persistRentalAddonLines, quoteSelectedAddons } from './addon.service'
 import { sendTemplatedEmail } from './email.service'
 
 type Client = SupabaseClient<Database>
@@ -173,6 +174,11 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
         days: window.days,
       })
 
+  const billingUnit = hourly ? 'hour' as const : 'day' as const
+  const days = 'days' in line ? line.days : window.days
+  const addonQuote = await quoteSelectedAddons(client, product.id, query.addons ?? [])
+  const subtotal = line.lineTotal + addonQuote.total
+
   return {
     product: {
       uuid: product.uuid,
@@ -185,9 +191,9 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     pickupTime: window.pickupTime,
     pickupAt: window.pickupAt,
     returnAt: window.returnAt,
-    days: 'days' in line ? line.days : window.days,
+    days,
     hours: hourly ? window.hours : null,
-    billingUnit: hourly ? 'hour' as const : 'day' as const,
+    billingUnit,
     hourlyPrice: hourly ? hourlyPrice : null,
     quantity: line.quantity,
     dailyPrice: Number(product.daily_price),
@@ -195,10 +201,12 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
     lessAmount: line.lessAmount,
     lineTotal: line.lineTotal,
     depositAmount: line.depositAmount,
-    subtotal: line.lineTotal,
-    totalAmount: line.lineTotal,
+    subtotal,
+    totalAmount: subtotal,
     available: availability.available,
     canFulfill: availability.canFulfill,
+    addons: addonQuote.lines,
+    addonTotal: addonQuote.total,
     productId: product.id,
     hasBlockedDates,
   }
@@ -279,6 +287,8 @@ export async function createRental(
       billed_hours: quote.billingUnit === 'hour' ? quote.hours : null,
       hourly_price: quote.billingUnit === 'hour' ? quote.hourlyPrice : null,
     })
+
+    await persistRentalAddonLines(client, created.id, quote.addons ?? [])
 
     await insertRentalStatusHistory(client, {
       rentalId: created.id,

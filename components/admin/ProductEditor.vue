@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AdminAddonListResponse } from '~/types/addon'
 import type { PublicCategory, PublicProduct } from '~/types/catalog'
 import { PRICE_FIELD_KEYS, PRODUCT_STATUSES, type PriceFieldKey } from '~/utils/constants'
 import { fieldErrors } from '~/utils/auth-validation'
@@ -17,9 +18,17 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const { authHeaders } = useAuth()
+const { formatMoney } = useCurrency()
 const pending = ref(false)
 const formError = ref('')
 const errors = ref<Record<string, string>>({})
+const { data: addonCatalog } = await useFetch<AdminAddonListResponse>('/api/admin/addons')
+const addonChoices = computed(() => (addonCatalog.value?.items ?? []).filter(item => item.status === 'active'))
+const selectedAddonUuids = ref<string[]>([...(props.product?.addonUuids ?? [])])
+
+watch(() => props.product?.addonUuids, (value) => {
+  selectedAddonUuids.value = [...(value ?? [])]
+})
 
 const form = reactive({
   name: props.product?.name ?? '',
@@ -109,6 +118,14 @@ async function onSubmit() {
           headers: authHeaders(),
           body: parsed.data,
         })
+
+    if (addonCatalog.value?.ready) {
+      await $fetch(`/api/admin/products/${result.uuid}/addons`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: { addonUuids: selectedAddonUuids.value },
+      })
+    }
 
     toast.add({ title: 'Product saved', color: 'success' })
     emit('saved', result.uuid)
@@ -486,6 +503,68 @@ async function onSubmit() {
           />
         </label>
       </div>
+    </section>
+
+    <section class="rounded-xl border border-stone-200 bg-white p-5">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-medium text-stone-900">
+            Booking add-ons
+          </h3>
+          <p class="mt-1 text-sm text-stone-500">
+            Link paid extras customers can request with this kit. Manage the catalog under Add-ons.
+          </p>
+        </div>
+        <UButton
+          to="/admin/addons"
+          color="neutral"
+          variant="outline"
+          size="sm"
+        >
+          Manage add-ons
+        </UButton>
+      </div>
+      <p
+        v-if="addonCatalog && !addonCatalog.ready"
+        class="mt-4 text-sm text-stone-600"
+      >
+        Paste the add-ons SQL in Supabase before linking.
+      </p>
+      <ul
+        v-else-if="addonChoices.length"
+        class="mt-4 space-y-2"
+      >
+        <li
+          v-for="addon in addonChoices"
+          :key="addon.uuid"
+        >
+          <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-stone-200 px-3 py-2 text-sm">
+            <input
+              v-model="selectedAddonUuids"
+              type="checkbox"
+              class="mt-1"
+              :value="addon.uuid"
+              :disabled="pending"
+            >
+            <span class="min-w-0">
+              <span class="block font-medium text-stone-900">
+                {{ addon.name }}
+              </span>
+              <span class="mt-0.5 block text-stone-600">
+                {{ formatMoney(addon.unitPrice) }}
+                · {{ addon.available }} available
+                · {{ addon.bookable ? 'On bookings' : 'Off bookings' }}
+              </span>
+            </span>
+          </label>
+        </li>
+      </ul>
+      <p
+        v-else
+        class="mt-4 text-sm text-stone-600"
+      >
+        No active add-ons yet. Create them on the Add-ons page, then come back to bind them here.
+      </p>
     </section>
 
     <section class="rounded-xl border border-stone-200 bg-white p-5">

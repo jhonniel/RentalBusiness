@@ -287,8 +287,14 @@ async function sendInvoice() {
               Qty {{ item.quantity }}
             </p>
           </div>
-          <p class="text-right tabular-nums">
-            <template v-if="item.billingUnit === 'hour' && item.billedHours">
+          <p
+            v-if="item.lineTotal > 0"
+            class="text-right tabular-nums"
+          >
+            <template v-if="item.sku === 'Add-on'">
+              {{ formatMoney(item.lineTotal, snapshot.currency) }}
+            </template>
+            <template v-else-if="item.billingUnit === 'hour' && item.billedHours">
               {{ formatMoney(item.hourlyPrice, snapshot.currency) }} / hour × {{ item.billedHours }} hour{{ item.billedHours === 1 ? '' : 's' }}
             </template>
             <template v-else>

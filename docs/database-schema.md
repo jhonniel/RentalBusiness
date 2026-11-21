@@ -117,6 +117,21 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `id`, `uuid`, `rental_id`, `product_id`
 - `quantity`, `daily_price`, `line_total`, `billing_unit`, `billed_hours`, `hourly_price`
 
+**addons**
+
+- `id`, `uuid`, `name`, `description`, `unit_price`, `quantity` (stock), `bookable`, `status` (`active`|`archived`)
+- Simple stock: available = quantity − qty on open rentals (`draft` + inventory-occupying statuses). Not date-windowed.
+- SQL helpers: `addon_held_quantity(addon_id)`, `addon_available_quantity(addon_id)`
+
+**product_addon_links**
+
+- `(product_id, addon_id)` primary key — which kits offer which add-ons
+
+**rental_addon_items**
+
+- `id`, `uuid`, `rental_id`, `addon_id`, `quantity`, `unit_price`, `line_total` (snapshotted at create)
+- Unique `(rental_id, addon_id)`. Triggers sync parent `subtotal` / `total_amount` with kit lines + add-on lines. Deposit stays kit-only.
+
 **rental_status_history**
 
 - `id`, `rental_id`, `from_status`, `to_status`, `changed_by`, `note`, `created_at`

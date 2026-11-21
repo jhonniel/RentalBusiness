@@ -754,6 +754,14 @@ async function removeRental() {
                 <span>{{ item.product.name }} × {{ item.quantity }}</span>
                 <span>{{ formatMoney(item.lineTotal) }}</span>
               </li>
+              <li
+                v-for="item in rental.addons"
+                :key="item.uuid"
+                class="flex justify-between gap-4 py-3 text-sm"
+              >
+                <span>{{ item.addon.name }} × {{ item.quantity }} <span class="text-stone-500">(add-on)</span></span>
+                <span>{{ formatMoney(item.lineTotal) }}</span>
+              </li>
             </ul>
             <dl
               v-if="sales"

@@ -24,6 +24,7 @@ export const adminNavItems: NavItem[] = [
   { label: 'Rentals', to: '/admin/rentals', icon: 'i-lucide-clipboard-list', enabled: true },
   { label: 'Calendar', to: '/admin/calendar', icon: 'i-lucide-calendar', enabled: true },
   { label: 'Products', to: '/admin/products', icon: 'i-lucide-package', enabled: true },
+  { label: 'Add-ons', to: '/admin/addons', icon: 'i-lucide-puzzle', enabled: true },
   { label: 'Inventory', to: '/admin/inventory', icon: 'i-lucide-boxes', enabled: true },
   { label: 'Customers', to: '/admin/customers', icon: 'i-lucide-users', enabled: true },
   { label: 'Feedback', to: '/admin/feedback', icon: 'i-lucide-star', enabled: true },

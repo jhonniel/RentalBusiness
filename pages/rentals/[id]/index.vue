@@ -352,6 +352,17 @@ async function cancelRental() {
                 <span class="min-w-0 font-medium break-words text-[#12201a]">{{ item.product.name }}</span>
                 <span class="shrink-0 text-[#5c6a64]">Qty {{ item.quantity }}</span>
               </li>
+              <li
+                v-for="item in rental.addons"
+                :key="item.uuid"
+                class="flex items-center justify-between gap-3 rounded-xl border border-[#12201a]/8 px-4 py-3 text-sm"
+              >
+                <span class="min-w-0 font-medium break-words text-[#12201a]">
+                  {{ item.addon.name }}
+                  <span class="font-normal text-[#5c6a64]"> · Add-on</span>
+                </span>
+                <span class="shrink-0 text-[#5c6a64]">Qty {{ item.quantity }}</span>
+              </li>
             </ul>
             <p
               v-if="rental.notes"

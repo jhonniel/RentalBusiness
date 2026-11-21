@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { rentalAddonsField } from './addon-validation'
 import { RENTAL_STATUSES } from './constants'
 import { LATE_FEE_TYPES } from './late-fee'
 import { calendarDateInZone, isPastBusinessDate } from './datetime'
@@ -49,6 +50,7 @@ export const rentalQuoteQuerySchema = addWindowChecks(z.object({
   productUuid: z.string().uuid().optional(),
   productSlug: z.string().trim().max(80).regex(/^[a-z0-9-]+$/, 'Choose a valid product.').optional(),
   ...rentalWindow,
+  addons: rentalAddonsField,
 }).strict().refine(data => Boolean(data.productUuid || data.productSlug), {
   message: 'Choose a product.',
   path: ['productUuid'],
@@ -58,6 +60,7 @@ export const createRentalSchema = addWindowChecks(z.object({
   productUuid: z.string().uuid().optional(),
   productSlug: z.string().trim().max(80).regex(/^[a-z0-9-]+$/, 'Choose a valid product.').optional(),
   ...rentalWindow,
+  addons: rentalAddonsField,
   notes: z.string().trim().max(1000).optional().or(z.literal('')),
   firstName: z.string().trim().min(1, 'First name is required.').max(80),
   lastName: z.string().trim().min(1, 'Last name is required.').max(80),
@@ -82,6 +85,7 @@ export const adminRentalQuoteSchema = addEditWindowChecks(z.object({
   exceptRentalUuid: z.string().uuid().optional(),
   commissionerUuid: z.string().uuid().optional(),
   ...rentalWindow,
+  addons: rentalAddonsField,
 }).strict().refine(data => Boolean(data.productUuid || data.productSlug), {
   message: 'Choose a product.',
   path: ['productUuid'],
@@ -93,6 +97,7 @@ export const adminRentalQuoteSchema = addEditWindowChecks(z.object({
 export const createAdminRentalSchema = addDateWindowChecks(z.object({
   productUuid: z.string().uuid('Choose a product.'),
   ...rentalWindow,
+  addons: rentalAddonsField,
   notes: z.string().trim().max(1000).optional().or(z.literal('')),
   customerUuid: z.string().uuid().optional(),
   firstName: z.string().trim().max(80).optional().or(z.literal('')),
@@ -104,6 +109,7 @@ export const createAdminRentalSchema = addDateWindowChecks(z.object({
 export const createCommissionerRentalSchema = addWindowChecks(z.object({
   productUuid: z.string().uuid('Choose equipment.'),
   ...rentalWindow,
+  addons: rentalAddonsField,
   notes: z.string().trim().max(1000).optional().or(z.literal('')),
   firstName: z.string().trim().max(80).optional().or(z.literal('')),
   lastName: z.string().trim().max(80).optional().or(z.literal('')),

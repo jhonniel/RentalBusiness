@@ -1,5 +1,6 @@
 import type { PublicRental, PublicRentalHistoryEntry, PublicRentalItem, RentalPaymentChange } from '~/types/rental'
 import type { RentalStatus } from './constants'
+import { toPublicRentalAddonItem, type RentalAddonItemRow } from './addon'
 import { toPublicRentalIdentity, type IdentityVerificationRow } from './identity'
 import { firstPayments, isRefundPayment, type PaymentRow } from './payment'
 import { firstReceipts, type ReceiptRow } from './receipt'
@@ -48,6 +49,7 @@ interface RentalRow {
   notes: string | null
   created_at: string
   rental_items: ItemRow[] | null
+  rental_addon_items?: RentalAddonItemRow[] | null
   rental_identity_verifications?: IdentityVerificationRow | IdentityVerificationRow[] | null
   waiver_acceptances?: WaiverAcceptanceRow | WaiverAcceptanceRow[] | null
   payment_transactions?: PaymentRow | PaymentRow[] | null
@@ -141,6 +143,7 @@ export function toPublicRental(row: RentalRow): PublicRental {
     notes: row.notes,
     voucher: toPublicRentalVoucher(row.voucher_redemptions),
     items: (row.rental_items ?? []).map(toPublicRentalItem),
+    addons: (row.rental_addon_items ?? []).map(toPublicRentalAddonItem),
     waiver: firstWaiverAcceptance(row.waiver_acceptances),
     identity: toPublicRentalIdentity(row.rental_identity_verifications),
     payments: firstPayments(row.payment_transactions),

@@ -1,3 +1,4 @@
+import type { PublicRentalAddonItem, RentalAddonQuoteLine } from '~/types/addon'
 import type { RentalFeedbackSummary } from '~/types/feedback'
 import type { PublicPayment } from '~/types/payment'
 import type { PublicReceipt } from '~/types/receipt'
@@ -51,6 +52,7 @@ export interface PublicRental {
   notes: string | null
   voucher: PublicRentalVoucher | null
   items: PublicRentalItem[]
+  addons: PublicRentalAddonItem[]
   waiver: PublicWaiverAcceptance | null
   identity: PublicRentalIdentity | null
   payments: PublicPayment[]
@@ -219,4 +221,6 @@ export interface RentalQuote {
   totalAmount: number
   available: number
   canFulfill: boolean
+  addons?: RentalAddonQuoteLine[]
+  addonTotal?: number
 }

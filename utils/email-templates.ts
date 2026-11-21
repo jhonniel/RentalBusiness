@@ -146,9 +146,13 @@ export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 
 
   const itemRows = purpose === 'booking'
     ? snapshot.items.map((item) => {
-        const detail = item.billingUnit === 'hour' && item.billedHours
-          ? `${formatMoney(item.hourlyPrice, snapshot.currency)} / hour × ${item.billedHours} hour${item.billedHours === 1 ? '' : 's'}`
-          : `${formatMoney(item.dailyPrice, snapshot.currency)} / day × ${days} day${days === 1 ? '' : 's'}`
+        const detail = item.lineTotal > 0
+          ? (item.sku === 'Add-on'
+              ? formatMoney(item.lineTotal, snapshot.currency)
+              : item.billingUnit === 'hour' && item.billedHours
+                ? `${formatMoney(item.hourlyPrice, snapshot.currency)} / hour × ${item.billedHours} hour${item.billedHours === 1 ? '' : 's'}`
+                : `${formatMoney(item.dailyPrice, snapshot.currency)} / day × ${days} day${days === 1 ? '' : 's'}`)
+          : ''
         return slipLine(
           `<div style="font-weight:600;">${escapeHtml(item.name)}</div><div style="color:#57534e;">Qty ${item.quantity}</div>`,
           escapeHtml(detail),

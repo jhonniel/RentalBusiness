@@ -6,6 +6,7 @@ import { addCalendarDays } from '../../utils/expense'
 import { rentalCodeCandidates, type RentalHistoryRow } from '../../utils/rental'
 import { businessDateTimeToUtc } from '../../utils/rental-window'
 import { AppError, ERROR_CODES, queryLoadError } from '../utils/errors'
+import { listRentalAddonItems } from './addon.repository'
 
 type Client = SupabaseClient<Database>
 
@@ -198,7 +199,7 @@ export async function updateRentalDiscount(client: Client, uuid: string, values:
     throw new AppError('We could not apply that voucher.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
   }
 
-  return data
+  return withAddonItems(client, data)
 }
 
 export async function updateRentalDraft(
@@ -244,7 +245,7 @@ export async function updateRentalDraft(
     throw new AppError('We could not update that rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
   }
 
-  return data
+  return withAddonItems(client, data)
 }
 
 export async function updateRentalSchedule(
@@ -289,7 +290,7 @@ export async function updateRentalSchedule(
     throw new AppError('We could not update that rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
   }
 
-  return data
+  return withAddonItems(client, data)
 }
 
 export async function updateRentalCommission(
@@ -360,7 +361,7 @@ export async function updateRentalStatus(client: Client, uuid: string, status: R
     throw new AppError('We could not update that rental.', 400, ERROR_CODES.VALIDATION_ERROR, { cause: error })
   }
 
-  return data
+  return withAddonItems(client, data)
 }
 
 const RENTAL_HISTORY_LIMIT = 100
@@ -403,6 +404,18 @@ export async function insertRentalStatusHistory(client: Client, values: {
   }
 }
 
+async function withAddonItems<T extends { id?: number } | null>(client: Client, row: T): Promise<T> {
+  if (!row?.id) {
+    return row
+  }
+  const rental_addon_items = await listRentalAddonItems(client, row.id)
+  return { ...row, rental_addon_items }
+}
+
+async function withAddonItemsMany<T extends { id?: number }>(client: Client, rows: T[]): Promise<T[]> {
+  return Promise.all(rows.map(row => withAddonItems(client, row)))
+}
+
 export async function findRentalByUuid(client: Client, uuid: string) {
   const { data, error } = await client
     .from('rental_requests')
@@ -414,7 +427,7 @@ export async function findRentalByUuid(client: Client, uuid: string) {
     throw queryLoadError('We could not load that rental.', error)
   }
 
-  return data
+  return withAddonItems(client, data)
 }
 
 export async function findRentalByCode(client: Client, code: string) {
@@ -429,7 +442,7 @@ export async function findRentalByCode(client: Client, code: string) {
     throw queryLoadError('We could not load that rental.', error)
   }
 
-  return data
+  return withAddonItems(client, data)
 }
 
 export async function listCommissionerRentals(client: Client, commissionerId: number) {
@@ -444,7 +457,7 @@ export async function listCommissionerRentals(client: Client, commissionerId: nu
     throw new AppError('We could not load those bookings.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
   }
 
-  return data ?? []
+  return withAddonItemsMany(client, data ?? [])
 }
 
 export async function findRentalIdentityById(client: Client, id: number) {
@@ -521,7 +534,7 @@ export async function listRentals(client: Client, filters: {
     throw queryLoadError('We could not load rentals.', error)
   }
 
-  return { rows: data ?? [], total: count ?? 0 }
+  return { rows: await withAddonItemsMany(client, data ?? []), total: count ?? 0 }
 }
 
 export async function listPendingRentalIdentities(client: Client) {

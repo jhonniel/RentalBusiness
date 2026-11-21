@@ -118,6 +118,14 @@ Administrators change their own name and password on `/admin/account`. They can 
 
 Administrators can create a client booking on `/admin/rentals/new` with only the equipment and dates. Name, email, phone, and ID photos are optional. Creating the booking returns a waiver link to send. That draft belongs to the customer, or to a placeholder customer when no email was entered. They can also finish a customer draft on `/admin/rentals/[id]/continue` and send that same kind of link. After the waiver is signed, Save rental details books that draft as `pending` and holds the pickup and return dates. An administrator can still change a confirmed booking from that form. The status stays confirmed, and the new dates stay held. They can assign the booking to a commissioner so that commissioner earns the equipment’s commission, saved as a pending expense. That assignment stays available after the booking is confirmed. The rental page also has Extend booking: the admin picks a later return date, sees the server-priced added amount, and saves it. Each extension is kept in an extension log with the old and new return, old and new rent, the added amount, a note, and who extended it. The customer opens `/waivers/sign/{uuid}?token=` without signing in. While the rental is still an unsigned draft, they can change the pickup date, return date, and pickup time. Before they can sign, they fill any missing first name, last name, email, and phone, and photograph a government ID and selfie when the shop did not upload them. Administrators upload those files from the rental; they do not use the camera. After it is signed, the agreement stays visible and the sign form is locked until an administrator changes the waiver status back to unsigned. The raw token is stored as a sha256 hash only.
 
+## Phase 18 — Product add-ons catalog (completed)
+
+Administrators manage a global paid add-on catalog on `/admin/addons` (name, unit price, stock quantity, bookable toggle, archive). They bind add-ons to kits on the product editor. Tables: `addons`, `product_addon_links`. Simple stock uses `addon_held_quantity` / `addon_available_quantity` (open rentals hold units; not date-windowed). Paste `supabase/migrations/20261121140000_product_addons.sql` in Supabase before editing.
+
+## Phase 19 — Booking add-ons (completed)
+
+Customers select linked, bookable, in-stock add-ons on `/rentals/new` (one of each via checkbox). Quote and create include add-on lines as a flat `unit_price × qty` for the whole booking (not per day). Deposit stays kit-only. Lines are stored on `rental_addon_items` and rolled into rental subtotal/total. Add-ons show on customer and admin rental detail and on acknowledgement receipts.
+
 ## Phase report template
 
 After each phase:

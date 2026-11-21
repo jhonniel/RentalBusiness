@@ -57,6 +57,10 @@ export interface PublicProduct {
   modelPath: string | null
   isFeatured: boolean
   images: PublicProductImage[]
+  /** Admin product detail: linked add-on uuids for binding. */
+  addonUuids?: string[]
+  /** Linked add-ons offered with this kit (admin or public). */
+  addons?: import('~/types/addon').PublicAddonOffer[]
 }
 
 export interface PublicEquipmentAsset {
@@ -124,6 +128,7 @@ export interface CatalogProduct {
   isFeatured: boolean
   comingSoon: boolean
   images: PublicProductImage[]
+  addons?: import('~/types/addon').PublicAddonOffer[]
 }
 
 export interface CatalogListResponse {

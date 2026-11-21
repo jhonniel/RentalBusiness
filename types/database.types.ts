@@ -298,6 +298,110 @@ export interface Database {
           },
         ]
       }
+      addons: {
+        Row: {
+          id: number
+          uuid: string
+          name: string
+          description: string
+          unit_price: number
+          quantity: number
+          bookable: boolean
+          status: 'active' | 'archived'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          name: string
+          uuid?: string
+          description?: string
+          unit_price: number
+          quantity?: number
+          bookable?: boolean
+          status?: 'active' | 'archived'
+        }
+        Update: {
+          name?: string
+          description?: string
+          unit_price?: number
+          quantity?: number
+          bookable?: boolean
+          status?: 'active' | 'archived'
+        }
+        Relationships: []
+      }
+      product_addon_links: {
+        Row: {
+          product_id: number
+          addon_id: number
+          created_at: string
+        }
+        Insert: {
+          product_id: number
+          addon_id: number
+        }
+        Update: {
+          product_id?: number
+          addon_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'product_addon_links_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'product_addon_links_addon_id_fkey'
+            columns: ['addon_id']
+            isOneToOne: false
+            referencedRelation: 'addons'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      rental_addon_items: {
+        Row: {
+          id: number
+          uuid: string
+          rental_id: number
+          addon_id: number
+          quantity: number
+          unit_price: number
+          line_total: number
+          created_at: string
+        }
+        Insert: {
+          rental_id: number
+          addon_id: number
+          quantity: number
+          unit_price: number
+          line_total: number
+          uuid?: string
+        }
+        Update: {
+          quantity?: number
+          unit_price?: number
+          line_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'rental_addon_items_rental_id_fkey'
+            columns: ['rental_id']
+            isOneToOne: false
+            referencedRelation: 'rental_requests'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'rental_addon_items_addon_id_fkey'
+            columns: ['addon_id']
+            isOneToOne: false
+            referencedRelation: 'addons'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       equipment_assets: {
         Row: {
           id: number

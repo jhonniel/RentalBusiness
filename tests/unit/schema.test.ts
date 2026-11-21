@@ -615,3 +615,21 @@ describe('hourly line rounding', () => {
     expect(hourlyRound).not.toContain('trunc(new.quantity)')
   })
 })
+
+describe('product add-ons', () => {
+  const productAddons = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261121140000_product_addons.sql'),
+    'utf8',
+  )
+
+  it('stores add-ons, product links, rental lines, and simple stock helpers', () => {
+    expect(productAddons).toContain('create table if not exists public.addons')
+    expect(productAddons).toContain('create table if not exists public.product_addon_links')
+    expect(productAddons).toContain('create table if not exists public.rental_addon_items')
+    expect(productAddons).toContain('addon_held_quantity')
+    expect(productAddons).toContain('addon_available_quantity')
+    expect(productAddons).toContain('rental_addon_items_sync_totals')
+    expect(productAddons).toContain('addons_admin_write')
+    expect(productAddons).toContain('rental_addon_items_insert_own')
+  })
+})

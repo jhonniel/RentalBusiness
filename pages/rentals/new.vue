@@ -52,6 +52,7 @@ const formError = ref('')
 const pending = ref(false)
 const quoting = ref(false)
 const quote = ref<RentalQuote | null>(null)
+const selectedAddons = ref<Record<string, number>>({})
 
 useSiteMeta({
   title: 'Request a rental',
@@ -71,6 +72,31 @@ const { data: product, error: productError } = await useFetch<CatalogProduct>(
   () => `/api/products/${form.productSlug}`,
   { immediate: Boolean(form.productSlug) },
 )
+
+const addonOffers = computed(() => product.value?.addons ?? [])
+const addonSelections = computed(() => Object.entries(selectedAddons.value)
+  .filter(([, quantity]) => quantity > 0)
+  .map(([uuid, quantity]) => ({ uuid, quantity })))
+
+watch(addonOffers, (offers) => {
+  const next: Record<string, number> = {}
+  for (const offer of offers) {
+    const checked = (selectedAddons.value[offer.uuid] ?? 0) > 0
+    next[offer.uuid] = checked && offer.bookable && offer.available > 0 ? 1 : 0
+  }
+  selectedAddons.value = next
+}, { immediate: true })
+
+function isAddonChecked(uuid: string) {
+  return (selectedAddons.value[uuid] ?? 0) > 0
+}
+
+function setAddonChecked(uuid: string, checked: boolean, available: number) {
+  selectedAddons.value = {
+    ...selectedAddons.value,
+    [uuid]: checked && available > 0 ? 1 : 0,
+  }
+}
 
 const unavailable = computed(() => productError.value?.statusCode === 503)
 const productImage = ref('')
@@ -138,6 +164,7 @@ async function refreshQuote() {
         endsOn: form.endsOn,
         pickupTime: form.pickupTime,
         quantity: form.quantity,
+        addons: addonSelections.value,
         ...(hourlyBooking.value ? { hours: form.hours } : {}),
       },
     })
@@ -155,7 +182,7 @@ async function refreshQuote() {
 }
 
 watchDebounced(
-  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.hours, form.productSlug, product.value?.comingSoon, hourlyBooking.value],
+  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.hours, form.productSlug, product.value?.comingSoon, hourlyBooking.value, addonSelections.value],
   () => {
     if (product.value?.comingSoon) {
       quote.value = null
@@ -174,6 +201,7 @@ async function onSubmit() {
     ...form,
     endsOn: rentalWindow.value.endsOn || form.endsOn,
     hours: hourlyBooking.value ? form.hours : undefined,
+    addons: addonSelections.value,
     status: 'draft',
   })
 
@@ -407,9 +435,70 @@ async function onSubmit() {
           </div>
         </section>
 
-        <section class="storefront-card rounded-2xl p-5 sm:p-6">
+        <section
+          v-if="addonOffers.length"
+          class="storefront-card rounded-2xl p-5 sm:p-6"
+        >
           <div class="flex items-start gap-3">
             <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">2</span>
+            <div class="min-w-0">
+              <h2 class="font-semibold text-[#12201a]">
+                Add-ons
+              </h2>
+              <p class="mt-0.5 text-sm text-[#5b6b64]">
+                Optional extras for this kit. Items that are out stay off until they are back.
+              </p>
+            </div>
+          </div>
+          <ul class="mt-5 space-y-2">
+            <li
+              v-for="addon in addonOffers"
+              :key="addon.uuid"
+            >
+              <label
+                class="flex cursor-pointer items-start gap-3 rounded-xl border border-[#12201a]/10 px-3.5 py-3 text-sm"
+                :class="(!addon.bookable || addon.available < 1) ? 'cursor-not-allowed opacity-60' : ''"
+              >
+                <input
+                  type="checkbox"
+                  class="mt-1"
+                  :checked="isAddonChecked(addon.uuid)"
+                  :disabled="pending || !addon.bookable || addon.available < 1"
+                  @change="setAddonChecked(addon.uuid, ($event.target as HTMLInputElement).checked, addon.available)"
+                >
+                <span class="min-w-0">
+                  <span class="block font-medium text-[#12201a]">
+                    {{ addon.name }}
+                  </span>
+                  <span
+                    v-if="addon.unitPrice > 0 || !addon.bookable || addon.available < 1"
+                    class="mt-0.5 block text-[#5b6b64]"
+                  >
+                    <template v-if="addon.unitPrice > 0">
+                      {{ formatMoney(addon.unitPrice) }}
+                    </template>
+                    <template v-if="!addon.bookable || addon.available < 1">
+                      <template v-if="addon.unitPrice > 0">
+                        ·
+                      </template>
+                      Not available
+                    </template>
+                  </span>
+                  <span
+                    v-if="addon.description"
+                    class="mt-1 block text-xs leading-5 text-[#5b6b64]"
+                  >
+                    {{ addon.description }}
+                  </span>
+                </span>
+              </label>
+            </li>
+          </ul>
+        </section>
+
+        <section class="storefront-card rounded-2xl p-5 sm:p-6">
+          <div class="flex items-start gap-3">
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#12201a] text-xs font-semibold text-white">{{ addonOffers.length ? 3 : 2 }}</span>
             <div class="min-w-0">
               <h2 class="font-semibold text-[#12201a]">
                 Your details
@@ -572,6 +661,21 @@ async function onSubmit() {
                 </dt>
                 <dd class="tabular-nums text-emerald-700">
                   −{{ formatMoney(quote.lessAmount) }}
+                </dd>
+              </div>
+              <div
+                v-for="addon in quote.addons ?? []"
+                :key="addon.uuid"
+                class="flex justify-between gap-4"
+              >
+                <dt class="text-[#5b6b64]">
+                  {{ addon.name }}
+                </dt>
+                <dd
+                  v-if="addon.lineTotal > 0"
+                  class="tabular-nums text-[#12201a]"
+                >
+                  {{ formatMoney(addon.lineTotal) }}
                 </dd>
               </div>
               <div class="flex justify-between gap-4">

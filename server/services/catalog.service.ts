@@ -35,6 +35,7 @@ import {
 } from '../repositories/product.repository'
 import { insertAsset, listAssets, listCurrentRentalHolds, updateAssetByUuid } from '../repositories/equipment.repository'
 import { compressImageForStorage } from '../utils/image-compress'
+import { getProductAddonOffers, getProductLinkedAddonUuids } from './addon.service'
 
 type Client = SupabaseClient<Database>
 
@@ -150,7 +151,16 @@ export async function getAdminProduct(client: Client, uuid: string) {
 
   const identity = await findProductIdByUuid(client, uuid)
   const images = identity ? await listProductImages(client, identity.id) : []
-  return toPublicProduct(row, images, supabaseUrl())
+  const product = toPublicProduct(row, images, supabaseUrl())
+  if (!identity) {
+    return product
+  }
+
+  const [addonUuids, addons] = await Promise.all([
+    getProductLinkedAddonUuids(client, identity.id),
+    getProductAddonOffers(client, identity.id),
+  ])
+  return { ...product, addonUuids, addons }
 }
 
 function toProductWrite(input: ProductInput, categoryId: number, slug: string, sku: string) {
@@ -518,5 +528,11 @@ export async function getPublicProduct(client: Client, identifier: string) {
   }
 
   const images = row.id ? await listProductImages(client, row.id) : []
-  return toCatalogProduct(row, images, supabaseUrl())
+  const product = toCatalogProduct(row, images, supabaseUrl())
+  if (!row.id) {
+    return product
+  }
+
+  const addons = await getProductAddonOffers(client, row.id, { bookableOnly: true })
+  return { ...product, addons }
 }
