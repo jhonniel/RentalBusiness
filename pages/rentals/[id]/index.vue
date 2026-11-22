@@ -357,9 +357,12 @@ async function cancelRental() {
                 :key="item.uuid"
                 class="flex items-center justify-between gap-3 rounded-xl border border-[#12201a]/8 px-4 py-3 text-sm"
               >
-                <span class="min-w-0 font-medium break-words text-[#12201a]">
-                  {{ item.addon.name }}
-                  <span class="font-normal text-[#5c6a64]"> · Add-on</span>
+                <span class="flex min-w-0 items-center gap-2 font-medium break-words text-[#12201a]">
+                  <AddonImageThumb
+                    :name="item.addon.name"
+                    :image-url="item.addon.imageUrl"
+                  />
+                  <span>{{ item.addon.name }}</span>
                 </span>
                 <span class="shrink-0 text-[#5c6a64]">Qty {{ item.quantity }}</span>
               </li>

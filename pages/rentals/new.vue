@@ -466,7 +466,12 @@ async function onSubmit() {
                   :disabled="pending || !addon.bookable || addon.available < 1"
                   @change="setAddonChecked(addon.uuid, ($event.target as HTMLInputElement).checked, addon.available)"
                 >
-                <span class="min-w-0">
+                <span class="flex min-w-0 items-start gap-2">
+                  <AddonImageThumb
+                    :name="addon.name"
+                    :image-url="addon.imageUrl"
+                  />
+                  <span class="min-w-0">
                   <span class="block font-medium text-[#12201a]">
                     {{ addon.name }}
                   </span>
@@ -489,6 +494,7 @@ async function onSubmit() {
                     class="mt-1 block text-xs leading-5 text-[#5b6b64]"
                   >
                     {{ addon.description }}
+                  </span>
                   </span>
                 </span>
               </label>

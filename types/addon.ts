@@ -10,6 +10,7 @@ export interface PublicAddon {
   available: number
   bookable: boolean
   status: AddonStatus
+  imageUrl: string | null
   updatedAt: string | null
 }
 
@@ -20,6 +21,7 @@ export interface PublicAddonOffer {
   unitPrice: number
   available: number
   bookable: boolean
+  imageUrl: string | null
 }
 
 export interface PublicRentalAddonItem {
@@ -30,6 +32,7 @@ export interface PublicRentalAddonItem {
   addon: {
     uuid: string
     name: string
+    imageUrl: string | null
   }
 }
 

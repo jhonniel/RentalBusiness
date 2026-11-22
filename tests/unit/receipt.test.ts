@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
 import { feedbackRequestEmail, receiptCopyEmail, receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
-import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptDiscounts, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
+import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptAddonItems, receiptDiscounts, receiptKitItems, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptEmailSchema, receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
 const snapshot = {
@@ -64,6 +64,27 @@ describe('receipt validation', () => {
 })
 
 describe('receipt mapper', () => {
+  it('lists kit items and add-ons separately, including legacy sku Add-on rows', () => {
+    expect(receiptKitItems({
+      ...snapshot,
+      items: [
+        snapshot.items[0]!,
+        { name: 'Tripod', sku: 'Add-on', quantity: 1, dailyPrice: 200, lineTotal: 200 },
+      ],
+    }).map(item => item.name)).toEqual(['Sony A7 IV'])
+    expect(receiptAddonItems({
+      ...snapshot,
+      items: [
+        snapshot.items[0]!,
+        { name: 'Tripod', sku: 'Add-on', quantity: 1, dailyPrice: 200, lineTotal: 200 },
+      ],
+    })).toEqual([{ name: 'Tripod', quantity: 1, unitPrice: 200, lineTotal: 200 }])
+    expect(receiptAddonItems({
+      ...snapshot,
+      addons: [{ name: 'Light', quantity: 1, unitPrice: 150, lineTotal: 150 }],
+    })).toEqual([{ name: 'Light', quantity: 1, unitPrice: 150, lineTotal: 150 }])
+  })
+
   it('never includes internal ids and overlays the public receipt number', () => {
     const receipt = toPublicReceipt({
       uuid: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',

@@ -64,7 +64,7 @@ Phase 2 additions:
 - Customers cannot write `payment_transactions`, `receipts`, `expenses`, `email_logs`, or `audit_logs`
 - Accepted waiver versions cannot be updated or deleted. Publishing `JRY-WAIVER-v1.2` only rotates `is_current`; signed `JRY-WAIVER-v1.0` and `JRY-WAIVER-v1.1` bodies stay frozen. v1.2 states that a late fee applies once equipment is not returned by the agreed return time: less than 6 hours is ₱300, 6 hours up to 12 hours is half a day of the rented item, and more than 12 hours is charged as 1 day of rent.
 - `expense_occurrences` is unique on `(recurring_expense_id, occurs_on)` for idempotent cron
-- Storage: public `product-images`, public `payment-qr-images`, public `maintenance-images`, private `private-documents` (path prefixed by `auth.uid()`)
+- Storage: public `product-images`, public `payment-qr-images`, public `maintenance-images`, public `addon-images`, private `private-documents` (path prefixed by `auth.uid()`)
 
 Phase 3 additions:
 
@@ -208,7 +208,7 @@ Site maintenance additions:
 
 - `rental_feedback_requests` is forced RLS with service-role grants only. Only admins can create feedback links (`requireAdminClient`, 20/min). Links carry a 32-byte random token; only its sha256 hash is stored and it is compared in constant time. Public feedback routes look up by `uuid`, never expose database ids or customer contact details, accept a strict body with 1–5 integer ratings for exactly the saved questions, and allow one submission per link and per booking (10/min/IP). A database trigger rejects any change to an answered row, and rows cannot be deleted. Comments are rendered as plain text. Sending and submitting are written to the audit log. Thank-you voucher codes are given only by the server, at most once per answered booking, and only while the admin-chosen voucher is active and has codes left; reward settings are admin-only and audited.
 - `faqs` is forced RLS. `anon` and `authenticated` may select active rows; only admins (`public.is_admin()`) can select hidden rows or write. Admin FAQ routes use `requireAdminClient`, strict Zod bodies, and a 40/min rate limit. FAQ answers are rendered as plain text, never HTML.
-- `addons`, `product_addon_links`, and `rental_addon_items` are forced RLS. Active add-ons and product links are readable publicly for catalog/booking. Only admins write add-ons and links. Customers may insert/select `rental_addon_items` only on their own draft/pending rentals (same pattern as `rental_items`). Quote and create validate link, bookable, and simple stock on the server; clients never send prices.
+- `addons`, `product_addon_links`, and `rental_addon_items` are forced RLS. Active add-ons and product links are readable publicly for catalog/booking. Only admins write add-ons and links. Optional reference images live in public `addon-images` (admin write). Customers may insert/select `rental_addon_items` only on their own draft/pending rentals (same pattern as `rental_items`). Quote and create validate link, bookable, and simple stock on the server; clients never send prices.
 
 Phase 16 additions:
 
@@ -256,7 +256,7 @@ Admins may access operations data through policies that check `profiles.role = '
 
 ## Storage
 
-Private buckets for waivers, receipts, and customer documents. Catalog photos, payment QR images, and maintenance images are stored in public Supabase Storage buckets (`product-images`, `payment-qr-images`, `maintenance-images`) on S3. Private files are served through signed URLs. Pages never write image bytes to the local disk.
+Private buckets for waivers, receipts, and customer documents. Catalog photos, payment QR images, maintenance images, and add-on reference images are stored in public Supabase Storage buckets (`product-images`, `payment-qr-images`, `maintenance-images`, `addon-images`) on S3. Private files are served through signed URLs. Pages never write image bytes to the local disk.
 
 ## Logging and audit
 
@@ -286,7 +286,7 @@ Users see friendly messages. APIs return `{ message, code }` only. Stack traces 
 - [x] Cron secret verified with a timing-safe compare; query-string secrets are not read
 - [x] Rate limiting on auth profile/me, payments, catalog, rentals, vouchers, identity uploads, waivers, privacy policy, terms, cookie policy, and notifications (in-memory / per isolate)
 - [x] Session cookies: `httpOnly`, `SameSite=Lax`, `Secure` in production
-- [x] Storage policies reviewed (`product-images`, `payment-qr-images`, and `maintenance-images` public read, `private-documents` owner/admin)
+- [x] Storage policies reviewed (`product-images`, `payment-qr-images`, `maintenance-images`, and `addon-images` public read, `private-documents` owner/admin)
 - [x] Audit logging on admin mutations
 - [x] `npm audit` reviewed (`@nuxt/ui@3.3.7` reports GHSA-gj2h-2fpw-fhv9; do not use `UAuthForm`/`UForm` without an explicit POST method)
 - [x] Health readiness flags and production env warning; live Vercel/Supabase/Gmail SMTP values are still an operations step before go-live

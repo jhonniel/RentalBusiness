@@ -35,7 +35,7 @@ import {
 } from '../repositories/rental.repository'
 import { cancelOpenPaymentsByRentalId, findPaidPaymentByRentalId } from '../repositories/payment.repository'
 import { getSupabaseAdminClient } from '../utils/supabase'
-import { persistRentalAddonLines, quoteSelectedAddons } from './addon.service'
+import { persistRentalAddonLines, quoteSelectedAddons, retainedAddonUuidsForRental } from './addon.service'
 import { sendTemplatedEmail } from './email.service'
 
 type Client = SupabaseClient<Database>
@@ -176,7 +176,19 @@ export async function buildQuote(client: Client, query: RentalQuoteQuery | Admin
 
   const billingUnit = hourly ? 'hour' as const : 'day' as const
   const days = 'days' in line ? line.days : window.days
-  const addonQuote = await quoteSelectedAddons(client, product.id, query.addons ?? [])
+  let exceptRentalId: number | undefined
+  let retainUuids: string[] | undefined
+  if (options?.exceptRentalUuid) {
+    const identity = await findRentalIdentity(client, options.exceptRentalUuid)
+    exceptRentalId = identity?.id
+    if (identity?.id) {
+      retainUuids = await retainedAddonUuidsForRental(client, identity.id)
+    }
+  }
+  const addonQuote = await quoteSelectedAddons(client, product.id, query.addons ?? [], {
+    exceptRentalId,
+    retainUuids,
+  })
   const subtotal = line.lineTotal + addonQuote.total
 
   return {

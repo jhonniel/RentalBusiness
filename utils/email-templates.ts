@@ -3,7 +3,7 @@ import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, FACEBOOK_URL, RECEIPT_RECEI
 import { formatMoney } from './currency'
 import { formatBusinessDate, formatBusinessDateTime } from './datetime'
 import { escapeHtml } from './email'
-import { RECEIPT_PURPOSE_LABELS } from './receipt'
+import { RECEIPT_PURPOSE_LABELS, receiptAddonItems, receiptKitItems } from './receipt'
 import { rentalPeriodDays } from './rental-window'
 
 function publicOrigin() {
@@ -80,17 +80,26 @@ export function signupConfirmationEmail(input: {
 }
 
 export function receiptIssuedEmail(snapshot: ReceiptSnapshot, receiptUrl: string) {
-  const items = snapshot.items.map(item => `
+  const kitRows = receiptKitItems(snapshot).map(item => `
     <tr>
       <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;">${escapeHtml(item.name)} × ${item.quantity}</td>
       <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;text-align:right;">${escapeHtml(formatMoney(item.lineTotal, snapshot.currency))}</td>
     </tr>
   `).join('')
+  const addons = receiptAddonItems(snapshot)
+  const addonRows = addons.length
+    ? `<tr><td colspan="2" style="padding:12px 0 4px;color:#78716c;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Add-ons</td></tr>${addons.map(item => `
+    <tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;">${escapeHtml(item.name)} × ${item.quantity}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;text-align:right;">${escapeHtml(formatMoney(item.lineTotal, snapshot.currency))}</td>
+    </tr>
+  `).join('')}`
+    : ''
 
   const html = layout(`Receipt ${snapshot.receiptNumber}`, `
     <p style="margin:0 0 16px;font-size:16px;">Hi ${escapeHtml(snapshot.customer.name)},</p>
     <p style="margin:0 0 16px;color:#57534e;">Payment for rental ${escapeHtml(snapshot.rental.code)} is confirmed. Your receipt is ${escapeHtml(snapshot.receiptNumber)}.</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${kitRows}${addonRows}</table>
     <p style="margin:16px 0 0;font-weight:600;">Total paid ${escapeHtml(formatMoney(snapshot.amounts.paidAmount, snapshot.currency))}</p>
     <p style="margin:8px 0 0;color:#57534e;font-size:14px;">Deposit ${escapeHtml(formatMoney(snapshot.amounts.depositAmount, snapshot.currency))} is a hold and is not included in this charge.</p>
     <p style="margin:24px 0 0;"><a href="${escapeHtml(receiptUrl)}" style="color:#325348;">View your receipt</a></p>
@@ -142,24 +151,35 @@ export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 
   const website = publicOrigin()
   const websiteLabel = website.replace(/^https?:\/\//, '')
   const facebookLabel = FACEBOOK_URL.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
-  const hourly = snapshot.items.some(item => item.billingUnit === 'hour')
+  const kitItems = receiptKitItems(snapshot)
+  const addonItems = receiptAddonItems(snapshot)
+  const hourly = kitItems.some(item => item.billingUnit === 'hour')
 
   const itemRows = purpose === 'booking'
-    ? snapshot.items.map((item) => {
-        const detail = item.lineTotal > 0
-          ? (item.sku === 'Add-on'
-              ? formatMoney(item.lineTotal, snapshot.currency)
-              : item.billingUnit === 'hour' && item.billedHours
+    ? [
+        ...kitItems.map((item) => {
+          const detail = item.lineTotal > 0
+            ? (item.billingUnit === 'hour' && item.billedHours
                 ? `${formatMoney(item.hourlyPrice, snapshot.currency)} / hour × ${item.billedHours} hour${item.billedHours === 1 ? '' : 's'}`
                 : `${formatMoney(item.dailyPrice, snapshot.currency)} / day × ${days} day${days === 1 ? '' : 's'}`)
-          : ''
-        return slipLine(
-          `<div style="font-weight:600;">${escapeHtml(item.name)}</div><div style="color:#57534e;">Qty ${item.quantity}</div>`,
-          escapeHtml(detail),
-        )
-      }).join('')
+            : ''
+          return slipLine(
+            `<div style="font-weight:600;">${escapeHtml(item.name)}</div><div style="color:#57534e;">Qty ${item.quantity}</div>`,
+            escapeHtml(detail),
+          )
+        }),
+        ...(addonItems.length
+          ? [
+              `<tr><td colspan="2" style="padding:10px 0 2px;color:#78716c;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;border-top:1px dashed #d6d3d1;">Add-ons</td></tr>`,
+              ...addonItems.map(item => slipLine(
+                `<div style="font-weight:600;">${escapeHtml(item.name)}</div><div style="color:#57534e;">Qty ${item.quantity}</div>`,
+                item.lineTotal > 0 ? escapeHtml(formatMoney(item.lineTotal, snapshot.currency)) : '',
+              )),
+            ]
+          : []),
+      ].join('')
     : slipLine(
-        `<div style="font-weight:600;">${escapeHtml(purposeLabel)}</div><div style="color:#57534e;">${escapeHtml(snapshot.items.map(item => item.name).join(', '))}</div>`,
+        `<div style="font-weight:600;">${escapeHtml(purposeLabel)}</div><div style="color:#57534e;">${escapeHtml([...kitItems, ...addonItems].map(item => item.name).join(', '))}</div>`,
         money(snapshot.amounts.paidAmount),
       )
 

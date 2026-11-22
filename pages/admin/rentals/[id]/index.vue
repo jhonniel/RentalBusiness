@@ -759,7 +759,13 @@ async function removeRental() {
                 :key="item.uuid"
                 class="flex justify-between gap-4 py-3 text-sm"
               >
-                <span>{{ item.addon.name }} × {{ item.quantity }} <span class="text-stone-500">(add-on)</span></span>
+                <span class="flex min-w-0 items-center gap-2">
+                  <AddonImageThumb
+                    :name="item.addon.name"
+                    :image-url="item.addon.imageUrl"
+                  />
+                  <span>{{ item.addon.name }} × {{ item.quantity }}</span>
+                </span>
                 <span>{{ formatMoney(item.lineTotal) }}</span>
               </li>
             </ul>

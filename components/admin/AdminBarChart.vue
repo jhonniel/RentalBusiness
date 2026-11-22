@@ -109,7 +109,6 @@ function hover(event: PointerEvent, key: string | null) {
             @click="active = point.key"
           >
             <span
-              v-if="!concealed"
               class="pointer-events-none absolute inset-x-0 truncate text-center text-[10px] tabular-nums sm:text-[11px]"
               :class="active === point.key ? 'font-semibold text-stone-900' : 'text-stone-500'"
               :style="{ bottom: `calc(${height(point.value)} + 4px)` }"
@@ -118,10 +117,10 @@ function hover(event: PointerEvent, key: string | null) {
               class="block w-full max-w-14 origin-bottom rounded-t-lg transition-colors"
               :class="[
                 play ? 'chart-grow-y' : 'chart-hold',
-                !concealed && point.value > 0 ? 'min-h-1' : '',
+                point.value > 0 ? 'min-h-1' : '',
                 active === point.key ? 'bg-lumen-500' : active === null ? 'bg-lumen-700' : 'bg-lumen-700/40',
               ]"
-              :style="{ height: concealed ? '0%' : height(point.value), animationDelay: `${index * 60}ms` }"
+              :style="{ height: height(point.value), animationDelay: `${index * 60}ms` }"
             />
           </button>
         </div>

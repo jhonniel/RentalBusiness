@@ -37,6 +37,24 @@ const depositChange = computed(() => payment.value
         </dt>
         <dd>−{{ formatMoney(quote.lessAmount) }}</dd>
       </div>
+      <div
+        v-for="addon in quote.addons ?? []"
+        :key="addon.uuid"
+        class="flex justify-between gap-4"
+      >
+        <dt class="text-stone-500">
+          {{ addon.name }}
+        </dt>
+        <dd v-if="addon.lineTotal > 0">
+          {{ formatMoney(addon.lineTotal) }}
+        </dd>
+        <dd
+          v-else
+          class="text-stone-400"
+        >
+          Included
+        </dd>
+      </div>
       <div class="flex justify-between gap-4">
         <dt class="text-stone-500">
           Deposit

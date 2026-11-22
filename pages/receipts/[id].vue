@@ -3,7 +3,7 @@ import type { PublicReceipt } from '~/types/receipt'
 import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
 import { rentalPeriodDays } from '~/utils/rental-window'
 import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, BUSINESS_PHONE, FACEBOOK_URL, RECEIPT_RECEIVED_BY } from '~/utils/constants'
-import { RECEIPT_58MM_PRINT_CSS, RECEIPT_PURPOSE_LABELS } from '~/utils/receipt'
+import { RECEIPT_58MM_PRINT_CSS, RECEIPT_PURPOSE_LABELS, receiptAddonItems, receiptKitItems } from '~/utils/receipt'
 
 definePageMeta({
   layout: 'blank',
@@ -55,6 +55,8 @@ const rentedDays = computed(() => rentalDates.value.startsOn && rentalDates.valu
 const currentLine = computed(() => statement.value?.lines.find(line => line.current) ?? null)
 const purpose = computed(() => snapshot.value?.purpose ?? currentLine.value?.purpose ?? 'booking')
 const purposeLabel = computed(() => snapshot.value?.description || currentLine.value?.label || RECEIPT_PURPOSE_LABELS[purpose.value])
+const kitItems = computed(() => snapshot.value ? receiptKitItems(snapshot.value) : [])
+const addonItems = computed(() => snapshot.value ? receiptAddonItems(snapshot.value) : [])
 const emailTo = ref('')
 const sending = ref(false)
 const toast = useToast()
@@ -262,7 +264,7 @@ async function sendInvoice() {
             {{ purposeLabel }}
           </p>
           <p class="text-stone-500">
-            {{ snapshot.items.map(item => item.name).join(', ') }}
+            {{ [...kitItems, ...addonItems].map(item => item.name).join(', ') }}
           </p>
         </div>
         <p class="font-medium">
@@ -270,39 +272,66 @@ async function sendInvoice() {
         </p>
       </div>
 
-      <ul
-        v-if="purpose === 'booking'"
-        class="mt-6 divide-y divide-stone-100 border-y border-stone-100"
-      >
-        <li
-          v-for="item in snapshot.items"
-          :key="`${item.name}-${item.quantity}`"
-          class="flex justify-between gap-4 py-3 text-sm"
-        >
-          <div>
-            <p class="font-medium text-stone-900">
-              {{ item.name }}
-            </p>
-            <p class="text-stone-500">
-              Qty {{ item.quantity }}
-            </p>
-          </div>
-          <p
-            v-if="item.lineTotal > 0"
-            class="text-right tabular-nums"
+      <template v-if="purpose === 'booking'">
+        <ul class="mt-6 divide-y divide-stone-100 border-y border-stone-100">
+          <li
+            v-for="item in kitItems"
+            :key="`${item.name}-${item.quantity}`"
+            class="flex justify-between gap-4 py-3 text-sm"
           >
-            <template v-if="item.sku === 'Add-on'">
-              {{ formatMoney(item.lineTotal, snapshot.currency) }}
-            </template>
-            <template v-else-if="item.billingUnit === 'hour' && item.billedHours">
-              {{ formatMoney(item.hourlyPrice, snapshot.currency) }} / hour × {{ item.billedHours }} hour{{ item.billedHours === 1 ? '' : 's' }}
-            </template>
-            <template v-else>
-              {{ formatMoney(item.dailyPrice, snapshot.currency) }} / day × {{ rentedDays }} day{{ rentedDays === 1 ? '' : 's' }}
-            </template>
+            <div>
+              <p class="font-medium text-stone-900">
+                {{ item.name }}
+              </p>
+              <p class="text-stone-500">
+                Qty {{ item.quantity }}
+              </p>
+            </div>
+            <p
+              v-if="item.lineTotal > 0"
+              class="text-right tabular-nums"
+            >
+              <template v-if="item.billingUnit === 'hour' && item.billedHours">
+                {{ formatMoney(item.hourlyPrice, snapshot.currency) }} / hour × {{ item.billedHours }} hour{{ item.billedHours === 1 ? '' : 's' }}
+              </template>
+              <template v-else>
+                {{ formatMoney(item.dailyPrice, snapshot.currency) }} / day × {{ rentedDays }} day{{ rentedDays === 1 ? '' : 's' }}
+              </template>
+            </p>
+          </li>
+        </ul>
+
+        <div
+          v-if="addonItems.length"
+          class="mt-4 border-y border-stone-100"
+        >
+          <p class="pt-3 text-xs font-medium uppercase tracking-[0.16em] text-stone-500">
+            Add-ons
           </p>
-        </li>
-      </ul>
+          <ul class="divide-y divide-stone-100">
+            <li
+              v-for="item in addonItems"
+              :key="`${item.name}-${item.quantity}`"
+              class="flex justify-between gap-4 py-3 text-sm"
+            >
+              <div>
+                <p class="font-medium text-stone-900">
+                  {{ item.name }}
+                </p>
+                <p class="text-stone-500">
+                  Qty {{ item.quantity }}
+                </p>
+              </div>
+              <p
+                v-if="item.lineTotal > 0"
+                class="text-right tabular-nums"
+              >
+                {{ formatMoney(item.lineTotal, snapshot.currency) }}
+              </p>
+            </li>
+          </ul>
+        </div>
+      </template>
 
       <dl
         v-if="purpose === 'booking' && receipt.discounts && (receipt.discounts.longStay > 0 || receipt.discounts.voucher > 0)"
@@ -313,7 +342,7 @@ async function sendInvoice() {
           class="flex justify-between gap-4"
         >
           <dt class="text-stone-600">
-            {{ snapshot.items.some(item => item.billingUnit === 'hour') ? 'Hourly discount' : 'Long-stay discount' }}
+            {{ kitItems.some(item => item.billingUnit === 'hour') ? 'Hourly discount' : 'Long-stay discount' }}
           </dt>
           <dd class="tabular-nums text-emerald-700">
             −{{ formatMoney(receipt.discounts.longStay, snapshot.currency) }}

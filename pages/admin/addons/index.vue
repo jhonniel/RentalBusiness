@@ -31,6 +31,14 @@ const editingUuid = ref<string | null>(null)
 const formError = ref('')
 const saving = ref(false)
 const busyUuid = ref<string | null>(null)
+const imageFile = ref<File | null>(null)
+const imageInput = ref<HTMLInputElement | null>(null)
+const editingImageUrl = computed(() => {
+  if (!editingUuid.value) {
+    return null
+  }
+  return items.value.find(item => item.uuid === editingUuid.value)?.imageUrl ?? null
+})
 
 function resetForm() {
   editingUuid.value = null
@@ -41,6 +49,10 @@ function resetForm() {
   form.bookable = true
   form.status = 'active'
   formError.value = ''
+  imageFile.value = null
+  if (imageInput.value) {
+    imageInput.value.value = ''
+  }
 }
 
 function startEdit(addon: PublicAddon) {
@@ -52,6 +64,50 @@ function startEdit(addon: PublicAddon) {
   form.bookable = addon.bookable
   form.status = addon.status
   formError.value = ''
+  imageFile.value = null
+  if (imageInput.value) {
+    imageInput.value.value = ''
+  }
+}
+
+function onImageChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  imageFile.value = input.files?.[0] ?? null
+}
+
+async function uploadImage(uuid: string) {
+  if (!imageFile.value) {
+    return
+  }
+  const body = new FormData()
+  body.append('file', imageFile.value)
+  await $fetch(`/api/admin/addons/${uuid}/image`, {
+    method: 'POST',
+    body,
+  })
+}
+
+async function removeImage() {
+  if (!editingUuid.value) {
+    return
+  }
+  formError.value = ''
+  busyUuid.value = editingUuid.value
+  try {
+    await $fetch(`/api/admin/addons/${editingUuid.value}/image`, { method: 'DELETE' })
+    toast.add({ title: 'Image removed', color: 'success' })
+    imageFile.value = null
+    if (imageInput.value) {
+      imageInput.value.value = ''
+    }
+    await refresh()
+  }
+  catch (error) {
+    formError.value = errorMessage(error, 'We could not remove that image.')
+  }
+  finally {
+    busyUuid.value = null
+  }
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -71,9 +127,12 @@ async function onSubmit() {
 
   saving.value = true
   try {
-    await (editingUuid.value
-      ? $fetch<PublicAddon>(`/api/admin/addons/${editingUuid.value}`, { method: 'PATCH', body: parsed.data })
-      : $fetch<PublicAddon>('/api/admin/addons', { method: 'POST', body: parsed.data }))
+    const saved = editingUuid.value
+      ? await $fetch<PublicAddon>(`/api/admin/addons/${editingUuid.value}`, { method: 'PATCH', body: parsed.data })
+      : await $fetch<PublicAddon>('/api/admin/addons', { method: 'POST', body: parsed.data })
+    if (imageFile.value) {
+      await uploadImage(saved.uuid)
+    }
     toast.add({ title: editingUuid.value ? 'Add-on updated' : 'Add-on added', color: 'success' })
     await refresh()
     resetForm()
@@ -174,7 +233,7 @@ async function archive(addon: PublicAddon) {
       <AdminNotice
         v-if="data && !ready"
         title="Paste the add-ons SQL to start editing"
-        description="Run supabase/migrations/20261121140000_product_addons.sql in the Supabase SQL editor, then bind add-ons on each product."
+        description="Run supabase/migrations/20261121140000_product_addons.sql and 20261122130000_addon_images.sql in the Supabase SQL editor, then bind add-ons on each product."
       />
 
       <div class="grid gap-6 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:items-start">
@@ -245,6 +304,41 @@ async function archive(addon: PublicAddon) {
                 :disabled="saving || !ready"
               />
             </div>
+            <div class="space-y-2 text-sm">
+              <span class="block text-stone-700">Reference image</span>
+              <div
+                v-if="editingImageUrl"
+                class="flex items-center gap-3"
+              >
+                <AddonImageThumb
+                  :name="form.name || 'Add-on'"
+                  :image-url="editingImageUrl"
+                  size="md"
+                />
+                <UButton
+                  type="button"
+                  size="sm"
+                  color="neutral"
+                  variant="ghost"
+                  :disabled="saving || busyUuid === editingUuid"
+                  :loading="busyUuid === editingUuid"
+                  @click="removeImage"
+                >
+                  Remove image
+                </UButton>
+              </div>
+              <input
+                ref="imageInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                class="block w-full text-sm text-stone-600 file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-stone-800"
+                :disabled="saving || !ready"
+                @change="onImageChange"
+              >
+              <span class="block text-xs text-stone-500">
+                Optional. Shown as a small icon beside the name; tap to view full size.
+              </span>
+            </div>
           </div>
           <div class="mt-5 flex flex-wrap gap-2">
             <UButton
@@ -291,7 +385,12 @@ async function archive(addon: PublicAddon) {
               :key="addon.uuid"
               class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div class="min-w-0">
+              <div class="flex min-w-0 items-start gap-3">
+                <AddonImageThumb
+                  :name="addon.name"
+                  :image-url="addon.imageUrl"
+                />
+                <div class="min-w-0">
                 <p class="font-medium text-stone-900">
                   {{ addon.name }}
                 </p>
@@ -301,6 +400,7 @@ async function archive(addon: PublicAddon) {
                   · {{ addon.bookable ? 'On bookings' : 'Off bookings' }}
                   · {{ addon.status === 'archived' ? 'Archived' : 'Active' }}
                 </p>
+                </div>
               </div>
               <div class="flex flex-wrap gap-2">
                 <UButton

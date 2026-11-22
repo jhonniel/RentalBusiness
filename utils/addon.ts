@@ -1,5 +1,6 @@
 import type { AddonStatus, PublicAddon, PublicAddonOffer, PublicRentalAddonItem, RentalAddonQuoteLine } from '~/types/addon'
 import { fromMinorUnits, toMinorUnits } from './currency'
+import { STORAGE_BUCKETS, publicStorageUrl } from './storage'
 
 export interface AddonRow {
   id?: number
@@ -10,6 +11,7 @@ export interface AddonRow {
   quantity: number
   bookable: boolean
   status: AddonStatus
+  image_storage_path?: string | null
   updated_at?: string | null
   held_quantity?: number | null
   available?: number | null
@@ -23,10 +25,16 @@ export interface RentalAddonItemRow {
   addons: {
     uuid: string
     name: string
+    image_storage_path?: string | null
   } | {
     uuid: string
     name: string
+    image_storage_path?: string | null
   }[] | null
+}
+
+export function publicAddonImageUrl(supabaseUrl: string, storagePath: string): string {
+  return publicStorageUrl(supabaseUrl, STORAGE_BUCKETS.addonImages, storagePath)
 }
 
 export function quoteAddonLine(input: {
@@ -44,12 +52,13 @@ export function quoteAddonLine(input: {
   }
 }
 
-export function toPublicAddon(row: AddonRow): PublicAddon {
+export function toPublicAddon(row: AddonRow, supabaseUrl = ''): PublicAddon {
   const quantity = Number(row.quantity)
   const held = Math.max(0, Number(row.held_quantity ?? 0))
   const available = row.available === null || row.available === undefined
     ? Math.max(0, quantity - held)
     : Math.max(0, Number(row.available))
+  const path = row.image_storage_path || null
   return {
     uuid: row.uuid,
     name: row.name,
@@ -60,12 +69,13 @@ export function toPublicAddon(row: AddonRow): PublicAddon {
     available,
     bookable: Boolean(row.bookable),
     status: row.status === 'archived' ? 'archived' : 'active',
+    imageUrl: path && supabaseUrl ? publicAddonImageUrl(supabaseUrl, path) : null,
     updatedAt: row.updated_at ?? null,
   }
 }
 
-export function toPublicAddonOffer(row: AddonRow): PublicAddonOffer {
-  const addon = toPublicAddon(row)
+export function toPublicAddonOffer(row: AddonRow, supabaseUrl = ''): PublicAddonOffer {
+  const addon = toPublicAddon(row, supabaseUrl)
   return {
     uuid: addon.uuid,
     name: addon.name,
@@ -73,14 +83,16 @@ export function toPublicAddonOffer(row: AddonRow): PublicAddonOffer {
     unitPrice: addon.unitPrice,
     available: addon.available,
     bookable: addon.bookable,
+    imageUrl: addon.imageUrl,
   }
 }
 
-export function toPublicRentalAddonItem(row: RentalAddonItemRow): PublicRentalAddonItem {
+export function toPublicRentalAddonItem(row: RentalAddonItemRow, supabaseUrl = ''): PublicRentalAddonItem {
   const addon = Array.isArray(row.addons) ? row.addons[0] : row.addons
   if (!addon) {
     throw new Error('Rental add-on item is missing an add-on.')
   }
+  const path = addon.image_storage_path || null
   return {
     uuid: row.uuid,
     quantity: Number(row.quantity),
@@ -89,6 +101,7 @@ export function toPublicRentalAddonItem(row: RentalAddonItemRow): PublicRentalAd
     addon: {
       uuid: addon.uuid,
       name: addon.name,
+      imageUrl: path && supabaseUrl ? publicAddonImageUrl(supabaseUrl, path) : null,
     },
   }
 }

@@ -126,6 +126,14 @@ Administrators manage a global paid add-on catalog on `/admin/addons` (name, uni
 
 Customers select linked, bookable, in-stock add-ons on `/rentals/new` (one of each via checkbox). Quote and create include add-on lines as a flat `unit_price × qty` for the whole booking (not per day). Deposit stays kit-only. Lines are stored on `rental_addon_items` and rolled into rental subtotal/total. Add-ons show on customer and admin rental detail and on acknowledgement receipts.
 
+## Phase 20 — Admin continue add-ons (completed)
+
+On `/admin/rentals/[id]/continue`, administrators can add or remove booking add-ons. Continue quote and save accept `addons`. The server replaces `rental_addon_items`, rolls totals, then runs the existing paid-payment balance sync so a paid booking shows unpaid balance or amount to refund until settled. Stock checks ignore this rental’s own holds so current lines can be kept.
+
+## Phase 21 — Add-on reference images (completed)
+
+Administrators upload an optional reference image per add-on on `/admin/addons`. Images live in the public `addon-images` bucket (`image_storage_path`). Lists show a small icon beside the name; tapping opens a modal for the full image. Paste `supabase/migrations/20261122130000_addon_images.sql` in Supabase.
+
 ## Phase report template
 
 After each phase:

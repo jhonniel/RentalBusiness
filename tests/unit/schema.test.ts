@@ -621,6 +621,10 @@ describe('product add-ons', () => {
     resolve(process.cwd(), 'supabase/migrations/20261121140000_product_addons.sql'),
     'utf8',
   )
+  const addonImages = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20261122130000_addon_images.sql'),
+    'utf8',
+  )
 
   it('stores add-ons, product links, rental lines, and simple stock helpers', () => {
     expect(productAddons).toContain('create table if not exists public.addons')
@@ -631,5 +635,12 @@ describe('product add-ons', () => {
     expect(productAddons).toContain('rental_addon_items_sync_totals')
     expect(productAddons).toContain('addons_admin_write')
     expect(productAddons).toContain('rental_addon_items_insert_own')
+  })
+
+  it('stores optional add-on reference images in a public bucket', () => {
+    expect(addonImages).toContain('image_storage_path')
+    expect(addonImages).toContain('addon-images')
+    expect(addonImages).toContain('addon_images_public_read')
+    expect(addonImages).toContain('addon_images_admin_write')
   })
 })

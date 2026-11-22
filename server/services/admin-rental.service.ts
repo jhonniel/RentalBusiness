@@ -1422,6 +1422,7 @@ export async function continueAdminRental(
     pickupTime: input.pickupTime,
     quantity: input.quantity,
     hours: input.hours ?? rental.billedHours ?? undefined,
+    addons: input.addons ?? [],
   }, {
     exceptRentalUuid: rental.uuid,
     allowPastStart: true,
@@ -1467,6 +1468,16 @@ export async function continueAdminRental(
     hourlyPrice: quote.hourlyPrice,
   })
 
+  const { replaceRentalAddonLines } = await import('./addon.service')
+  await replaceRentalAddonLines(client, identity.id, quote.addons ?? [])
+
+  // Addon replace triggers roll kit + add-on lines into rental totals; reload before payment sync.
+  const refreshed = await findRentalByUuid(client, rental.uuid)
+  const nextTotals = {
+    totalAmount: Number(refreshed?.total_amount ?? updated.total_amount),
+    depositAmount: Number(refreshed?.deposit_amount ?? updated.deposit_amount),
+  }
+
   const commission = await syncConfirmedCommission(client, {
     uuid: rental.uuid,
     code: rental.code,
@@ -1484,10 +1495,6 @@ export async function continueAdminRental(
     await updateRentalStatus(client, rental.uuid, 'pending')
   }
 
-  const nextTotals = {
-    totalAmount: Number(updated.total_amount),
-    depositAmount: Number(updated.deposit_amount),
-  }
   const balanceBefore = await currentPaymentBalance(client, identity.id, rental)
   const balanceAfter = await syncRentalPayments(client, identity.id, { status: rental.status, ...nextTotals })
   const previousSchedule = { startsOn: rental.startsOn, endsOn: rental.endsOn, pickupTime: rental.pickupTime }
@@ -1496,6 +1503,9 @@ export async function continueAdminRental(
   const paymentChange: RentalPaymentChange | null = balanceAfter && paymentBalanceMoved(balanceBefore, balanceAfter)
     ? balanceAfter
     : null
+  const previousAddons = (rental.addons ?? []).map(line => line.addon.name).sort().join(', ') || 'none'
+  const nextAddons = (quote.addons ?? []).map(line => line.name).sort().join(', ') || 'none'
+  const addonChange = previousAddons === nextAddons ? '' : `Add-ons changed: ${previousAddons} → ${nextAddons}.`
   const historyNote = [
     book
       ? 'Admin booked the rental after the waiver was signed.'
@@ -1503,6 +1513,7 @@ export async function continueAdminRental(
         ? 'Admin continued the customer rental form.'
         : 'Admin updated the booking.',
     scheduleChange ? `Schedule changed: ${scheduleChange}.` : '',
+    addonChange,
     paymentChange ? paymentChangeNote(paymentChange, BUSINESS_CURRENCY) : '',
     balanceAfter && addMoney(rental.depositAmount) !== addMoney(nextTotals.depositAmount)
       ? `Deposit held changed ${rental.depositAmount.toFixed(2)} → ${nextTotals.depositAmount.toFixed(2)} ${BUSINESS_CURRENCY}.`

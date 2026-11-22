@@ -8,7 +8,7 @@ import { getSupabaseAdminClient } from '../utils/supabase'
 
 type Client = SupabaseClient<Database>
 
-const ADDON_SELECT = 'id, uuid, name, description, unit_price, quantity, bookable, status, updated_at'
+const ADDON_SELECT = 'id, uuid, name, description, unit_price, quantity, bookable, status, image_storage_path, updated_at'
 const HOLD_STATUSES = ['draft', ...INVENTORY_OCCUPYING_RENTAL_STATUSES] as const
 
 export const ADDON_SETUP_MESSAGE = 'Paste the product add-ons SQL in Supabase to turn on add-ons.'
@@ -179,6 +179,23 @@ export async function archiveAddon(client: Client, uuid: string) {
   return withStock([row], held)[0]!
 }
 
+export async function updateAddonImagePath(client: Client, uuid: string, imageStoragePath: string | null) {
+  const { data, error } = await table(client)
+    .update({ image_storage_path: imageStoragePath })
+    .eq('uuid', uuid)
+    .select(ADDON_SELECT)
+    .maybeSingle()
+  if (error) {
+    failure('We could not update that add-on image.', error)
+  }
+  if (!data) {
+    throw new AppError('Add-on not found.', 404, ERROR_CODES.NOT_FOUND)
+  }
+  const row = data as unknown as AddonRow
+  const held = await heldByAddonIds(client, [Number(row.id)])
+  return withStock([row], held)[0]!
+}
+
 export async function listLinkedAddonUuidsForProduct(client: Client, productId: number): Promise<string[] | null> {
   const { data, error } = await linksTable(client)
     .select('addons!inner(uuid)')
@@ -198,10 +215,10 @@ export async function listLinkedAddonUuidsForProduct(client: Client, productId: 
 export async function listLinkedAddonsForProduct(
   client: Client,
   productId: number,
-  options: { bookableOnly?: boolean } = {},
+  options: { bookableOnly?: boolean, exceptRentalId?: number } = {},
 ): Promise<AddonRow[] | null> {
   let query = linksTable(client)
-    .select('addons!inner(id, uuid, name, description, unit_price, quantity, bookable, status, updated_at)')
+    .select('addons!inner(id, uuid, name, description, unit_price, quantity, bookable, status, image_storage_path, updated_at)')
     .eq('product_id', productId)
     .eq('addons.status', 'active')
 
@@ -222,7 +239,11 @@ export async function listLinkedAddonsForProduct(
     return Array.isArray(addon) ? addon[0] : addon
   }).filter((row): row is AddonRow => Boolean(row))
 
-  const held = await heldByAddonIds(client, rows.map(row => Number(row.id)).filter(Boolean))
+  const held = await heldByAddonIds(
+    client,
+    rows.map(row => Number(row.id)).filter(Boolean),
+    options.exceptRentalId,
+  )
   return withStock(rows, held).sort((a, b) => a.name.localeCompare(b.name))
 }
 
@@ -263,7 +284,11 @@ export async function replaceProductAddonLinks(client: Client, productId: number
   return listLinkedAddonUuidsForProduct(client, productId) ?? []
 }
 
-export async function findAddonsByUuids(client: Client, uuids: string[]): Promise<AddonRow[]> {
+export async function findAddonsByUuids(
+  client: Client,
+  uuids: string[],
+  options: { exceptRentalId?: number } = {},
+): Promise<AddonRow[]> {
   if (!uuids.length) {
     return []
   }
@@ -274,7 +299,11 @@ export async function findAddonsByUuids(client: Client, uuids: string[]): Promis
     failure('We could not load those add-ons.', error)
   }
   const rows = (data ?? []) as unknown as AddonRow[]
-  const held = await heldByAddonIds(client, rows.map(row => Number(row.id)).filter(Boolean))
+  const held = await heldByAddonIds(
+    client,
+    rows.map(row => Number(row.id)).filter(Boolean),
+    options.exceptRentalId,
+  )
   return withStock(rows, held)
 }
 
@@ -295,9 +324,18 @@ export async function insertRentalAddonItem(client: Client, values: {
   return data
 }
 
+export async function deleteRentalAddonItemsByRentalId(client: Client, rentalId: number) {
+  const { error } = await itemsTable(client)
+    .delete()
+    .eq('rental_id', rentalId)
+  if (error) {
+    failure('We could not update booking add-ons.', error)
+  }
+}
+
 export async function listRentalAddonItems(client: Client, rentalId: number): Promise<RentalAddonItemRow[]> {
   const { data, error } = await itemsTable(client)
-    .select('uuid, quantity, unit_price, line_total, addons(uuid, name)')
+    .select('uuid, quantity, unit_price, line_total, addons(uuid, name, image_storage_path)')
     .eq('rental_id', rentalId)
   if (isMissingAddonTable(error)) {
     return []

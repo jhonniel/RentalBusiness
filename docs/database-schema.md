@@ -119,7 +119,7 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 
 **addons**
 
-- `id`, `uuid`, `name`, `description`, `unit_price`, `quantity` (stock), `bookable`, `status` (`active`|`archived`)
+- `id`, `uuid`, `name`, `description`, `unit_price`, `quantity` (stock), `bookable`, `status` (`active`|`archived`), `image_storage_path` (optional; public `addon-images` bucket)
 - Simple stock: available = quantity − qty on open rentals (`draft` + inventory-occupying statuses). Not date-windowed.
 - SQL helpers: `addon_held_quantity(addon_id)`, `addon_available_quantity(addon_id)`
 

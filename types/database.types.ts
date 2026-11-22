@@ -308,6 +308,7 @@ export interface Database {
           quantity: number
           bookable: boolean
           status: 'active' | 'archived'
+          image_storage_path: string | null
           created_at: string
           updated_at: string
         }
@@ -319,6 +320,7 @@ export interface Database {
           quantity?: number
           bookable?: boolean
           status?: 'active' | 'archived'
+          image_storage_path?: string | null
         }
         Update: {
           name?: string
@@ -327,6 +329,7 @@ export interface Database {
           quantity?: number
           bookable?: boolean
           status?: 'active' | 'archived'
+          image_storage_path?: string | null
         }
         Relationships: []
       }

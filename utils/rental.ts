@@ -143,7 +143,10 @@ export function toPublicRental(row: RentalRow): PublicRental {
     notes: row.notes,
     voucher: toPublicRentalVoucher(row.voucher_redemptions),
     items: (row.rental_items ?? []).map(toPublicRentalItem),
-    addons: (row.rental_addon_items ?? []).map(toPublicRentalAddonItem),
+    addons: (row.rental_addon_items ?? []).map(item => toPublicRentalAddonItem(
+      item,
+      process.env.NUXT_PUBLIC_SUPABASE_URL || '',
+    )),
     waiver: firstWaiverAcceptance(row.waiver_acceptances),
     identity: toPublicRentalIdentity(row.rental_identity_verifications),
     payments: firstPayments(row.payment_transactions),

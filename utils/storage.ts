@@ -2,6 +2,7 @@ export const STORAGE_BUCKETS = {
   productImages: 'product-images',
   paymentQr: 'payment-qr-images',
   maintenanceImages: 'maintenance-images',
+  addonImages: 'addon-images',
   privateDocuments: 'private-documents',
 } as const
 

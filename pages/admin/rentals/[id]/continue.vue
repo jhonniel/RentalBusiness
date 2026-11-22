@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { CatalogProduct } from '~/types/catalog'
+import type { PublicAddonOffer } from '~/types/addon'
 import type { PublicRental, PublicRentalHistoryEntry, RentalPaymentChange, RentalQuote } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { fieldErrors } from '~/utils/auth-validation'
@@ -24,6 +26,11 @@ const { data: rental, error, refresh } = await useFetch<PublicRental>(
 const { data: commissioners } = await useFetch<AdminSystemUser[]>('/api/admin/commissioners')
 const { data: history, refresh: refreshHistory } = await useFetch<PublicRentalHistoryEntry[]>(
   () => `/api/admin/rentals/${identifier.value}/history`,
+)
+const productSlug = computed(() => rental.value?.items[0]?.product.slug || '')
+const { data: product } = await useFetch<CatalogProduct>(
+  () => `/api/products/${productSlug.value}`,
+  { immediate: Boolean(productSlug.value), watch: [productSlug] },
 )
 
 async function refreshRental() {
@@ -65,6 +72,8 @@ const pending = ref(false)
 const quoting = ref(false)
 type AdminQuote = RentalQuote & { commissionAmount?: number, paymentChange?: RentalPaymentChange | null }
 const quote = ref<AdminQuote | null>(null)
+const selectedAddons = ref<Record<string, number>>({})
+const seededAddonRental = ref<string | null>(null)
 
 const hourlyBooking = computed(() => rental.value?.billingUnit === 'hour')
 const rentalWindow = computed(() => hourlyBooking.value
@@ -78,8 +87,81 @@ const rentalWindow = computed(() => hourlyBooking.value
       endsOn: form.endsOn,
       pickupTime: form.pickupTime,
     }))
-const productSlug = computed(() => rental.value?.items[0]?.product.slug || '')
 const canModify = computed(() => rental.value ? canModifyAdminRental(rental.value) : false)
+const linkedAddonOffers = computed(() => product.value?.addons ?? [])
+const orphanAddonOffers = computed(() => {
+  const linked = new Set(linkedAddonOffers.value.map(offer => offer.uuid))
+  return (rental.value?.addons ?? [])
+    .filter(item => !linked.has(item.addon.uuid))
+    .map(item => ({
+      uuid: item.addon.uuid,
+      name: item.addon.name,
+      description: '',
+      unitPrice: item.unitPrice,
+      // Catalog stock already counts this booking; heldHere is added in addonAvailable.
+      available: 0,
+      bookable: true,
+      imageUrl: item.addon.imageUrl,
+    } satisfies PublicAddonOffer))
+})
+const addonOffers = computed(() => [...linkedAddonOffers.value, ...orphanAddonOffers.value])
+const addonSelections = computed(() => Object.entries(selectedAddons.value)
+  .filter(([, quantity]) => quantity > 0)
+  .map(([uuid, quantity]) => ({ uuid, quantity })))
+
+function addonAvailable(offer: PublicAddonOffer) {
+  const heldHere = rental.value?.addons?.find(item => item.addon.uuid === offer.uuid)?.quantity ?? 0
+  return offer.available + heldHere
+}
+
+function isAddonChecked(uuid: string) {
+  return (selectedAddons.value[uuid] ?? 0) > 0
+}
+
+function setAddonChecked(uuid: string, checked: boolean, available: number) {
+  selectedAddons.value = {
+    ...selectedAddons.value,
+    [uuid]: checked && available > 0 ? 1 : 0,
+  }
+}
+
+function seedSelectedAddons() {
+  const current = rental.value
+  if (!current) {
+    return
+  }
+  const next: Record<string, number> = {}
+  for (const offer of addonOffers.value) {
+    next[offer.uuid] = 0
+  }
+  for (const item of current.addons ?? []) {
+    next[item.addon.uuid] = item.quantity > 0 ? 1 : 0
+  }
+  selectedAddons.value = next
+  seededAddonRental.value = current.uuid
+}
+
+watch(
+  () => [rental.value?.uuid, linkedAddonOffers.value.map(offer => offer.uuid).join(',')] as const,
+  () => {
+    const current = rental.value
+    if (!current) {
+      return
+    }
+    if (seededAddonRental.value !== current.uuid) {
+      seedSelectedAddons()
+      return
+    }
+    const next = { ...selectedAddons.value }
+    for (const offer of addonOffers.value) {
+      if (next[offer.uuid] === undefined) {
+        next[offer.uuid] = 0
+      }
+    }
+    selectedAddons.value = next
+  },
+  { immediate: true },
+)
 const listedCommissioner = computed(() => {
   const uuid = rental.value?.commissioner?.uuid
   return Boolean(uuid && commissioners.value?.some(person => person.uuid === uuid))
@@ -128,6 +210,7 @@ async function refreshQuote() {
         pickupTime: form.pickupTime,
         quantity: form.quantity,
         ...(hourlyBooking.value ? { hours: form.hours } : {}),
+        addons: addonSelections.value,
         exceptRentalUuid: rental.value?.uuid,
         ...(form.commissionerUuid ? { commissionerUuid: form.commissionerUuid } : {}),
       },
@@ -146,7 +229,7 @@ async function refreshQuote() {
 }
 
 watchDebounced(
-  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.hours, form.commissionerUuid, productSlug.value, rental.value?.uuid, hourlyBooking.value],
+  () => [form.startsOn, form.endsOn, form.pickupTime, form.quantity, form.hours, form.commissionerUuid, productSlug.value, rental.value?.uuid, hourlyBooking.value, addonSelections.value],
   () => {
     void refreshQuote()
   },
@@ -164,6 +247,7 @@ async function onSubmit() {
     ...form,
     endsOn: hourlyBooking.value ? rentalWindow.value.endsOn : form.endsOn,
     hours: hourlyBooking.value ? form.hours : undefined,
+    addons: addonSelections.value,
   })
   if (!parsed.success) {
     errors.value = fieldErrors(parsed.error)
@@ -191,6 +275,7 @@ async function onSubmit() {
           : undefined,
       color: 'success',
     })
+    seededAddonRental.value = null
     await refreshRental()
     return true
   }
@@ -226,7 +311,7 @@ async function onSubmit() {
         Continue rental form
       </h2>
       <p class="mt-1 text-sm text-stone-600">
-        Finish the customer details and send the waiver link. After the waiver is signed, saving books the rental. A confirmed booking can still be changed here, and the new dates stay held.
+        Finish the customer details and send the waiver link. After the waiver is signed, saving books the rental. A confirmed booking can still be changed here, including add-ons; paid bookings show a balance due or amount to refund when the total changes.
       </p>
     </div>
 
@@ -339,6 +424,51 @@ async function onSubmit() {
       </div>
 
       <div class="space-y-6">
+        <section
+          v-if="addonOffers.length"
+          class="rounded-xl border border-stone-200 bg-white p-5"
+        >
+          <h3 class="text-sm font-medium text-stone-900">
+            Add-ons
+          </h3>
+          <p class="mt-2 text-sm text-stone-600">
+            Add or remove add-ons on this booking. The quote and payment balance update when you save.
+          </p>
+          <ul class="mt-4 space-y-3">
+            <li
+              v-for="addon in addonOffers"
+              :key="addon.uuid"
+            >
+              <label class="flex cursor-pointer items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  class="mt-1 size-4 rounded border-stone-300 text-lumen-700 focus:ring-lumen-600"
+                  :checked="isAddonChecked(addon.uuid)"
+                  :disabled="pending || !canModify || (!isAddonChecked(addon.uuid) && addonAvailable(addon) < 1)"
+                  @change="setAddonChecked(addon.uuid, ($event.target as HTMLInputElement).checked, addonAvailable(addon))"
+                >
+                <span class="flex min-w-0 items-start gap-2">
+                  <AddonImageThumb
+                    :name="addon.name"
+                    :image-url="addon.imageUrl"
+                  />
+                  <span class="min-w-0">
+                    <span class="font-medium text-stone-900">{{ addon.name }}</span>
+                    <span class="mt-0.5 block text-xs text-stone-500">
+                      <template v-if="addon.unitPrice > 0">{{ formatMoney(addon.unitPrice) }} flat</template>
+                      <template v-else>No charge</template>
+                      <template v-if="!addon.bookable || addonAvailable(addon) < 1">
+                        <template v-if="addon.unitPrice > 0"> · </template>
+                        {{ isAddonChecked(addon.uuid) ? 'On this booking' : 'Not available' }}
+                      </template>
+                    </span>
+                  </span>
+                </span>
+              </label>
+            </li>
+          </ul>
+        </section>
+
         <section class="rounded-xl border border-stone-200 bg-white p-5">
           <h3 class="text-sm font-medium text-stone-900">
             Customer details

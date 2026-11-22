@@ -9,6 +9,13 @@ export interface ReceiptSnapshotItem {
   hourlyPrice?: number | null
 }
 
+export interface ReceiptSnapshotAddonItem {
+  name: string
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+}
+
 export type ReceiptPurpose = 'booking' | 'extension' | 'late_fee' | 'balance'
 
 export interface ReceiptStatementLine {
@@ -43,6 +50,8 @@ export interface ReceiptSnapshot {
     address: string | null
   }
   items: ReceiptSnapshotItem[]
+  /** Flat add-on lines listed below kit items. Omitted on older snapshots. */
+  addons?: ReceiptSnapshotAddonItem[]
   amounts: {
     subtotal: number
     depositAmount: number

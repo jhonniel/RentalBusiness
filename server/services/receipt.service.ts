@@ -74,25 +74,22 @@ function buildSnapshot(input: {
       phone: input.business.phone,
       address: input.business.address,
     },
-    items: [
-      ...input.rental.items.map(item => ({
-        name: item.product.name,
-        sku: item.product.sku,
-        quantity: item.quantity,
-        dailyPrice: item.dailyPrice,
-        lineTotal: item.lineTotal,
-        ...(item.billingUnit === 'hour'
-          ? { billingUnit: 'hour' as const, billedHours: item.billedHours, hourlyPrice: item.hourlyPrice }
-          : {}),
-      })),
-      ...(input.rental.addons ?? []).map(item => ({
-        name: item.addon.name,
-        sku: 'Add-on',
-        quantity: item.quantity,
-        dailyPrice: item.unitPrice,
-        lineTotal: item.lineTotal,
-      })),
-    ],
+    items: input.rental.items.map(item => ({
+      name: item.product.name,
+      sku: item.product.sku,
+      quantity: item.quantity,
+      dailyPrice: item.dailyPrice,
+      lineTotal: item.lineTotal,
+      ...(item.billingUnit === 'hour'
+        ? { billingUnit: 'hour' as const, billedHours: item.billedHours, hourlyPrice: item.hourlyPrice }
+        : {}),
+    })),
+    addons: (input.rental.addons ?? []).map(item => ({
+      name: item.addon.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal: item.lineTotal,
+    })),
     amounts: {
       subtotal: input.rental.subtotal,
       depositAmount: input.rental.depositAmount,

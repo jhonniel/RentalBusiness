@@ -33,6 +33,21 @@ describe('addon helpers', () => {
       available: 3,
       heldQuantity: 2,
       bookable: true,
+      imageUrl: null,
+    })
+    expect(toPublicAddon({
+      uuid: '11111111-1111-1111-1111-111111111111',
+      name: 'Battery',
+      description: '',
+      unit_price: 200,
+      quantity: 5,
+      bookable: true,
+      status: 'active',
+      image_storage_path: '11111111-1111-1111-1111-111111111111/a.jpg',
+      held_quantity: 0,
+      updated_at: null,
+    }, 'https://example.supabase.co')).toMatchObject({
+      imageUrl: 'https://example.supabase.co/storage/v1/object/public/addon-images/11111111-1111-1111-1111-111111111111/a.jpg',
     })
   })
 

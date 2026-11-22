@@ -1,6 +1,28 @@
-import type { PublicReceipt, ReceiptPurpose, ReceiptSnapshot, ReceiptStatementLine } from '~/types/receipt'
+import type { PublicReceipt, ReceiptPurpose, ReceiptSnapshot, ReceiptSnapshotAddonItem, ReceiptSnapshotItem, ReceiptStatementLine } from '~/types/receipt'
 import type { Json } from '~/types/database.types'
 import { paymentKind } from './payment'
+
+/** Older snapshots mixed add-ons into `items` with sku `Add-on`. */
+const LEGACY_ADDON_SKU = 'Add-on'
+
+export function receiptKitItems(snapshot: ReceiptSnapshot): ReceiptSnapshotItem[] {
+  return (snapshot.items ?? []).filter(item => item.sku !== LEGACY_ADDON_SKU)
+}
+
+export function receiptAddonItems(snapshot: ReceiptSnapshot): ReceiptSnapshotAddonItem[] {
+  const current = snapshot.addons ?? []
+  if (current.length) {
+    return current
+  }
+  return (snapshot.items ?? [])
+    .filter(item => item.sku === LEGACY_ADDON_SKU)
+    .map(item => ({
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.dailyPrice,
+      lineTotal: item.lineTotal,
+    }))
+}
 
 export interface ReceiptRow {
   uuid: string

@@ -153,6 +153,19 @@ describe('waiver invite validation', () => {
       lastName: 'Reyes',
       commissionerUuid: '',
     }).commissionerUuid).toBe('')
+    expect(continueAdminRentalSchema.parse({
+      startsOn,
+      endsOn,
+      firstName: 'Ana',
+      lastName: 'Reyes',
+      addons: [{ uuid: '33333333-3333-4333-8333-333333333333', quantity: 1 }],
+    }).addons).toEqual([{ uuid: '33333333-3333-4333-8333-333333333333', quantity: 1 }])
+    expect(continueAdminRentalSchema.parse({
+      startsOn,
+      endsOn,
+      firstName: 'Ana',
+      lastName: 'Reyes',
+    }).addons).toEqual([])
     expect(continueAdminRentalSchema.safeParse({
       startsOn,
       endsOn,

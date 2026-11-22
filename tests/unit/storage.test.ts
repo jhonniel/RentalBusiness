@@ -9,5 +9,6 @@ describe('public storage urls', () => {
       'abc/cover.png',
     )).toBe('https://example.supabase.co/storage/v1/object/public/product-images/abc/cover.png')
     expect(STORAGE_BUCKETS.maintenanceImages).toBe('maintenance-images')
+    expect(STORAGE_BUCKETS.addonImages).toBe('addon-images')
   })
 })
