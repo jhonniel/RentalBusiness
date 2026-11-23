@@ -13,7 +13,7 @@ JRY Rentals is a production rental management and booking platform.
 | Utilities | VueUse, Zod | Client and server validation |
 | Backend data | Supabase (PostgreSQL, Auth, Storage, RLS) | Identity, catalog, rentals, finance, and platform tables are migrated. Admin catalog APIs write through repositories. Product photos, payment QR images, maintenance images, and other uploaded files live in Supabase Storage (S3). |
 | Server API | Nuxt server routes / Nitro | Secure operations, webhooks, cron |
-| Email | Gmail SMTP | Signup confirmation, receipt, reminder, and waiver-invite templates. Signup confirmations are sent by the API, not by Supabase Auth. Sends are logged in `email_logs`. |
+| Email | Gmail SMTP | Signup confirmation, booking confirmation, return thank-you with feedback link, receipt, reminder, and waiver-invite templates. Signup confirmations are sent by the API, not by Supabase Auth. Sends are logged in `email_logs`. |
 | Payments | Provider-agnostic module (`server/services/payments`) plus admin QR methods | Sandbox adapter in Phase 8. Webhooks verify HMAC before any status change. Admins upload QR images in Phase 16. Admin voucher codes reduce the rental total at checkout. |
 | Hosting | Vercel | Cron at 16:00 UTC (midnight Asia/Manila) |
 

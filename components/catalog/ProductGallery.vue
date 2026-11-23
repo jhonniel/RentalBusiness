@@ -66,12 +66,12 @@ function onSelect(index: number) {
       dots
       prev-icon="i-lucide-chevron-left"
       next-icon="i-lucide-chevron-right"
-      :prev="{ color: 'neutral', variant: 'outline', size: 'sm' }"
-      :next="{ color: 'neutral', variant: 'outline', size: 'sm' }"
+      :prev="{ color: 'neutral', variant: 'outline', size: 'sm', square: true }"
+      :next="{ color: 'neutral', variant: 'outline', size: 'sm', square: true }"
       :ui="{
         item: 'basis-full',
-        prev: 'start-2 sm:start-3 rounded-full bg-white/90 shadow-sm',
-        next: 'end-2 sm:end-3 rounded-full bg-white/90 shadow-sm',
+        prev: 'start-2 sm:start-3 size-9 !p-0 rounded-full bg-white/90 shadow-sm inline-flex items-center justify-center [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:translate-x-px',
+        next: 'end-2 sm:end-3 size-9 !p-0 rounded-full bg-white/90 shadow-sm inline-flex items-center justify-center [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:-translate-x-px',
         dots: '-bottom-6',
         dot: 'size-1.5',
       }"

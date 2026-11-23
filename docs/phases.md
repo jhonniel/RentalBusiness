@@ -134,6 +134,14 @@ On `/admin/rentals/[id]/continue`, administrators can add or remove booking add-
 
 Administrators upload an optional reference image per add-on on `/admin/addons`. Images live in the public `addon-images` bucket (`image_storage_path`). Lists show a small icon beside the name; tapping opens a modal for the full image. Paste `supabase/migrations/20261122130000_addon_images.sql` in Supabase.
 
+## Phase 22 — Customer booking confirmation email (completed)
+
+When an administrator confirms a `pending` booking (`POST /api/admin/rentals/[id]/confirm`), the customer receives a booking confirmation email. It lists equipment, quantity, duration (days or hours), pickup date/time, and return date/time — no prices. It also includes Facebook, Instagram, the public website, and a link to the booking. Placeholder guest emails are not mailed. Failed sends are logged and do not undo the confirm.
+
+## Phase 23 — Return thank-you + feedback email (completed)
+
+When an administrator marks a rental done (`POST /api/admin/rentals/[id]/complete`), the customer receives a thank-you email that includes a fresh feedback link. The feedback request is created the same way as a manual send (reward eligible by default). Placeholder guest emails and failed sends do not undo finishing the rental.
+
 ## Phase report template
 
 After each phase:

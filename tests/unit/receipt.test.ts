@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
-import { feedbackRequestEmail, receiptCopyEmail, receiptIssuedEmail, rentalSubmittedStaffEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
+import { feedbackRequestEmail, receiptCopyEmail, receiptIssuedEmail, rentalConfirmedEmail, rentalSubmittedStaffEmail, rentalThankYouEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
 import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptAddonItems, receiptDiscounts, receiptKitItems, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptEmailSchema, receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
@@ -199,6 +199,45 @@ describe('email templates', () => {
     expect(invite.html).toContain('/waivers/sign/11111111-1111-4111-8111-111111111111')
     expect(invite.html).toContain('&lt;script&gt;')
     expect(invite.html).not.toContain('<script>alert(1)</script>')
+
+    const confirmed = rentalConfirmedEmail({
+      customerName: '<script>alert(1)</script>',
+      rentalCode: 'LUM-20260913-00001',
+      equipmentName: 'Sony A7 IV',
+      quantity: 1,
+      billingUnit: 'day',
+      days: 2,
+      hours: null,
+      pickupAt: '2026-09-13T00:00:00.000Z',
+      returnAt: '2026-09-15T00:00:00.000Z',
+      rentalUrl: 'https://jryrentals.online/rentals/LUM-20260913-00001',
+      siteUrl: 'https://jryrentals.online',
+      needsPayment: true,
+    })
+    expect(confirmed.subject).toContain('LUM-20260913-00001')
+    expect(confirmed.html).toContain('Sony A7 IV')
+    expect(confirmed.html).toContain('2 day')
+    expect(confirmed.html).toContain('facebook.com/jryrentals')
+    expect(confirmed.html).toContain('instagram.com/jryrentals')
+    expect(confirmed.html).toContain('jryrentals.online')
+    expect(confirmed.html).toContain('/rentals/LUM-20260913-00001')
+    expect(confirmed.html).not.toContain('₱')
+    expect(confirmed.html).not.toContain('PHP')
+    expect(confirmed.html).toContain('&lt;script&gt;')
+    expect(confirmed.html).not.toContain('<script>alert(1)</script>')
+
+    const thanks = rentalThankYouEmail({
+      customerName: '<script>alert(1)</script>',
+      rentalCode: 'LUM-20260913-00001',
+      products: ['Sony A7 IV'],
+      feedbackUrl: 'https://jryrentals.online/feedback/11111111-1111-4111-8111-111111111111?token=secret',
+    })
+    expect(thanks.subject).toContain('Thank you')
+    expect(thanks.html).toContain('Thank you for renting')
+    expect(thanks.html).toContain('/feedback/11111111-1111-4111-8111-111111111111')
+    expect(thanks.html).toContain('Share your feedback')
+    expect(thanks.html).toContain('&lt;script&gt;')
+    expect(thanks.html).not.toContain('<script>alert(1)</script>')
 
     const copy = receiptCopyEmail({
       receiptNumber: 'RCP-20260913-00001',

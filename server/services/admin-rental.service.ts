@@ -22,9 +22,14 @@ import { commissionAmount } from '../../utils/commission'
 import { findProductByUuid } from '../repositories/product.repository'
 import { isUuid } from '../../utils/slug'
 import { AppError, ERROR_CODES } from '../utils/errors'
+import { EMAIL_TEMPLATES } from '../../utils/email'
+import { rentalConfirmedEmail } from '../../utils/email-templates'
 import { accountEmail } from '../utils/account-email'
 import { recordAudit } from '../utils/audit'
+import { logger } from '../utils/logger'
+import { isPlaceholderBookingEmail } from '../utils/placeholder-booking-email'
 import { STORAGE_BUCKETS } from '../../utils/storage'
+import { sendTemplatedEmail } from './email.service'
 import { findProfileById, updateOwnProfile } from '../repositories/profile.repository'
 import {
   deleteRentalById,
@@ -70,8 +75,61 @@ import { issueReceiptForPayment } from './receipt.service'
 
 type Client = SupabaseClient<Database>
 
+function siteOrigin() {
+  const config = useRuntimeConfig()
+  return String(config.public.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+}
+
 function sanitizeSearch(value?: string) {
   return value?.replace(/[%_,]/g, '').trim() || undefined
+}
+
+async function notifyCustomerBookingConfirmed(
+  client: Client,
+  rental: Awaited<ReturnType<typeof loadAdminRental>>,
+  options: { needsPayment: boolean },
+) {
+  const identity = await findRentalIdentity(client, rental.uuid)
+  const profile = identity ? await findProfileById(client, identity.customer_id) : null
+  if (!profile?.user_id) {
+    return
+  }
+
+  const email = await accountEmail(profile.user_id)
+  if (!email || isPlaceholderBookingEmail(email)) {
+    return
+  }
+
+  const item = rental.items[0]
+  if (!item) {
+    return
+  }
+
+  const customerName = [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+    || [rental.customer?.firstName, rental.customer?.lastName].filter(Boolean).join(' ')
+    || 'Customer'
+  const message = rentalConfirmedEmail({
+    customerName,
+    rentalCode: rental.code,
+    equipmentName: item.product.name,
+    quantity: item.quantity,
+    billingUnit: rental.billingUnit === 'hour' ? 'hour' : 'day',
+    days: rentalPeriodDays(rental.startsOn, rental.endsOn),
+    hours: rental.billingUnit === 'hour' ? (rental.billedHours ?? item.billedHours ?? null) : null,
+    pickupAt: rental.pickupAt,
+    returnAt: rental.returnAt,
+    rentalUrl: `${siteOrigin()}/rentals/${rental.code}`,
+    siteUrl: siteOrigin(),
+    needsPayment: options.needsPayment,
+  })
+
+  await sendTemplatedEmail(client, {
+    to: email,
+    template: EMAIL_TEMPLATES.RENTAL_CONFIRMED,
+    entityKey: rental.uuid,
+    subject: message.subject,
+    html: message.html,
+  })
 }
 
 async function loadAdminRentalRow(client: Client, identifier: string) {
@@ -1640,6 +1698,15 @@ export async function confirmAdminRental(event: H3Event, client: Client, profile
     metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
   })
 
+  await notifyCustomerBookingConfirmed(client, rental, {
+    needsPayment: nextStatus === 'awaiting_payment',
+  }).catch((error) => {
+    logger.warn('Booking confirmation email was not sent', {
+      rentalUuid: rental.uuid,
+      cause: error instanceof Error ? error.message : String(error),
+    })
+  })
+
   const next = toShopRental(row)
   await recordAudit(event, client, {
     action: 'rental.confirm',
@@ -2038,6 +2105,16 @@ export async function completeAdminRental(event: H3Event, client: Client, profil
     entityId: next.uuid,
     previous: { status: rental.status, depositAmount: rental.depositAmount },
     next: { status: 'completed', commissionExpenseUuid },
+  })
+
+  // Thank-you email with a fresh feedback link. Soft-fail so finishing the rental still succeeds.
+  await import('./feedback.service').then(({ sendFeedbackLink }) =>
+    sendFeedbackLink(event, client, profileId, rental.uuid, { earnsReward: true }, { thankYou: true }),
+  ).catch((error) => {
+    logger.warn('Return thank-you email was not sent', {
+      rentalUuid: rental.uuid,
+      cause: error instanceof Error ? error.message : String(error),
+    })
   })
 
   return loadAdminRental(client, rental.uuid)

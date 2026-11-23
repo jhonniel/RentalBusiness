@@ -4,7 +4,7 @@ import type { Database, Json } from '../../types/database.types'
 import type { AdminFeedbackList, AdminFeedbackListItem, AdminRentalFeedback, FeedbackRewardSettingsResponse, PublicFeedbackForm, SentFeedbackLink } from '../../types/feedback'
 import type { AdminFeedbackListQuery, SendFeedbackLinkInput, SubmitFeedbackInput } from '../../utils/feedback-validation'
 import { EMAIL_TEMPLATES } from '../../utils/email'
-import { feedbackRequestEmail, feedbackRewardEmail } from '../../utils/email-templates'
+import { feedbackRequestEmail, feedbackRewardEmail, rentalThankYouEmail } from '../../utils/email-templates'
 import { calendarDateInZone } from '../../utils/datetime'
 import {
   FEEDBACK_REWARD_MIN_COMMENT,
@@ -147,6 +147,7 @@ export async function sendFeedbackLink(
   profileId: number,
   identifier: string,
   input: SendFeedbackLinkInput,
+  options: { thankYou?: boolean } = {},
 ): Promise<SentFeedbackLink> {
   const rental = await getAdminRental(client, identifier)
   if (!canSendFeedback(rental.status)) {
@@ -182,20 +183,30 @@ export async function sendFeedbackLink(
     reward_eligible: input.earnsReward,
   })
   const link = feedbackUrl(siteOrigin(), request.uuid, token)
+  const thankYou = Boolean(options.thankYou)
+  const message = thankYou
+    ? rentalThankYouEmail({
+        customerName: customer.first_name || 'there',
+        rentalCode: rental.code,
+        products: productNames(rental),
+        feedbackUrl: link,
+      })
+    : feedbackRequestEmail({
+        customerName: customer.first_name || 'there',
+        rentalCode: rental.code,
+        products: productNames(rental),
+        feedbackUrl: link,
+      })
 
   let sent = false
   if (email) {
     try {
       const result = await sendTemplatedEmail(client, {
         to: email,
-        template: EMAIL_TEMPLATES.RENTAL_FEEDBACK_REQUEST,
+        template: thankYou ? EMAIL_TEMPLATES.RENTAL_THANK_YOU : EMAIL_TEMPLATES.RENTAL_FEEDBACK_REQUEST,
         entityKey: request.uuid,
-        ...feedbackRequestEmail({
-          customerName: customer.first_name || 'there',
-          rentalCode: rental.code,
-          products: productNames(rental),
-          feedbackUrl: link,
-        }),
+        subject: message.subject,
+        html: message.html,
       })
       sent = result?.status === 'sent'
     }
@@ -205,10 +216,10 @@ export async function sendFeedbackLink(
   }
 
   await recordAudit(event, client, {
-    action: 'feedback.request.send',
+    action: thankYou ? 'feedback.thank_you.send' : 'feedback.request.send',
     entity: 'rental_feedback_requests',
     entityId: request.uuid,
-    next: { rentalCode: rental.code, email, sent, questions: request.questions.length, earnsReward: input.earnsReward },
+    next: { rentalCode: rental.code, email, sent, questions: request.questions.length, earnsReward: input.earnsReward, thankYou },
   })
 
   return { uuid: request.uuid, expiresAt: request.expires_at, sent, feedbackUrl: link, earnsReward: input.earnsReward }

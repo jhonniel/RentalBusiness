@@ -5,8 +5,10 @@ export const EMAIL_TEMPLATES = {
   RENTAL_REMINDER_RETURN: 'rental.reminder.return',
   AUTH_SIGNUP_CONFIRM: 'auth.signup.confirm',
   RENTAL_SUBMITTED: 'rental.submitted',
+  RENTAL_CONFIRMED: 'rental.confirmed',
   RENTAL_WAIVER_INVITE: 'rental.waiver.invite',
   RENTAL_FEEDBACK_REQUEST: 'rental.feedback.request',
+  RENTAL_THANK_YOU: 'rental.thank_you',
   FEEDBACK_REWARD: 'rental.feedback.reward',
 } as const
 

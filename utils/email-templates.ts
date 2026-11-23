@@ -1,5 +1,5 @@
 import type { PublicReceipt, ReceiptSnapshot } from '~/types/receipt'
-import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, FACEBOOK_URL, RECEIPT_RECEIVED_BY } from './constants'
+import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, FACEBOOK_URL, INSTAGRAM_URL, RECEIPT_RECEIVED_BY } from './constants'
 import { formatMoney } from './currency'
 import { formatBusinessDate, formatBusinessDateTime } from './datetime'
 import { escapeHtml } from './email'
@@ -288,6 +288,81 @@ export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 
   }
 }
 
+export function rentalConfirmedEmail(input: {
+  customerName: string
+  rentalCode: string
+  equipmentName: string
+  quantity: number
+  billingUnit: 'day' | 'hour'
+  days: number
+  hours: number | null
+  pickupAt: string
+  returnAt: string
+  rentalUrl: string
+  siteUrl: string
+  needsPayment?: boolean
+}) {
+  const website = input.siteUrl.replace(/\/$/, '') || publicOrigin()
+  const websiteLabel = website.replace(/^https?:\/\//, '')
+  const facebookLabel = FACEBOOK_URL.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
+  const instagramLabel = INSTAGRAM_URL.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
+  const duration = input.billingUnit === 'hour' && input.hours
+    ? `${input.hours} hour${input.hours === 1 ? '' : 's'}`
+    : `${input.days} day${input.days === 1 ? '' : 's'}`
+  const nextStep = input.needsPayment
+    ? 'You can open your booking to pay the down payment when you are ready.'
+    : 'We will prepare your kit for pickup. Bring a valid ID when you collect it.'
+
+  const html = layout(`Booking confirmed · ${input.rentalCode}`, `
+    <p style="margin:0 0 16px;font-size:16px;">Hi ${escapeHtml(input.customerName)},</p>
+    <p style="margin:0 0 16px;color:#57534e;line-height:1.6;">
+      ${escapeHtml(APP_NAME)} confirmed your booking
+      <strong>${escapeHtml(input.rentalCode)}</strong>. Here are the details:
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.6;">
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;color:#57534e;width:38%;">Equipment</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;font-weight:600;">${escapeHtml(input.equipmentName)}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;color:#57534e;">Quantity</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;">${input.quantity}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;color:#57534e;">Duration</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;">${escapeHtml(duration)}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;color:#57534e;">Pickup</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;">${escapeHtml(formatBusinessDateTime(input.pickupAt))}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;color:#57534e;">Return</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f5f5f4;">${escapeHtml(formatBusinessDateTime(input.returnAt))}</td>
+      </tr>
+    </table>
+    <p style="margin:16px 0 0;color:#57534e;line-height:1.6;">${escapeHtml(nextStep)}</p>
+    <p style="margin:24px 0 0;">
+      <a href="${escapeHtml(input.rentalUrl)}" style="display:inline-block;background:#0f1c17;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;">
+        Open your booking
+      </a>
+    </p>
+    <p style="margin:24px 0 0;color:#57534e;font-size:14px;line-height:1.7;">
+      Website:
+      <a href="${escapeHtml(website)}" style="color:#325348;text-decoration:none;">${escapeHtml(websiteLabel)}</a><br>
+      Facebook:
+      <a href="${escapeHtml(FACEBOOK_URL)}" style="color:#325348;text-decoration:none;">${escapeHtml(facebookLabel)}</a><br>
+      Instagram:
+      <a href="${escapeHtml(INSTAGRAM_URL)}" style="color:#325348;text-decoration:none;">${escapeHtml(instagramLabel)}</a>
+    </p>
+  `)
+
+  return {
+    subject: `${APP_NAME} booking confirmed · ${input.rentalCode}`,
+    html,
+  }
+}
+
 export function rentalReminderEmail(input: {
   type: 'pickup' | 'return'
   customerName: string
@@ -378,6 +453,42 @@ export function feedbackRequestEmail(input: {
 
   return {
     subject: `How was your ${APP_NAME} rental? (${input.rentalCode})`,
+    html,
+  }
+}
+
+export function rentalThankYouEmail(input: {
+  customerName: string
+  rentalCode: string
+  products: string[]
+  feedbackUrl: string
+}) {
+  const gear = input.products.length ? input.products.join(', ') : 'your rental'
+  const html = layout(`Thank you for renting with ${APP_NAME}`, `
+    <p style="margin:0 0 16px;font-size:16px;">Hi ${escapeHtml(input.customerName)},</p>
+    <p style="margin:0 0 16px;color:#57534e;line-height:1.6;">
+      Thank you for renting ${escapeHtml(gear)} with ${escapeHtml(APP_NAME)}.
+      Booking <strong>${escapeHtml(input.rentalCode)}</strong> is marked returned, and we hope everything went well.
+    </p>
+    <p style="margin:0 0 16px;color:#57534e;line-height:1.6;">
+      We would love a quick rating when you have a minute. It helps us keep the kit and service sharp for your next shoot.
+    </p>
+    <p style="margin:0 0 20px;">
+      <img src="${escapeHtml(`${publicOrigin()}/og-feedback.png`)}" alt="JRY Rentals feedback page: How was your rental, with star ratings" width="512" height="269" style="display:block;width:100%;max-width:512px;height:auto;border:1px solid #e7e5e4;border-radius:12px;">
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="${escapeHtml(input.feedbackUrl)}" style="display:inline-block;background:#0f1c17;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;">
+        Share your feedback
+      </a>
+    </p>
+    <p style="margin:0 0 16px;color:#57534e;font-size:14px;line-height:1.6;">
+      If the button does not work, copy this address:
+    </p>
+    <p style="margin:0;color:#325348;font-size:13px;word-break:break-all;">${escapeHtml(input.feedbackUrl)}</p>
+  `)
+
+  return {
+    subject: `Thank you for renting with ${APP_NAME} · ${input.rentalCode}`,
     html,
   }
 }
