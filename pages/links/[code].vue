@@ -32,6 +32,7 @@ if (error.value?.statusCode === 404) {
 const pageButtonColor = computed(() => data.value?.buttonColor || DEFAULT_SOCIAL_BUTTON_COLOR)
 const activeAds = computed(() => (data.value?.ads || []).filter(ad => ad.isActive))
 const slideIndex = ref(0)
+const slideDirection = ref<'left' | 'right'>('left')
 const copyrightYear = new Date().getFullYear()
 const voucherCopied = ref(false)
 const copyPulse = ref(false)
@@ -60,6 +61,7 @@ function startCarousel() {
     return
   }
   carouselTimer = setInterval(() => {
+    slideDirection.value = 'left'
     slideIndex.value = (slideIndex.value + 1) % activeAds.value.length
   }, 5000)
 }
@@ -122,6 +124,18 @@ async function copyVoucher(codeValue: string) {
 }
 
 function goToSlide(index: number) {
+  if (index === slideIndex.value) {
+    return
+  }
+  const total = activeAds.value.length
+  if (total < 2) {
+    slideIndex.value = index
+    return
+  }
+  // Prefer the shorter path; forward = swipe left, back = swipe right.
+  const forward = (index - slideIndex.value + total) % total
+  const backward = (slideIndex.value - index + total) % total
+  slideDirection.value = forward <= backward ? 'left' : 'right'
   slideIndex.value = index
   startCarousel()
 }
@@ -184,15 +198,13 @@ function goToSlide(index: number) {
         class="mt-8 w-full"
         aria-label="Promotions"
       >
-        <Transition
-          name="promo-slide"
-          mode="out-in"
-        >
+        <div class="relative w-full overflow-hidden">
+          <Transition :name="slideDirection === 'left' ? 'promo-swipe-left' : 'promo-swipe-right'">
           <!-- Professional voucher ticket -->
           <article
             v-if="currentAd.voucher"
             :key="`voucher-${currentAd.uuid}`"
-            class="social-voucher social-voucher--enter relative overflow-hidden rounded-[1.25rem] bg-white shadow-[0_12px_40px_-16px_rgba(18,32,26,0.45)]"
+            class="social-voucher relative w-full overflow-hidden rounded-[1.25rem] bg-white"
           >
             <component
               :is="adHref(currentAd) ? 'a' : 'div'"
@@ -294,7 +306,7 @@ function goToSlide(index: number) {
           <article
             v-else
             :key="`promo-${currentAd.uuid}`"
-            class="social-promo--enter overflow-hidden rounded-[1.25rem] bg-white shadow-[0_8px_28px_-14px_rgba(18,32,26,0.35)] ring-1 ring-stone-200/70"
+            class="relative w-full overflow-hidden rounded-[1.25rem] bg-white"
           >
             <component
               :is="adHref(currentAd) ? 'a' : 'div'"
@@ -307,7 +319,7 @@ function goToSlide(index: number) {
                 v-if="currentAd.imageUrl"
                 :src="currentAd.imageUrl"
                 :alt="currentAd.title || 'Promotion'"
-                class="aspect-[16/10] w-full object-cover"
+                class="block h-auto w-full bg-[#f3f1ec] object-contain"
               >
               <div
                 v-else
@@ -342,7 +354,8 @@ function goToSlide(index: number) {
               </p>
             </div>
           </article>
-        </Transition>
+          </Transition>
+        </div>
 
         <div
           v-if="activeAds.length > 1"
@@ -405,19 +418,6 @@ function goToSlide(index: number) {
   box-shadow: inset 1px 0 0 rgb(214 211 209);
 }
 
-.social-voucher--enter,
-.social-promo--enter {
-  animation: voucher-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.social-voucher-title {
-  animation: voucher-fade-up 650ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.social-voucher-sub {
-  animation: voucher-fade-up 650ms 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
 .social-voucher-flare {
   pointer-events: none;
   position: absolute;
@@ -446,41 +446,46 @@ function goToSlide(index: number) {
   animation: check-pop 350ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.promo-slide-enter-active,
-.promo-slide-leave-active {
-  transition: opacity 280ms ease, transform 280ms ease;
+.promo-swipe-left-enter-active,
+.promo-swipe-left-leave-active,
+.promo-swipe-right-enter-active,
+.promo-swipe-right-leave-active {
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
-.promo-slide-enter-from {
-  opacity: 0;
-  transform: translateY(12px);
+.promo-swipe-left-leave-active,
+.promo-swipe-right-leave-active {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  width: 100%;
 }
 
-.promo-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
+.promo-swipe-left-enter-from {
+  transform: translate3d(100%, 0, 0);
 }
 
-@keyframes voucher-rise {
-  from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.promo-swipe-left-enter-to,
+.promo-swipe-left-leave-from {
+  transform: translate3d(0, 0, 0);
 }
 
-@keyframes voucher-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.promo-swipe-left-leave-to {
+  transform: translate3d(-100%, 0, 0);
+}
+
+.promo-swipe-right-enter-from {
+  transform: translate3d(-100%, 0, 0);
+}
+
+.promo-swipe-right-enter-to,
+.promo-swipe-right-leave-from {
+  transform: translate3d(0, 0, 0);
+}
+
+.promo-swipe-right-leave-to {
+  transform: translate3d(100%, 0, 0);
 }
 
 @keyframes voucher-flare {
@@ -521,18 +526,16 @@ function goToSlide(index: number) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .social-voucher--enter,
-  .social-promo--enter,
-  .social-voucher-title,
-  .social-voucher-sub,
   .social-voucher-flare,
   .social-voucher-code--pulse,
   .social-voucher-check {
     animation: none !important;
   }
 
-  .promo-slide-enter-active,
-  .promo-slide-leave-active {
+  .promo-swipe-left-enter-active,
+  .promo-swipe-left-leave-active,
+  .promo-swipe-right-enter-active,
+  .promo-swipe-right-leave-active {
     transition: none !important;
   }
 }
