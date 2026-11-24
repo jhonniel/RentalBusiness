@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { PublicReceipt } from '~/types/receipt'
 import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
-import { rentalPeriodDays } from '~/utils/rental-window'
 import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, BUSINESS_PHONE, FACEBOOK_URL, RECEIPT_RECEIVED_BY } from '~/utils/constants'
 import { RECEIPT_58MM_PRINT_CSS, RECEIPT_PURPOSE_LABELS, receiptAddonItems, receiptKitItems } from '~/utils/receipt'
 
@@ -49,14 +48,23 @@ const rentalDates = computed(() => ({
   startsOn: receipt.value?.rental?.startsOn || snapshot.value?.rental.startsOn || '',
   endsOn: receipt.value?.rental?.endsOn || snapshot.value?.rental.endsOn || '',
 }))
-const rentedDays = computed(() => rentalDates.value.startsOn && rentalDates.value.endsOn
-  ? rentalPeriodDays(rentalDates.value.startsOn, rentalDates.value.endsOn)
-  : 0)
+/** Original booked days before extensions (from bookingPeriod; not the live extended window). */
+const rentedDays = computed(() => receipt.value?.bookingPeriod?.days ?? 0)
 const currentLine = computed(() => statement.value?.lines.find(line => line.current) ?? null)
 const purpose = computed(() => snapshot.value?.purpose ?? currentLine.value?.purpose ?? 'booking')
 const purposeLabel = computed(() => snapshot.value?.description || currentLine.value?.label || RECEIPT_PURPOSE_LABELS[purpose.value])
 const kitItems = computed(() => snapshot.value ? receiptKitItems(snapshot.value) : [])
 const addonItems = computed(() => snapshot.value ? receiptAddonItems(snapshot.value) : [])
+const extensionLines = computed(() => (statement.value?.lines ?? []).filter(line => line.purpose === 'extension'))
+const lateFeeLines = computed(() => (statement.value?.lines ?? []).filter(line => line.purpose === 'late_fee'))
+/** Extensions and late fees are listed with the kit above; keep them out of the payments list below. */
+const paymentListLines = computed(() => {
+  const lines = statement.value?.lines ?? []
+  if (purpose.value !== 'booking') {
+    return lines
+  }
+  return lines.filter(line => line.purpose !== 'extension' && line.purpose !== 'late_fee')
+})
 const emailTo = ref('')
 const sending = ref(false)
 const toast = useToast()
@@ -299,6 +307,40 @@ async function sendInvoice() {
               </template>
             </p>
           </li>
+          <li
+            v-for="line in extensionLines"
+            :key="`ext-${line.receiptNumber}`"
+            class="flex justify-between gap-4 py-3 text-sm"
+          >
+            <div>
+              <p class="font-medium text-stone-900">
+                {{ line.label }}
+              </p>
+              <p class="text-stone-500">
+                {{ formatBusinessDate(line.issuedAt) }}
+              </p>
+            </div>
+            <p class="text-right tabular-nums">
+              {{ formatMoney(line.amount, snapshot.currency) }}
+            </p>
+          </li>
+          <li
+            v-for="line in lateFeeLines"
+            :key="`late-${line.receiptNumber}`"
+            class="flex justify-between gap-4 py-3 text-sm"
+          >
+            <div>
+              <p class="font-medium text-stone-900">
+                {{ line.label }}
+              </p>
+              <p class="text-stone-500">
+                {{ formatBusinessDate(line.issuedAt) }}
+              </p>
+            </div>
+            <p class="text-right tabular-nums">
+              {{ formatMoney(line.amount, snapshot.currency) }}
+            </p>
+          </li>
         </ul>
 
         <div
@@ -364,18 +406,18 @@ async function sendInvoice() {
       </dl>
 
       <section
-        v-if="statement && statement.lines.length"
+        v-if="paymentListLines.length"
         class="mt-8 rounded-xl border border-stone-200 bg-stone-50 p-4"
       >
         <h2 class="text-sm font-semibold text-stone-900">
           Payments on this booking
         </h2>
         <p class="mt-0.5 text-xs text-stone-500">
-          Every payment for {{ snapshot.rental.code }}, including extensions and late fees.
+          Payments for {{ snapshot.rental.code }}<template v-if="extensionLines.length || lateFeeLines.length">. Extensions and late fees are listed with the equipment above</template>.
         </p>
         <ul class="mt-3 divide-y divide-stone-200 text-sm">
           <li
-            v-for="line in statement.lines"
+            v-for="line in paymentListLines"
             :key="line.receiptNumber"
             class="flex items-start justify-between gap-4 py-2.5"
           >
@@ -387,11 +429,12 @@ async function sendInvoice() {
                 <NuxtLink
                   v-if="!line.current"
                   :to="`/receipts/${line.receiptNumber}`"
-                  class="underline-offset-2 hover:underline print:no-underline"
-                >{{ line.receiptNumber }}</NuxtLink>
-                <template v-else>
-                  {{ line.receiptNumber }}
-                </template>
+                  class="font-mono underline-offset-2 hover:underline print:no-underline"
+                >{{ snapshot.rental.code }}</NuxtLink>
+                <span
+                  v-else
+                  class="font-mono"
+                >{{ snapshot.rental.code }}</span>
                 · {{ formatBusinessDate(line.issuedAt) }}
               </p>
             </div>

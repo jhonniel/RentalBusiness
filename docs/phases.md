@@ -142,6 +142,22 @@ When an administrator confirms a `pending` booking (`POST /api/admin/rentals/[id
 
 When an administrator marks a rental done (`POST /api/admin/rentals/[id]/complete`), the customer receives a thank-you email that includes a fresh feedback link. The feedback request is created the same way as a manual send (reward eligible by default). Placeholder guest emails and failed sends do not undo finishing the rental.
 
+## Phase 24 — Social Media links + QR (completed)
+
+Admin sidebar **Social Media** (below Settings) manages Linktree-style buttons (`label` + unique `url`). Public `/links/[code]` shows active buttons; `code` is a random unique token (regeneratable). The admin QR encodes that URL. Paste `supabase/migrations/20261124150000_social_links.sql` (and `20261124151000_social_links_unique_url.sql` if the table already existed) in Supabase.
+
+## Phase 25 — System Health (completed)
+
+Admin sidebar **System Health** (below Settings) shows live app/Supabase/database storage/file buckets/SMTP/maintenance/Vercel status for diagnosing outages. Paste `supabase/migrations/20261124160000_admin_database_health.sql` for database size tables. Secrets are never returned.
+
+## Phase 26 — Social button colors + promo ads (completed)
+
+Each Social Media button can override the page default color. Below the buttons, admins manage a promo carousel (`social_ads`): image and/or linked voucher, optional tap link, show/hide, reorder. Public `/links/[code]` rotates active slides and lets visitors copy voucher codes. Paste `supabase/migrations/20261124170000_social_button_color_and_ads.sql` (creates `social_ads` + public `social-ad-images` bucket + `social_links.button_color`).
+
+## Phase 27 — Social button icons (completed)
+
+Each Social Media button can show an optional Lucide icon beside the label. Admins pick from a curated list. Paste `supabase/migrations/20261124180000_social_link_icons.sql`.
+
 ## Phase report template
 
 After each phase:

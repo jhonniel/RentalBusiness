@@ -39,6 +39,8 @@ export const adminNavItems: NavItem[] = [
   { label: 'Waivers', to: '/admin/waivers', icon: 'i-lucide-file-pen-line', enabled: true },
   { label: 'FAQs', to: '/admin/faqs', icon: 'i-lucide-circle-help', enabled: true },
   { label: 'Settings', to: '/admin/settings', icon: 'i-lucide-settings', enabled: true },
+  { label: 'System Health', to: '/admin/system-health', icon: 'i-lucide-activity', enabled: true },
+  { label: 'Social Media', to: '/admin/social-media', icon: 'i-lucide-share-2', enabled: true },
   { label: 'Account', to: '/admin/account', icon: 'i-lucide-user-cog', enabled: true },
   { label: 'Audit Logs', to: '/admin/audit-logs', icon: 'i-lucide-scroll-text', enabled: true },
 ]

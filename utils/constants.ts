@@ -25,7 +25,7 @@ export const CURRENT_COOKIE_POLICY_META = {
 } as const
 export const COOKIE_CONSENT_STORAGE_KEY = 'jry-cookie-consent'
 
-export const CURRENT_PHASE = 19
+export const CURRENT_PHASE = 27
 
 export const USER_ROLES = ['admin', 'customer', 'commissioner'] as const
 export type UserRole = (typeof USER_ROLES)[number]

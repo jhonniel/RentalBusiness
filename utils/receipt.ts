@@ -1,6 +1,7 @@
 import type { PublicReceipt, ReceiptPurpose, ReceiptSnapshot, ReceiptSnapshotAddonItem, ReceiptSnapshotItem, ReceiptStatementLine } from '~/types/receipt'
 import type { Json } from '~/types/database.types'
 import { paymentKind } from './payment'
+import { rentalPeriodDays } from './rental-window'
 
 /** Older snapshots mixed add-ons into `items` with sku `Add-on`. */
 const LEGACY_ADDON_SKU = 'Add-on'
@@ -64,6 +65,49 @@ export const RECEIPT_PURPOSE_LABELS: Record<ReceiptPurpose, string> = {
   extension: 'Booking extension',
   late_fee: 'Late fee',
   balance: 'Balance payment',
+}
+
+/**
+ * Kit window on a booking receipt: original booked period before extensions.
+ * Prefer live starts + first active extension's previousEndsOn (handles reschedules after the snapshot).
+ */
+export function receiptBookingWindow(input: {
+  startsOn?: string | null
+  endsOn?: string | null
+  extensions?: Array<{ previousEndsOn: string, cancelledAt?: string | null, createdAt?: string }>
+  snapshot?: Pick<ReceiptSnapshot['rental'], 'startsOn' | 'endsOn'> | null
+}): { startsOn: string, endsOn: string, days: number } {
+  const active = (input.extensions ?? [])
+    .filter(extension => !extension.cancelledAt)
+    .slice()
+    .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+  const startsOn = input.startsOn || input.snapshot?.startsOn || ''
+  const endsOn = active[0]?.previousEndsOn
+    || input.endsOn
+    || input.snapshot?.endsOn
+    || ''
+  return {
+    startsOn,
+    endsOn,
+    days: startsOn && endsOn ? rentalPeriodDays(startsOn, endsOn) : 0,
+  }
+}
+
+/** @deprecated Prefer receiptBookingWindow — kept for callers that only have a snapshot. */
+export function receiptKitDays(snapshot: Pick<ReceiptSnapshot, 'rental'>): number {
+  return receiptBookingWindow({ snapshot: snapshot.rental }).days
+}
+
+/** Kit rent before paid extensions (line totals minus active extension adds). */
+export function receiptBookingBaseRent(input: {
+  itemLineTotals: number[]
+  extensions?: Array<{ addedAmount: number, cancelledAt?: string | null }>
+}): number {
+  const lines = input.itemLineTotals.reduce((sum, amount) => sum + Math.max(0, amount), 0)
+  const extensionTotal = (input.extensions ?? [])
+    .filter(extension => !extension.cancelledAt)
+    .reduce((sum, extension) => sum + Math.max(0, extension.addedAmount), 0)
+  return Math.max(0, Math.round((lines - extensionTotal) * 100) / 100)
 }
 
 export function receiptDiscounts(rental: {

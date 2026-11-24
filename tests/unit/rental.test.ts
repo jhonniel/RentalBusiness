@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { customerRentalGroup, amountDue, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
+import { customerRentalGroup, amountDue, amountToPay, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { fieldErrorSummary, fieldErrors } from '../../utils/auth-validation'
@@ -377,13 +377,15 @@ describe('customer rental transitions', () => {
       totalAmount: 1500,
     })).toBe(false)
     expect(amountDue({ totalAmount: 1000, depositAmount: 500 })).toBe(1500)
+    expect(amountToPay({ totalAmount: 1000 })).toBe(1000)
+    // Payment Receive collects the down payment (rent) only; deposit alone is not payable here.
     expect(canMarkAdminRentalPaid({
       status: 'awaiting_payment',
       waiver: { uuid: 'waiver' } as never,
       identity: { submittedAt: '2026-09-13T00:00:00.000Z' },
       totalAmount: 0,
       depositAmount: 500,
-    })).toBe(true)
+    })).toBe(false)
   })
 
   it('releases a collected deposit from sales after the return time', () => {
@@ -433,12 +435,13 @@ describe('customer rental transitions', () => {
   it('works out the balance or refund when a paid booking gets more or fewer days', () => {
     const paid = { paidAmount: 2500, includesDeposit: true, depositAmount: 500 }
 
-    expect(paidPaymentChange({ ...paid, totalAmount: 3000 })).toEqual({ paidAmount: 2500, newAmount: 3500, balanceDue: 1000, refundDue: 0 })
-    expect(paidPaymentChange({ ...paid, totalAmount: 1000 })).toEqual({ paidAmount: 2500, newAmount: 1500, balanceDue: 0, refundDue: 1000 })
-    expect(paidPaymentChange({ ...paid, totalAmount: 2000 })).toEqual({ paidAmount: 2500, newAmount: 2500, balanceDue: 0, refundDue: 0 })
+    // Deposit is stripped: 2500 collected − 500 deposit = 2000 rent paid. newAmount is rent only.
+    expect(paidPaymentChange({ ...paid, totalAmount: 3000 })).toEqual({ paidAmount: 2000, newAmount: 3000, balanceDue: 1000, refundDue: 0 })
+    expect(paidPaymentChange({ ...paid, totalAmount: 1000 })).toEqual({ paidAmount: 2000, newAmount: 1000, balanceDue: 0, refundDue: 1000 })
+    expect(paidPaymentChange({ ...paid, totalAmount: 2000 })).toEqual({ paidAmount: 2000, newAmount: 2000, balanceDue: 0, refundDue: 0 })
     expect(paidPaymentChange({ paidAmount: 2000, includesDeposit: false, depositAmount: 500, totalAmount: 3000 })).toMatchObject({ newAmount: 3000, balanceDue: 1000 })
-    expect(paidPaymentChange({ ...paid, totalAmount: 4000, billedSeparately: 1000 })).toMatchObject({ newAmount: 3500, balanceDue: 1000 })
-    expect(paidPaymentChange({ paidAmount: 1500.1, includesDeposit: true, depositAmount: 500, totalAmount: 1000.3 })).toMatchObject({ newAmount: 1500.3, balanceDue: 0.2 })
+    expect(paidPaymentChange({ ...paid, totalAmount: 4000, billedSeparately: 1000 })).toMatchObject({ newAmount: 3000, balanceDue: 1000 })
+    expect(paidPaymentChange({ paidAmount: 1500.1, includesDeposit: true, depositAmount: 500, totalAmount: 1000.3 })).toMatchObject({ paidAmount: 1000.1, newAmount: 1000.3, balanceDue: 0.2 })
   })
 
   it('writes the balance or refund into the history note', () => {

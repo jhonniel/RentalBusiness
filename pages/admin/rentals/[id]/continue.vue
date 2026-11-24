@@ -7,6 +7,7 @@ import { fieldErrors } from '~/utils/auth-validation'
 import { calendarDateInZone, formatBusinessDateTime } from '~/utils/datetime'
 import { continueAdminRentalSchema } from '~/utils/rental-validation'
 import { MAX_RENTAL_HOURS, MIN_RENTAL_HOURS, defaultRentalReturnOn, formatRentalReturnLabel, normalizePickupTime, resolveHourlyRentalWindow, resolveRentalWindow } from '~/utils/rental-window'
+import { personDisplayName } from '~/utils/person'
 import { canModifyAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
 
 definePageMeta({
@@ -521,14 +522,14 @@ async function onSubmit() {
                   v-if="rental.commissioner && !listedCommissioner"
                   :value="rental.commissioner.uuid"
                 >
-                  {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+                  {{ personDisplayName(rental.commissioner) }}
                 </option>
                 <option
                   v-for="person in commissioners"
                   :key="person.uuid"
                   :value="person.uuid"
                 >
-                  {{ person.firstName }} {{ person.lastName }}
+                  {{ personDisplayName(person) }}
                 </option>
               </select>
               <span

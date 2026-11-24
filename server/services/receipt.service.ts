@@ -6,7 +6,7 @@ import type { RentalReminderInput } from '../../utils/receipt-validation'
 import { APP_NAME, BUSINESS_CURRENCY } from '../../utils/constants'
 import { EMAIL_TEMPLATES } from '../../utils/email'
 import { receiptCopyEmail, receiptIssuedEmail, rentalReminderEmail } from '../../utils/email-templates'
-import { RECEIPT_PURPOSE_LABELS, buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptDiscounts, toPublicReceipt } from '../../utils/receipt'
+import { RECEIPT_PURPOSE_LABELS, buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptBookingBaseRent, receiptBookingWindow, receiptDiscounts, toPublicReceipt } from '../../utils/receipt'
 import { rentalPeriodDays } from '../../utils/rental-window'
 import { formatBookingDate } from '../../utils/datetime'
 import { LATE_FEE_TYPE_LABELS, type LateFeeType } from '../../utils/late-fee'
@@ -19,7 +19,7 @@ import { findBusinessProfile } from '../repositories/business.repository'
 import { findProfileById } from '../repositories/profile.repository'
 import { findRentalByCode, findRentalByUuid, findRentalIdentity, findRentalIdentityById } from '../repositories/rental.repository'
 import { findReceiptByNumber, findReceiptByPaymentId, findReceiptByUuid, insertReceipt, listReceiptsByRentalId } from '../repositories/receipt.repository'
-import { findRentalExtension } from '../repositories/rental-extension.repository'
+import { findRentalExtension, listRentalExtensions } from '../repositories/rental-extension.repository'
 import { sendTemplatedEmail } from './email.service'
 
 type Client = SupabaseClient<Database>
@@ -207,6 +207,43 @@ function currentDiscounts(row: NonNullable<Awaited<ReturnType<typeof findRentalB
   return receiptDiscounts(rental, rentalPeriodDays(rental.startsOn, rental.endsOn))
 }
 
+function extensionRefs(rows: Awaited<ReturnType<typeof listRentalExtensions>>) {
+  return rows.map(row => ({
+    previousEndsOn: row.previous_ends_on,
+    addedAmount: Number(row.added_amount),
+    cancelledAt: row.cancelled_at ?? null,
+    createdAt: row.created_at,
+  }))
+}
+
+/** Long-stay / voucher for a booking receipt — original kit window, excluding extension rent. */
+function bookingDiscounts(
+  row: NonNullable<Awaited<ReturnType<typeof findRentalByUuid>>>,
+  period: { startsOn: string, endsOn: string, days: number },
+  extensions: ReturnType<typeof extensionRefs>,
+) {
+  const rental = toPublicRental(row)
+  const baseRent = receiptBookingBaseRent({
+    itemLineTotals: rental.items.map(item => item.lineTotal),
+    extensions,
+  })
+  const items = rental.items.map((item, index) => ({
+    dailyPrice: item.dailyPrice,
+    quantity: item.quantity,
+    lineTotal: index === 0 ? baseRent : 0,
+    billingUnit: item.billingUnit,
+    billedHours: item.billedHours,
+    hourlyPrice: item.hourlyPrice,
+  }))
+  return receiptDiscounts({
+    startsOn: period.startsOn,
+    endsOn: period.endsOn,
+    discountAmount: rental.discountAmount,
+    voucher: rental.voucher,
+    items,
+  }, period.days)
+}
+
 export async function getOwnReceipt(client: Client, identifier: string) {
   const row = isUuid(identifier)
     ? await findReceiptByUuid(client, identifier)
@@ -226,6 +263,19 @@ export async function getOwnReceipt(client: Client, identifier: string) {
     findRentalIdentityById(admin, row.rental_id).catch(() => null),
   ])
   const rentalRow = rentalIdentity ? await findRentalByUuid(admin, rentalIdentity.uuid).catch(() => null) : null
+  const extensionRows = rentalRow
+    ? await listRentalExtensions(admin, row.rental_id).catch(() => [])
+    : []
+  const extensions = extensionRefs(extensionRows)
+  const purpose = receipt.snapshot.purpose ?? 'booking'
+  const bookingPeriod = rentalRow
+    ? receiptBookingWindow({
+        startsOn: rentalRow.starts_on,
+        endsOn: rentalRow.ends_on,
+        extensions,
+        snapshot: receipt.snapshot.rental,
+      })
+    : receiptBookingWindow({ snapshot: receipt.snapshot.rental })
   return {
     ...receipt,
     statement: buildReceiptStatement(related, receipt.receiptNumber),
@@ -235,7 +285,12 @@ export async function getOwnReceipt(client: Client, identifier: string) {
     rental: rentalRow
       ? { startsOn: rentalRow.starts_on, endsOn: rentalRow.ends_on, pickupAt: rentalRow.pickup_at, returnAt: rentalRow.return_at }
       : undefined,
-    discounts: rentalRow ? currentDiscounts(rentalRow) : undefined,
+    bookingPeriod,
+    discounts: rentalRow
+      ? (purpose === 'booking'
+          ? bookingDiscounts(rentalRow, bookingPeriod, extensions)
+          : currentDiscounts(rentalRow))
+      : undefined,
   }
 }
 

@@ -9,7 +9,7 @@ import { calendarDateInZone } from '../../utils/datetime'
 import type { AssignAdminCommissionerInput, CancelAdminRentalInput, ContinueAdminRentalInput, CreateAdminRentalInput, EditAdminRentalExtensionInput, ExtendAdminRentalInput } from '../../utils/rental-validation'
 import type { PublicRentalExtension, PublicRentalHistoryEntry, RentalExtensionPreview, RentalPaymentChange } from '../../types/rental'
 import type { MarkAdminPaidInput } from '../../utils/payment-validation'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentBalanceMoved, paymentChangeNote, paymentCollectedDeposit, toPublicRentalHistoryEntry, toShopRental } from '../../utils/rental'
+import { amountDue, amountToPay, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, collectedPaymentFields, isRentalCode, paymentAmountAfterDepositReturn, paymentBalanceMoved, paymentChangeNote, paymentCollectedDeposit, toPublicRentalHistoryEntry, toShopRental } from '../../utils/rental'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
 import { canModifyAdminRental } from '../../utils/waiver-invite'
 import { rentalPeriodDays, rentalScheduleChange, resolveRentalWindow } from '../../utils/rental-window'
@@ -1838,7 +1838,7 @@ export async function markAdminRentalPaid(
   const rental = await loadAdminRental(client, identifier)
   if (!canMarkAdminRentalPaid(rental)) {
     throw new AppError(
-      amountDue(rental) <= 0
+      amountToPay(rental) <= 0
         ? 'That rental has no amount due.'
         : !rental.waiver
             ? 'The customer must sign the waiver before payment can be recorded.'
@@ -1883,11 +1883,35 @@ export async function markAdminRentalPaid(
   }
 
   const paidAt = new Date().toISOString()
-  const due = amountDue(rental)
+  // After confirm, Payment Receive collects the down payment (rent) only. Deposit is not part of this payable.
+  const due = amountToPay(rental)
+  const requestedAmount = input.amount === undefined ? null : Number(input.amount)
+  // Treat an amount below the full due as partial even if paymentType was omitted or left as full.
+  const partial = input.paymentType === 'partial'
+    || (requestedAmount !== null && Number.isFinite(requestedAmount) && addMoney(requestedAmount) < addMoney(due))
+  const paidNow = partial ? Number(requestedAmount) : due
+  if (!Number.isFinite(paidNow) || paidNow <= 0) {
+    throw new AppError('Enter how much the customer paid.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+  if (partial && addMoney(paidNow) >= addMoney(due)) {
+    throw new AppError('For a partial payment, enter less than the full amount due.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+  if (!partial && addMoney(paidNow) !== addMoney(due)) {
+    throw new AppError('Full payment must match the amount due.', 422, ERROR_CODES.VALIDATION_ERROR)
+  }
+
+  const paymentMetadata = {
+    recordedBy: 'admin',
+    includesDeposit: false,
+    depositAmount: 0,
+    rentAmount: paidNow,
+    ...(partial ? { partial: true, amountDue: due } : {}),
+  }
+
   const open = await findOpenPaymentByRentalId(client, identity.id)
   const payment = open
     ? await updatePaymentByUuid(client, open.uuid, {
-        amount: due,
+        amount: paidNow,
         status: 'paid',
         provider: 'shop',
         provider_transaction_id: open.provider_transaction_id || `shop-${rental.uuid}`,
@@ -1895,37 +1919,41 @@ export async function markAdminRentalPaid(
         paid_at: paidAt,
         metadata: {
           ...(open.metadata && typeof open.metadata === 'object' && !Array.isArray(open.metadata) ? open.metadata : {}),
-          recordedBy: 'admin',
-          ...collectedPaymentFields(rental),
+          ...paymentMetadata,
         },
       })
     : await insertPayment(client, {
         rental_id: identity.id,
         customer_id: identity.customer_id,
-        amount: due,
+        amount: paidNow,
         currency: BUSINESS_CURRENCY,
         provider: 'shop',
         provider_transaction_id: `shop-${rental.uuid}`,
         status: 'paid',
         payment_method: input.paymentMethod,
         paid_at: paidAt,
-        metadata: { recordedBy: 'admin', ...collectedPaymentFields(rental) },
+        metadata: paymentMetadata,
       })
 
+  const remaining = Math.max(0, addMoney(due, -paidNow))
   await advanceAdminRentalStatus(
     event,
     client,
     profileId,
     { ...rental, status },
     'paid',
-    `Admin recorded a ${input.paymentMethod} payment.`,
+    partial
+      ? `Admin recorded a partial ${input.paymentMethod} payment of ${paidNow.toFixed(2)} ${BUSINESS_CURRENCY}. Balance of ${remaining.toFixed(2)} ${BUSINESS_CURRENCY} stays unpaid.`
+      : `Admin recorded a ${input.paymentMethod} payment.`,
   )
 
   await insertNotification(client, {
     recipient_id: identity.customer_id,
     type: 'payment.received',
     title: 'Payment received',
-    body: `The shop recorded payment for rental ${rental.code}.`,
+    body: partial
+      ? `The shop recorded a partial payment for rental ${rental.code}. A balance remains unpaid.`
+      : `The shop recorded payment for rental ${rental.code}.`,
     metadata: { rentalUuid: rental.uuid, rentalCode: rental.code },
   })
 
@@ -1944,7 +1972,10 @@ export async function markAdminRentalPaid(
     next: {
       status: 'paid',
       paymentMethod: input.paymentMethod,
+      paymentType: partial ? 'partial' : 'full',
       amount: payment.amount,
+      amountDue: due,
+      balanceDue: remaining,
     },
   })
 

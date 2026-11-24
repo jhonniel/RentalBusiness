@@ -2,10 +2,11 @@
 import type { PublicRental } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
 import { formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
-import { amountDue, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, rentalSalesBreakdown, SHOP_PAYMENT_METHODS } from '~/utils/rental'
+import { amountDue, amountToPay, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, rentalSalesBreakdown, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { canSendFeedback } from '~/utils/feedback'
 import { LATE_FEE_OUT_STATUSES } from '~/utils/late-fee'
 import { renderWaiverBody } from '~/utils/waiver'
+import { personDisplayName } from '~/utils/person'
 import { canModifyAdminRental, canOpenAdminContinue, canResetAdminWaiver, canSendWaiverInvite } from '~/utils/waiver-invite'
 
 definePageMeta({
@@ -22,6 +23,8 @@ const confirming = ref(false)
 const paying = ref(false)
 const completing = ref(false)
 const paymentMethod = ref<(typeof SHOP_PAYMENT_METHODS)[number]>('cash')
+const paymentType = ref<'full' | 'partial'>('full')
+const partialAmount = ref('')
 const deleteOpen = ref(false)
 const deletePending = ref(false)
 const cancelOpen = ref(false)
@@ -244,18 +247,70 @@ async function finishRental() {
   }
 }
 
-async function markPaid() {
+/** Rent only — deposit/downpayment hold is deducted from rent+deposit. */
+const markPaidDue = computed(() => rental.value ? amountToPay(rental.value) : 0)
+const markPaidTotal = computed(() => rental.value ? amountDue(rental.value) : 0)
+const markPaidDeposit = computed(() => rental.value ? Math.max(0, rental.value.depositAmount ?? 0) : 0)
+const balanceToPay = computed(() => {
   if (!rental.value) {
+    return 0
+  }
+  if ((rental.value.paymentBalance?.balanceDue ?? 0) > 0) {
+    return rental.value.paymentBalance!.balanceDue
+  }
+  if (hasPaidPayment.value) {
+    return 0
+  }
+  return markPaidDue.value
+})
+const partialAmountValue = computed(() => {
+  // type=number v-model can be a number; always coerce before trim.
+  const raw = String(partialAmount.value ?? '').trim().replace(/,/g, '')
+  if (!raw) {
+    return null
+  }
+  const value = Number(raw)
+  return Number.isFinite(value) ? value : null
+})
+
+async function markPaid() {
+  if (!rental.value || paying.value) {
     return
+  }
+
+  const partial = paymentType.value === 'partial'
+  const amount = partialAmountValue.value
+  if (partial) {
+    if (amount === null || amount <= 0) {
+      toast.add({ title: 'Enter how much the customer paid.', color: 'error' })
+      return
+    }
+    if (amount >= markPaidDue.value) {
+      toast.add({ title: 'For a partial payment, enter less than the full amount due.', color: 'error' })
+      return
+    }
   }
 
   paying.value = true
   try {
-    await $fetch(`/api/admin/rentals/${rental.value.uuid}/paid`, {
+    const updated = await $fetch<PublicRental>(`/api/admin/rentals/${rental.value.uuid}/paid`, {
       method: 'POST',
-      body: { paymentMethod: paymentMethod.value },
+      body: {
+        paymentMethod: paymentMethod.value,
+        paymentType: paymentType.value,
+        ...(partial && amount !== null ? { amount } : {}),
+      },
     })
-    toast.add({ title: 'Payment recorded as a sale', color: 'success' })
+    const balanceLeft = updated.paymentBalance?.balanceDue ?? 0
+    toast.add({
+      title: balanceLeft > 0 ? 'Partial payment recorded' : 'Payment recorded as a sale',
+      description: balanceLeft > 0
+        ? `${formatMoney(balanceLeft)} stays as Balance unpaid.`
+        : undefined,
+      color: 'success',
+    })
+    paymentType.value = 'full'
+    partialAmount.value = ''
     await refresh()
   }
   catch (error) {
@@ -415,13 +470,14 @@ async function removeRental() {
             >
               Confirm booking
             </UButton>
+            <!-- Desktop: compact control like before -->
             <div
               v-if="canMarkPaid"
-              class="flex items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 p-1"
+              class="hidden items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 p-1 sm:flex"
             >
               <select
                 v-model="paymentMethod"
-                class="h-8 rounded-md border-0 bg-transparent px-2 text-sm text-stone-800 focus:ring-0"
+                class="h-8 rounded-md border-0 bg-transparent py-0 pr-8 pl-2 text-sm text-stone-800 focus:ring-0"
                 aria-label="Payment method"
                 :disabled="paying"
               >
@@ -433,13 +489,45 @@ async function removeRental() {
                   {{ method === 'gcash' ? 'GCash' : method === 'maya' ? 'Maya' : method === 'bank' ? 'Bank' : 'Cash' }}
                 </option>
               </select>
+              <select
+                v-model="paymentType"
+                class="h-8 rounded-md border-0 bg-transparent py-0 pr-8 pl-2 text-sm text-stone-800 focus:ring-0"
+                aria-label="Payment type"
+                :disabled="paying"
+              >
+                <option value="full">
+                  Full
+                </option>
+                <option value="partial">
+                  Partial
+                </option>
+              </select>
+              <input
+                v-if="paymentType === 'partial'"
+                v-model="partialAmount"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                :placeholder="`of ${markPaidDue}`"
+                class="h-8 w-28 rounded-md border border-stone-200 bg-white px-2 text-sm text-stone-800 tabular-nums focus:border-stone-300 focus:outline-none focus:ring-0"
+                aria-label="Amount the customer paid"
+                :disabled="paying"
+              >
+              <span
+                v-if="canMarkPaid"
+                class="hidden px-1 text-xs tabular-nums text-stone-500 lg:inline"
+              >
+                Pay {{ formatMoney(markPaidDue) }}
+              </span>
               <UButton
+                type="button"
                 size="sm"
                 icon="i-lucide-wallet"
                 :loading="paying"
+                :disabled="paying"
                 @click="markPaid"
               >
-                Mark as paid
+                Payment Receive
               </UButton>
             </div>
             <UButton
@@ -459,6 +547,80 @@ async function removeRental() {
               Mark rental done
             </UButton>
           </div>
+        </div>
+
+        <!-- Mobile: full-width fields, 16px text so iOS does not zoom -->
+        <div
+          v-if="canMarkPaid"
+          class="mt-4 space-y-2 rounded-lg border border-stone-200 bg-stone-50 p-3 sm:hidden"
+        >
+          <div class="rounded-md bg-white px-3 py-2 text-sm tabular-nums text-stone-700">
+            <div class="flex justify-between gap-2">
+              <span class="text-stone-500">Total</span>
+              <span>{{ formatMoney(markPaidTotal) }}</span>
+            </div>
+            <div
+              v-if="markPaidDeposit > 0"
+              class="mt-1 flex justify-between gap-2"
+            >
+              <span class="text-stone-500">Deposit / downpayment</span>
+              <span>−{{ formatMoney(markPaidDeposit) }}</span>
+            </div>
+            <div class="mt-1 flex justify-between gap-2 border-t border-stone-100 pt-1 font-medium text-stone-900">
+              <span>Balance to pay</span>
+              <span>{{ formatMoney(markPaidDue) }}</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <select
+              v-model="paymentMethod"
+              class="h-11 w-full rounded-md border border-stone-200 bg-white px-3 text-base text-stone-800 focus:border-stone-300 focus:outline-none focus:ring-0"
+              aria-label="Payment method"
+              :disabled="paying"
+            >
+              <option
+                v-for="method in SHOP_PAYMENT_METHODS"
+                :key="method"
+                :value="method"
+              >
+                {{ method === 'gcash' ? 'GCash' : method === 'maya' ? 'Maya' : method === 'bank' ? 'Bank' : 'Cash' }}
+              </option>
+            </select>
+            <select
+              v-model="paymentType"
+              class="h-11 w-full rounded-md border border-stone-200 bg-white px-3 text-base text-stone-800 focus:border-stone-300 focus:outline-none focus:ring-0"
+              aria-label="Payment type"
+              :disabled="paying"
+            >
+              <option value="full">
+                Full
+              </option>
+              <option value="partial">
+                Partial
+              </option>
+            </select>
+          </div>
+          <input
+            v-if="paymentType === 'partial'"
+            v-model="partialAmount"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="Amount paid"
+            class="h-11 w-full rounded-md border border-stone-200 bg-white px-3 text-base text-stone-800 tabular-nums focus:border-stone-300 focus:outline-none focus:ring-0"
+            aria-label="Amount the customer paid"
+            :disabled="paying"
+          >
+          <UButton
+            type="button"
+            class="w-full justify-center"
+            icon="i-lucide-wallet"
+            :loading="paying"
+            :disabled="paying"
+            @click="markPaid"
+          >
+            Payment Receive
+          </UButton>
         </div>
 
         <dl class="mt-5 grid gap-4 border-t border-stone-100 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -503,17 +665,23 @@ async function removeRental() {
             </span>
             <div class="min-w-0">
               <dt class="text-xs text-stone-500">
-                {{ sales ? 'Actual sale' : 'Amount due' }}
+                {{ hasPaidPayment ? 'Actual sale' : 'Balance to pay' }}
               </dt>
               <dd class="mt-0.5 font-medium tabular-nums text-stone-900">
-                {{ formatMoney(sales ? sales.shopKeeps : amountDue(rental)) }}
+                {{ formatMoney(hasPaidPayment && sales ? sales.shopKeeps : balanceToPay) }}
               </dd>
               <dd class="mt-0.5 text-xs tabular-nums text-stone-500">
                 <template v-if="totalPaid > 0">
-                  {{ formatMoney(totalPaid) }} paid in total
+                  {{ formatMoney(totalPaid) }} paid
+                  <template v-if="balanceToPay > 0">
+                    · {{ formatMoney(balanceToPay) }} left to pay
+                  </template>
+                </template>
+                <template v-else-if="markPaidDeposit > 0">
+                  {{ formatMoney(markPaidTotal) }} total − {{ formatMoney(markPaidDeposit) }} deposit = {{ formatMoney(markPaidDue) }}
                 </template>
                 <template v-else>
-                  Not paid yet · {{ formatMoney(amountDue(rental)) }} due
+                  Not paid yet
                 </template>
               </dd>
             </div>
@@ -594,7 +762,7 @@ async function removeRental() {
               v-if="rental.commissioner && !canModify"
               class="mt-3 text-stone-700"
             >
-              Commissioner {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+              Commissioner {{ personDisplayName(rental.commissioner) }}
               · commission {{ formatMoney(rental.commissionAmount || 0) }}
             </p>
             <div
@@ -615,14 +783,14 @@ async function removeRental() {
                     v-if="rental.commissioner && !listedCommissioner"
                     :value="rental.commissioner.uuid"
                   >
-                    {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+                    {{ personDisplayName(rental.commissioner) }}
                   </option>
                   <option
                     v-for="person in commissioners"
                     :key="person.uuid"
                     :value="person.uuid"
                   >
-                    {{ person.firstName }} {{ person.lastName }}
+                    {{ personDisplayName(person) }}
                   </option>
                 </select>
               </label>
@@ -883,7 +1051,7 @@ async function removeRental() {
                 v-if="rental.commissioner"
                 class="flex justify-between gap-4 text-stone-600"
               >
-                <dt>Total commission · {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}{{ sales.pendingExtension > 0 ? ' (paid days only)' : sales.pendingBalance > 0 ? ' (paid part only)' : '' }}</dt>
+                <dt>Total commission · {{ personDisplayName(rental.commissioner) }}{{ sales.pendingExtension > 0 ? ' (paid days only)' : sales.pendingBalance > 0 ? ' (paid part only)' : '' }}</dt>
                 <dd>−{{ formatMoney(sales.commission) }}</dd>
               </div>
               <div class="flex justify-between gap-4 font-medium text-stone-900">
@@ -891,12 +1059,26 @@ async function removeRental() {
                 <dd>{{ formatMoney(sales.shopKeeps) }}</dd>
               </div>
               <div class="flex justify-between gap-4 border-t border-stone-100 pt-2 text-stone-600">
-                <dt>Deposit (returned after the rental)</dt>
-                <dd>{{ formatMoney(rental.depositAmount) }}</dd>
+                <dt>Total (rent + deposit)</dt>
+                <dd>{{ formatMoney(amountDue(rental)) }}</dd>
+              </div>
+              <div
+                v-if="rental.depositAmount > 0"
+                class="flex justify-between gap-4 text-stone-600"
+              >
+                <dt>Deposit / downpayment</dt>
+                <dd>−{{ formatMoney(rental.depositAmount) }}</dd>
               </div>
               <div class="flex justify-between gap-4 font-medium text-stone-900">
-                <dt>Amount due from customer</dt>
-                <dd>{{ formatMoney(amountDue(rental)) }}</dd>
+                <dt>Balance to pay</dt>
+                <dd>{{ formatMoney(balanceToPay) }}</dd>
+              </div>
+              <div
+                v-if="(rental.paymentBalance?.balanceDue ?? 0) > 0"
+                class="flex justify-between gap-4 font-medium text-amber-800"
+              >
+                <dt>Still unpaid after payment</dt>
+                <dd>{{ formatMoney(rental.paymentBalance!.balanceDue) }}</dd>
               </div>
             </dl>
           </section>

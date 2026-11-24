@@ -30,7 +30,22 @@ export const paymentIdentifierSchema = z.string().uuid()
 
 export const markAdminPaidSchema = z.object({
   paymentMethod: z.enum(['cash', 'gcash', 'maya', 'bank']).default('cash'),
-}).strict()
+  paymentType: z.enum(['full', 'partial']).default('full'),
+  /** Required for partial: how much the customer paid now. Must be less than the full amount due. */
+  amount: z.coerce.number({ error: 'Enter how much was paid.' })
+    .finite()
+    .positive('Enter how much was paid.')
+    .max(1_000_000, 'That amount is too large.')
+    .optional(),
+}).strict().superRefine((data, ctx) => {
+  if (data.paymentType === 'partial' && data.amount === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Enter how much the customer paid.',
+      path: ['amount'],
+    })
+  }
+})
 
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>
 export type PaymentWebhookInput = z.infer<typeof paymentWebhookSchema>

@@ -24,9 +24,16 @@ describe('payment validation', () => {
       id: 4,
     }).success).toBe(false)
 
-    expect(markAdminPaidSchema.parse({})).toEqual({ paymentMethod: 'cash' })
+    expect(markAdminPaidSchema.parse({})).toEqual({ paymentMethod: 'cash', paymentType: 'full' })
     expect(markAdminPaidSchema.parse({ paymentMethod: 'gcash' }).paymentMethod).toBe('gcash')
     expect(markAdminPaidSchema.safeParse({ paymentMethod: 'crypto' }).success).toBe(false)
+    expect(markAdminPaidSchema.parse({ paymentType: 'partial', amount: 500 })).toMatchObject({
+      paymentMethod: 'cash',
+      paymentType: 'partial',
+      amount: 500,
+    })
+    expect(markAdminPaidSchema.safeParse({ paymentType: 'partial' }).success).toBe(false)
+    expect(markAdminPaidSchema.safeParse({ paymentType: 'partial', amount: 0 }).success).toBe(false)
   })
 
   it('requires a provider transaction id on webhook events', () => {

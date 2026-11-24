@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AdminCustomer, AdminCustomerListResponse, AdminSystemUser } from '~/types/notification'
 import { formatBusinessDate } from '~/utils/datetime'
+import { personDisplayName } from '~/utils/person'
 
 definePageMeta({
   layout: 'admin',
@@ -49,14 +50,7 @@ watch(search, () => {
 })
 
 function displayName(person: { firstName: string, lastName: string, email?: string | null, walkIn?: boolean }) {
-  const name = `${person.firstName} ${person.lastName}`.trim()
-  if (name) {
-    return name
-  }
-  if (person.walkIn) {
-    return 'Walk-in customer'
-  }
-  return person.email || 'No name yet'
+  return personDisplayName(person)
 }
 
 const deleteUuid = ref<string | null>(null)

@@ -238,10 +238,18 @@ export function amountDue(rental: { totalAmount: number, depositAmount?: number 
 }
 
 /**
- * Where a paid booking stands against its rent: what is paid so far, what the booking costs now,
+ * What Payment Receive collects after the booking is confirmed: the down payment (rent) only.
+ * Deposit is a separate hold and is not part of that payable amount.
+ */
+export function amountToPay(rental: { totalAmount: number }) {
+  return fromMinorUnits(toMinorUnits(Math.max(0, rental.totalAmount)))
+}
+
+/**
+ * Where a paid booking stands against its rent: rent paid so far, rent due now,
  * and the rent still to collect or to give back.
  * Rent billed on its own (extensions added after the booking was paid) stays out of this.
- * The held deposit is not rent, so a deposit that changed never shows up as a balance or refund.
+ * Deposit / downpayment is never part of Balance unpaid — only rent is.
  */
 export function paidPaymentChange(input: {
   /** Everything collected so far, the held deposit included. */
@@ -254,13 +262,13 @@ export function paidPaymentChange(input: {
   heldDeposit?: number
 }): RentalPaymentChange {
   const paid = toMinorUnits(Math.max(0, input.paidAmount))
-  const deposit = input.includesDeposit ? toMinorUnits(Math.max(0, input.depositAmount ?? 0)) : 0
   const held = input.includesDeposit ? toMinorUnits(Math.max(0, input.heldDeposit ?? input.depositAmount ?? 0)) : 0
   const rent = Math.max(0, toMinorUnits(input.totalAmount) - toMinorUnits(Math.max(0, input.billedSeparately ?? 0)))
-  const rentPaid = paid - held
+  // Strip deposit out of "paid" so Balance unpaid is rent-only (never carries deposit/downpayment).
+  const rentPaid = Math.max(0, paid - held)
   return {
-    paidAmount: fromMinorUnits(paid),
-    newAmount: fromMinorUnits(rent + deposit),
+    paidAmount: fromMinorUnits(rentPaid),
+    newAmount: fromMinorUnits(rent),
     balanceDue: fromMinorUnits(Math.max(0, rent - rentPaid)),
     refundDue: fromMinorUnits(Math.max(0, rentPaid - rent)),
   }
@@ -438,7 +446,7 @@ export function canMarkAdminRentalPaid(rental: Pick<PublicRental, 'status' | 'wa
   return ['draft', 'pending', 'awaiting_payment'].includes(rental.status)
     && Boolean(rental.waiver)
     && Boolean(rental.identity)
-    && amountDue(rental) > 0
+    && amountToPay(rental) > 0
 }
 
 export const CUSTOMER_PAYABLE_RENTAL_STATUSES = ['pending', 'awaiting_payment'] as const

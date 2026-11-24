@@ -251,6 +251,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
 
       <AdminTile
         size="half"
+        class="self-start"
         title="Expenses"
         icon="i-lucide-receipt"
         description="Voided costs stay listed and are left out of totals."
@@ -258,7 +259,7 @@ const count = (value?: number) => value === undefined ? '—' : String(value)
       >
         <ul
           v-if="data?.recentExpenses.length || data?.recurringExpenses.length"
-          class="divide-y divide-stone-100"
+          class="max-h-[19.25rem] divide-y divide-stone-100 overflow-y-auto overscroll-contain"
         >
           <li
             v-for="expense in data.recentExpenses"

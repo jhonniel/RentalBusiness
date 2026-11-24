@@ -244,6 +244,28 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 - Anyone may select active rows; admins see all rows and are the only writers. The migration seeds nine starter FAQs when the table is empty.
 - Active FAQs show on `/faq` and teach the chat support. Hidden rows stay for admins only. Create, update, and delete are written to the audit log with the previous content.
 
+**admin_database_health()** (`20261124160000_admin_database_health.sql`)
+
+- Security-definer RPC returning database name, `pg_database_size`, and the top 20 public tables by total relation size
+- `execute` granted to `service_role` only; used by `GET /api/admin/system-health`
+
+**social_links** (`20261124150000_social_links.sql`, unique url in `20261124151000_social_links_unique_url.sql`, per-button color in `20261124170000_social_button_color_and_ads.sql`)
+
+- `id`, `uuid` (unique), `label` (1–80 chars), `url` (http/https, max 500, unique)
+- `button_color` optional `#RRGGBB`; null uses the page default from `settings.social_page.buttonColor`
+- `icon` optional Lucide key (`facebook`, `instagram`, `calendar`, …) from `20261124180000_social_link_icons.sql`; null means no icon
+- `sort_order`, `is_active`, `created_at`, `updated_at`
+- Anyone may select active rows; admins see all rows and are the only writers. Seeds Facebook and Instagram when the table is empty.
+- Active buttons show on `/links/[code]`. The page `code` is stored in `settings` key `social_page` and is what the admin QR encodes. Hidden rows stay for admins only. Create, update, and delete are audited.
+
+**social_ads** (`20261124170000_social_button_color_and_ads.sql`)
+
+- `id`, `uuid` (unique), `title` (max 120), `subtitle` (max 240), `image_storage_path` (public `social-ad-images` bucket), `link_url` (optional http/https)
+- `voucher_id` optional FK to `vouchers` (on delete set null)
+- `sort_order`, `is_active`, `created_at`, `updated_at`
+- Active rows must have an image and/or voucher. Inactive drafts may be empty until content is added.
+- Public page shows active ads as a carousel under the buttons. Responses expose voucher `uuid`/`code`/`name`/discount label — never voucher `id`.
+
 ### Payments and receipts
 
 **payment_methods**

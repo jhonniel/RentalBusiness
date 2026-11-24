@@ -86,6 +86,12 @@ export interface PublicReceipt {
     pickupAt?: string | null
     returnAt?: string | null
   }
+  /** Original booked kit window (before extensions), for day counts on booking receipts. */
+  bookingPeriod?: {
+    startsOn: string
+    endsOn: string
+    days: number
+  }
   discounts?: {
     longStay: number
     voucher: number

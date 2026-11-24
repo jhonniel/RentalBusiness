@@ -75,16 +75,17 @@ async function settle() {
           class="mt-1"
           :class="owed > 0 ? 'text-amber-900/80' : 'text-sky-900/80'"
         >
-          The amount due is now {{ formatMoney(balance.newAmount) }} and {{ formatMoney(balance.paidAmount) }} is paid.
+          Rent due {{ formatMoney(balance.newAmount) }} · rent paid {{ formatMoney(balance.paidAmount) }}.
+          Deposit / downpayment is not included in this balance.
           {{ owed > 0
-            ? 'This balance is not in Sales until you mark it paid.'
+            ? 'This rent balance is not in Sales until you mark it paid.'
             : 'This amount stays in Sales until you mark it refunded.' }}
         </p>
       </div>
-      <div class="flex shrink-0 items-center gap-2">
+      <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
         <select
           v-model="method"
-          class="h-9 rounded-md border border-stone-200 bg-white px-2 text-sm text-stone-800"
+          class="h-11 w-full rounded-lg border border-stone-200 bg-white px-3 text-base text-stone-800 focus:border-stone-400 focus:outline-none focus:ring-0 sm:w-auto"
           :disabled="saving"
           :aria-label="owed > 0 ? 'Payment method' : 'Refund method'"
         >
@@ -97,7 +98,7 @@ async function settle() {
           </option>
         </select>
         <UButton
-          class="min-w-0 flex-1 justify-center sm:flex-none sm:whitespace-nowrap"
+          class="min-w-0 w-full justify-center sm:w-auto sm:whitespace-nowrap"
           :color="owed > 0 ? 'primary' : 'neutral'"
           :loading="saving"
           @click="settle"

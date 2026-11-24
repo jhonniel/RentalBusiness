@@ -4,7 +4,6 @@ import { formatMoney } from './currency'
 import { formatBusinessDate, formatBusinessDateTime } from './datetime'
 import { escapeHtml } from './email'
 import { RECEIPT_PURPOSE_LABELS, receiptAddonItems, receiptKitItems } from './receipt'
-import { rentalPeriodDays } from './rental-window'
 
 function publicOrigin() {
   return String(process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -125,7 +124,7 @@ function slipLine(left: string, right: string) {
   </tr>`
 }
 
-export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 'issuedAt' | 'snapshot' | 'statement' | 'business' | 'rental' | 'discounts'>) {
+export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 'issuedAt' | 'snapshot' | 'statement' | 'business' | 'rental' | 'bookingPeriod' | 'discounts'>) {
   const snapshot = receipt.snapshot
   const business = {
     name: receipt.business?.name || snapshot.business.name || APP_NAME,
@@ -139,7 +138,8 @@ export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 
     || RECEIPT_PURPOSE_LABELS[purpose]
   const startsOn = receipt.rental?.startsOn || snapshot.rental.startsOn
   const endsOn = receipt.rental?.endsOn || snapshot.rental.endsOn
-  const days = startsOn && endsOn ? rentalPeriodDays(startsOn, endsOn) : 0
+  /** Kit lines use the original booked window before extensions. */
+  const days = receipt.bookingPeriod?.days ?? 0
   const pickup = receipt.rental?.pickupAt
     ? formatBusinessDateTime(receipt.rental.pickupAt)
     : formatBusinessDate(startsOn)
@@ -155,6 +155,8 @@ export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 
   const addonItems = receiptAddonItems(snapshot)
   const hourly = kitItems.some(item => item.billingUnit === 'hour')
 
+  const extensionLines = (receipt.statement?.lines ?? []).filter(line => line.purpose === 'extension')
+  const lateFeeLines = (receipt.statement?.lines ?? []).filter(line => line.purpose === 'late_fee')
   const itemRows = purpose === 'booking'
     ? [
         ...kitItems.map((item) => {
@@ -168,6 +170,14 @@ export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 
             escapeHtml(detail),
           )
         }),
+        ...extensionLines.map(line => slipLine(
+          `<div style="font-weight:600;">${escapeHtml(line.label)}</div><div style="color:#57534e;">${escapeHtml(formatBusinessDate(line.issuedAt))}</div>`,
+          money(line.amount),
+        )),
+        ...lateFeeLines.map(line => slipLine(
+          `<div style="font-weight:600;">${escapeHtml(line.label)}</div><div style="color:#57534e;">${escapeHtml(formatBusinessDate(line.issuedAt))}</div>`,
+          money(line.amount),
+        )),
         ...(addonItems.length
           ? [
               `<tr><td colspan="2" style="padding:10px 0 2px;color:#78716c;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;border-top:1px dashed #d6d3d1;">Add-ons</td></tr>`,
@@ -197,8 +207,12 @@ export function receiptCopyEmail(receipt: Pick<PublicReceipt, 'receiptNumber' | 
       ].join('')
     : ''
 
-  const paymentRows = (receipt.statement?.lines ?? []).map(line => slipLine(
-    `<div style="font-weight:600;">${escapeHtml(line.label)}</div><div style="color:#57534e;">${escapeHtml(line.receiptNumber)} · ${escapeHtml(formatBusinessDate(line.issuedAt))}</div>`,
+  const rentalCode = snapshot.rental.code
+  const paymentListLines = purpose === 'booking'
+    ? (receipt.statement?.lines ?? []).filter(line => line.purpose !== 'extension' && line.purpose !== 'late_fee')
+    : (receipt.statement?.lines ?? [])
+  const paymentRows = paymentListLines.map(line => slipLine(
+    `<div style="font-weight:600;">${escapeHtml(line.label)}</div><div style="color:#57534e;font-family:ui-monospace,monospace;">${escapeHtml(rentalCode)} · ${escapeHtml(formatBusinessDate(line.issuedAt))}</div>`,
     money(line.amount),
   )).join('')
   const paymentSection = paymentRows

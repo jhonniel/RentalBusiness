@@ -33,28 +33,29 @@ const booking = { status: 'approved', depositAmount: 500, extensions: [] }
 
 describe('balance and refund on a paid booking', () => {
   it('keeps the extra rent as an unpaid balance and leaves the paid payment alone', () => {
+    // Deposit is stripped out: 1500 collected − 500 deposit = 1000 rent paid.
     expect(rentalPaymentBalance({ ...booking, totalAmount: 2000, payments: [main] }))
-      .toEqual({ paidAmount: 1500, newAmount: 2500, balanceDue: 1000, refundDue: 0 })
+      .toEqual({ paidAmount: 1000, newAmount: 2000, balanceDue: 1000, refundDue: 0 })
     expect(rentalPaymentBalance({ ...booking, totalAmount: 1000, payments: [main] }))
-      .toEqual({ paidAmount: 1500, newAmount: 1500, balanceDue: 0, refundDue: 0 })
+      .toEqual({ paidAmount: 1000, newAmount: 1000, balanceDue: 0, refundDue: 0 })
   })
 
   it('closes the balance once it is marked paid', () => {
     expect(rentalPaymentBalance({ ...booking, totalAmount: 2000, payments: [main, balancePaid] }))
-      .toEqual({ paidAmount: 2500, newAmount: 2500, balanceDue: 0, refundDue: 0 })
+      .toEqual({ paidAmount: 2000, newAmount: 2000, balanceDue: 0, refundDue: 0 })
   })
 
   it('keeps the amount to refund until the refund is marked given', () => {
     const payments = [main, balancePaid]
     expect(rentalPaymentBalance({ ...booking, totalAmount: 1000, payments }))
-      .toEqual({ paidAmount: 2500, newAmount: 1500, balanceDue: 0, refundDue: 1000 })
+      .toEqual({ paidAmount: 2000, newAmount: 1000, balanceDue: 0, refundDue: 1000 })
     expect(rentalPaymentBalance({ ...booking, totalAmount: 1000, payments: [...payments, refundGiven] }))
-      .toEqual({ paidAmount: 1500, newAmount: 1500, balanceDue: 0, refundDue: 0 })
+      .toEqual({ paidAmount: 1000, newAmount: 1000, balanceDue: 0, refundDue: 0 })
   })
 
   it('opens a new balance when the booking grows again after a refund', () => {
     expect(rentalPaymentBalance({ ...booking, totalAmount: 3000, payments: [main, balancePaid, refundGiven] }))
-      .toMatchObject({ paidAmount: 1500, newAmount: 3500, balanceDue: 2000, refundDue: 0 })
+      .toMatchObject({ paidAmount: 1000, newAmount: 3000, balanceDue: 2000, refundDue: 0 })
   })
 
   it('has nothing open for unpaid or cancelled bookings', () => {
@@ -69,7 +70,7 @@ describe('balance and refund on a paid booking', () => {
     const lateFee = { ...balancePaid, amount: 300, metadata: { kind: 'late_fee' } }
     const extensionPaid = { ...balancePaid, metadata: { kind: 'extension', extensionUuid: 'ext-1' } }
     expect(rentalPaymentBalance({ ...booking, totalAmount: 2000, payments: [main, extensionPaid, lateFee], extensions: [extension] }))
-      .toEqual({ paidAmount: 1500, newAmount: 1500, balanceDue: 0, refundDue: 0 })
+      .toEqual({ paidAmount: 1000, newAmount: 1000, balanceDue: 0, refundDue: 0 })
   })
 
   it('still balances after the deposit was returned', () => {
@@ -82,12 +83,30 @@ describe('balance and refund on a paid booking', () => {
 
   it('never treats a changed deposit as rent to collect or refund', () => {
     expect(rentalPaymentBalance({ ...booking, depositAmount: 1000, totalAmount: 2000, payments: [main] }))
-      .toEqual({ paidAmount: 1500, newAmount: 3000, balanceDue: 1000, refundDue: 0 })
+      .toEqual({ paidAmount: 1000, newAmount: 2000, balanceDue: 1000, refundDue: 0 })
     expect(paidPaymentChange({ paidAmount: 1500, includesDeposit: true, heldDeposit: 500, depositAmount: 0, totalAmount: 1000 }))
-      .toEqual({ paidAmount: 1500, newAmount: 1000, balanceDue: 0, refundDue: 0 })
+      .toEqual({ paidAmount: 1000, newAmount: 1000, balanceDue: 0, refundDue: 0 })
     expect(paymentHeldDeposit(main.metadata)).toBe(500)
     expect(paymentHeldDeposit({ includesDeposit: true, depositAmount: 500, depositReturnedAt: '2026-11-30T00:00:00.000Z' })).toBeNull()
     expect(paymentHeldDeposit(null)).toBeNull()
+  })
+
+  it('never carries deposit or downpayment in Balance unpaid', () => {
+    // Partial cash toward rent+deposit style payment: strip the held deposit out of the balance.
+    expect(paidPaymentChange({
+      paidAmount: 3000,
+      includesDeposit: true,
+      heldDeposit: 1000,
+      depositAmount: 1000,
+      totalAmount: 3100,
+    })).toEqual({ paidAmount: 2000, newAmount: 3100, balanceDue: 1100, refundDue: 0 })
+    // Rent-only Payment Receive (deposit already deducted from amount to pay).
+    expect(paidPaymentChange({
+      paidAmount: 3000,
+      includesDeposit: false,
+      depositAmount: 1000,
+      totalAmount: 3100,
+    })).toEqual({ paidAmount: 3000, newAmount: 3100, balanceDue: 100, refundDue: 0 })
   })
 
   it('picks the booking payment, not a balance, extension or refund', () => {

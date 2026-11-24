@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { emailPayloadHash } from '../../server/utils/email-hash'
 import { escapeHtml } from '../../utils/email'
 import { feedbackRequestEmail, receiptCopyEmail, receiptIssuedEmail, rentalConfirmedEmail, rentalSubmittedStaffEmail, rentalThankYouEmail, signupConfirmationEmail, waiverInviteEmail } from '../../utils/email-templates'
-import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptAddonItems, receiptDiscounts, receiptKitItems, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
+import { buildReceiptStatement, isReceiptNumber, paymentPurpose, receiptAddonItems, receiptBookingBaseRent, receiptBookingWindow, receiptDiscounts, receiptKitDays, receiptKitItems, snapshotHasInternalId, toPublicReceipt } from '../../utils/receipt'
 import { receiptEmailSchema, receiptIdentifierSchema, rentalReminderSchema } from '../../utils/receipt-validation'
 
 const snapshot = {
@@ -124,6 +124,29 @@ describe('receipt statement', () => {
       voucher: { code: 'JRY-SAVE100' },
       items: [{ dailyPrice: 1000, quantity: 1, lineTotal: 2000 }],
     }, 2)).toEqual({ longStay: 0, voucher: 100, voucherCode: 'JRY-SAVE100' })
+  })
+
+  it('counts kit days from the original window before extensions', () => {
+    expect(receiptKitDays({
+      rental: { startsOn: '2026-10-21', endsOn: '2026-10-25' },
+    })).toBe(4)
+    expect(receiptBookingWindow({
+      startsOn: '2026-10-20',
+      endsOn: '2026-10-25',
+      extensions: [{
+        previousEndsOn: '2026-10-24',
+        addedAmount: 1000,
+        createdAt: '2026-10-24T14:00:00Z',
+      }],
+      snapshot: { startsOn: '2026-10-21', endsOn: '2026-10-24' },
+    })).toEqual({ startsOn: '2026-10-20', endsOn: '2026-10-24', days: 4 })
+    expect(receiptBookingBaseRent({
+      itemLineTotals: [4600],
+      extensions: [
+        { addedAmount: 2000, cancelledAt: '2026-10-24T01:00:00Z' },
+        { addedAmount: 1000 },
+      ],
+    })).toBe(3600)
   })
 
   it('lists every paid receipt on the booking with the total', () => {

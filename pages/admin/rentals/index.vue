@@ -4,6 +4,7 @@ import type { SentFeedbackLink } from '~/types/feedback'
 import type { AdminAnalytics } from '~/types/analytics'
 import { ADMIN_RENTAL_GROUPS, RENTAL_STATUSES } from '~/utils/constants'
 import { formatBookingDateRange } from '~/utils/datetime'
+import { personDisplayName } from '~/utils/person'
 import { formatPickupClock } from '~/utils/rental-window'
 import { canModifyAdminRental, canOpenAdminContinue } from '~/utils/waiver-invite'
 
@@ -320,7 +321,7 @@ async function removeRental(uuid: string) {
               {{ rental.code }}
               · {{ rental.customer ? `${rental.customer.firstName} ${rental.customer.lastName}` : 'Customer' }}
               <template v-if="rental.commissioner">
-                · Commissioner {{ rental.commissioner.firstName }} {{ rental.commissioner.lastName }}
+                · Commissioner {{ personDisplayName(rental.commissioner) }}
               </template>
             </p>
             <p
