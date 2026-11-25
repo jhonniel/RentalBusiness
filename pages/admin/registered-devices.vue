@@ -206,6 +206,16 @@ async function assignDevice() {
   }
 }
 
+const releaseConfirmOpen = ref(false)
+const rotateConfirmOpen = ref(false)
+
+function askReleaseDevice() {
+  if (!selected.value?.assignment) {
+    return
+  }
+  releaseConfirmOpen.value = true
+}
+
 async function releaseDevice() {
   if (!selected.value) {
     return
@@ -214,6 +224,7 @@ async function releaseDevice() {
   try {
     await $fetch(`/api/admin/devices/${selected.value.uuid}/release`, { method: 'POST' })
     toast.add({ title: 'Device released', color: 'success' })
+    releaseConfirmOpen.value = false
     await refresh()
   }
   catch (err) {
@@ -227,11 +238,15 @@ async function releaseDevice() {
   }
 }
 
-async function rotateCode() {
+function askRotateCode() {
   if (!selected.value) {
     return
   }
-  if (!window.confirm('Create a new QR code? The old printed QR will stop working.')) {
+  rotateConfirmOpen.value = true
+}
+
+async function rotateCode() {
+  if (!selected.value) {
     return
   }
   rotating.value = true
@@ -241,6 +256,7 @@ async function rotateCode() {
     })
     toast.add({ title: 'QR code rotated', color: 'success' })
     selectedUuid.value = saved.uuid
+    rotateConfirmOpen.value = false
     await refresh()
   }
   catch (err) {
@@ -712,7 +728,7 @@ watch([items, focusDeviceUuid], ([list, focus]) => {
               variant="ghost"
               icon="i-lucide-refresh-cw"
               :loading="rotating"
-              @click="rotateCode"
+              @click="askRotateCode"
             >
               New QR
             </UButton>
@@ -770,7 +786,7 @@ watch([items, focusDeviceUuid], ([list, focus]) => {
                   variant="outline"
                   size="sm"
                   :loading="releasing"
-                  @click="releaseDevice"
+                  @click="askReleaseDevice"
                 >
                   Release
                 </UButton>
@@ -810,6 +826,24 @@ watch([items, focusDeviceUuid], ([list, focus]) => {
         </aside>
       </div>
     </template>
+
+    <AdminConfirmModal
+      v-model:open="releaseConfirmOpen"
+      title="Release this device?"
+      description="The device will be unassigned from the current booking. Usage history stays on file."
+      confirm-label="Release"
+      :loading="releasing"
+      @confirm="releaseDevice"
+    />
+    <AdminConfirmModal
+      v-model:open="rotateConfirmOpen"
+      title="Create a new QR code?"
+      description="The old printed QR will stop working. Only continue if you will reprint the label."
+      confirm-label="Rotate QR"
+      confirm-color="warning"
+      :loading="rotating"
+      @confirm="rotateCode"
+    />
   </div>
 </template>
 

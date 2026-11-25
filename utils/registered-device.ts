@@ -161,6 +161,58 @@ export function toPublicDeviceLockedPreview(row: RegisteredDeviceRow): PublicDev
   }
 }
 
+/** Morning / Afternoon / Evening in Asia/Manila. */
+export function manilaDayPeriod(now = new Date()): 'Morning' | 'Afternoon' | 'Evening' {
+  const hourPart = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIMEZONE,
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(now).find(part => part.type === 'hour')?.value
+  const hour = Number(hourPart)
+  if (!Number.isFinite(hour) || hour < 12) {
+    return 'Morning'
+  }
+  if (hour < 18) {
+    return 'Afternoon'
+  }
+  return 'Evening'
+}
+
+/** Manila local greeting parts for UI hierarchy (period + first name). */
+export function deviceCustomerGreetingParts(firstName: string | null | undefined, now = new Date()) {
+  const period = manilaDayPeriod(now)
+  const name = String(firstName || '').trim()
+  return {
+    period,
+    salutation: `Good ${period}`,
+    firstName: name || null,
+  }
+}
+
+/** e.g. "Good Afternoon, Dale" using Manila local time and first name only. */
+export function deviceCustomerGreeting(firstName: string | null | undefined, now = new Date()) {
+  const parts = deviceCustomerGreetingParts(firstName, now)
+  return parts.firstName ? `${parts.salutation}, ${parts.firstName}` : parts.salutation
+}
+
+/** Escape SSID / password for WIFI: join URIs (QR / Android). */
+function escapeWifiField(value: string) {
+  return String(value || '').replace(/([\\;,:"])/g, '\\$1')
+}
+
+/** Standard WIFI join URI — Android can open this; iOS usually needs copy + Settings. */
+export function wifiJoinUri(ssid: string, password: string, security: 'WPA' | 'WEP' | 'nopass' = 'WPA') {
+  const name = escapeWifiField(ssid.trim())
+  if (!name) {
+    return ''
+  }
+  const pass = password.trim()
+  if (!pass || security === 'nopass') {
+    return `WIFI:T:nopass;S:${name};;`
+  }
+  return `WIFI:T:${security};S:${name};P:${escapeWifiField(pass)};;`
+}
+
 function productFromRow(row: RegisteredDeviceRow) {
   const product = Array.isArray(row.products) ? row.products[0] : row.products
   if (!product) {
@@ -282,9 +334,11 @@ export function toPublicDevicePage(
             firstName: customer?.first_name,
             lastName: customer?.last_name,
           }, 'Customer'),
+          customerFirstName: String(customer?.first_name || '').trim() || null,
           rentalCode: rental.code,
           startsOn: rental.starts_on,
           endsOn: rental.ends_on,
+          returnAt: rental.return_at || null,
         }
       : null,
   }

@@ -61,8 +61,10 @@ export interface PublicDevicePage {
   bagContents: string[]
   booking: {
     customerName: string
+    customerFirstName: string | null
     rentalCode: string
     startsOn: string
     endsOn: string
+    returnAt: string | null
   } | null
 }

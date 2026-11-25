@@ -31,6 +31,21 @@ const editingUuid = ref<string | null>(null)
 const formError = ref('')
 const saving = ref(false)
 const busyUuid = ref<string | null>(null)
+const archiveConfirmOpen = ref(false)
+const pendingArchiveAddon = ref<PublicAddon | null>(null)
+const removeImageConfirmOpen = ref(false)
+
+function askArchive(addon: PublicAddon) {
+  pendingArchiveAddon.value = addon
+  archiveConfirmOpen.value = true
+}
+
+function askRemoveImage() {
+  if (!editingUuid.value) {
+    return
+  }
+  removeImageConfirmOpen.value = true
+}
 const imageFile = ref<File | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
 const editingImageUrl = computed(() => {
@@ -100,6 +115,7 @@ async function removeImage() {
     if (imageInput.value) {
       imageInput.value.value = ''
     }
+    removeImageConfirmOpen.value = false
     await refresh()
   }
   catch (error) {
@@ -170,8 +186,9 @@ async function toggleBookable(addon: PublicAddon) {
   }
 }
 
-async function archive(addon: PublicAddon) {
-  if (!window.confirm(`Archive ${addon.name}? It will leave new bookings.`)) {
+async function archive() {
+  const addon = pendingArchiveAddon.value
+  if (!addon) {
     return
   }
   busyUuid.value = addon.uuid
@@ -181,6 +198,8 @@ async function archive(addon: PublicAddon) {
     if (editingUuid.value === addon.uuid) {
       resetForm()
     }
+    archiveConfirmOpen.value = false
+    pendingArchiveAddon.value = null
     await refresh()
   }
   catch (error) {
@@ -322,7 +341,7 @@ async function archive(addon: PublicAddon) {
                   variant="ghost"
                   :disabled="saving || busyUuid === editingUuid"
                   :loading="busyUuid === editingUuid"
-                  @click="removeImage"
+                  @click="askRemoveImage"
                 >
                   Remove image
                 </UButton>
@@ -430,7 +449,7 @@ async function archive(addon: PublicAddon) {
                   variant="ghost"
                   :loading="busyUuid === addon.uuid"
                   :disabled="!ready"
-                  @click="archive(addon)"
+                  @click="askArchive(addon)"
                 >
                   Archive
                 </UButton>
@@ -446,5 +465,25 @@ async function archive(addon: PublicAddon) {
         </div>
       </div>
     </template>
+
+    <AdminConfirmModal
+      v-model:open="archiveConfirmOpen"
+      title="Archive this add-on?"
+      :description="pendingArchiveAddon
+        ? `Archive ${pendingArchiveAddon.name}? It will leave new bookings.`
+        : 'It will leave new bookings.'"
+      confirm-label="Archive"
+      confirm-color="warning"
+      :loading="Boolean(busyUuid)"
+      @confirm="archive"
+    />
+    <AdminConfirmModal
+      v-model:open="removeImageConfirmOpen"
+      title="Remove this image?"
+      description="This add-on image will be deleted."
+      confirm-label="Remove"
+      :loading="Boolean(busyUuid)"
+      @confirm="removeImage"
+    />
   </div>
 </template>

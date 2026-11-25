@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { qrSvg } from '../../utils/qr'
 import {
   createDevicePublicCode,
+  deviceCustomerGreeting,
+  deviceCustomerGreetingParts,
   devicePagePath,
   isDeviceAssignmentHolding,
   isDevicePublicCode,
+  manilaDayPeriod,
   mergeBagContentsWithAddons,
   normalizeDevicePublicCode,
   parseBagContents,
@@ -13,6 +16,7 @@ import {
   toPublicDeviceLockedPreview,
   toPublicDevicePage,
   toPublicRegisteredDevice,
+  wifiJoinUri,
 } from '../../utils/registered-device'
 import { registeredDeviceInputSchema, unlockDeviceSchema } from '../../utils/registered-device-validation'
 
@@ -109,13 +113,36 @@ describe('registered devices', () => {
         code: 'JRY-20261120-00001',
         starts_on: '2026-11-20',
         ends_on: '2026-11-22',
+        return_at: '2026-11-22T05:00:00.000Z',
         status: 'active',
         profiles: { first_name: 'Ana', last_name: 'Cruz' },
       },
     })
     expect(page.booking?.customerName).toBe('Ana Cruz')
+    expect(page.booking?.customerFirstName).toBe('Ana')
+    expect(page.booking?.returnAt).toBe('2026-11-22T05:00:00.000Z')
     expect(page.bagPin).toBe('4321')
     expect(page.wifiPassword).toBe('secretwifi')
+  })
+
+  it('greets by Manila time of day and first name', () => {
+    expect(manilaDayPeriod(new Date('2026-11-26T01:00:00.000Z'))).toBe('Morning') // 9:00 PH
+    expect(manilaDayPeriod(new Date('2026-11-26T06:00:00.000Z'))).toBe('Afternoon') // 14:00 PH
+    expect(manilaDayPeriod(new Date('2026-11-26T12:00:00.000Z'))).toBe('Evening') // 20:00 PH
+    expect(deviceCustomerGreeting('Dale', new Date('2026-11-26T01:00:00.000Z'))).toBe('Good Morning, Dale')
+    expect(deviceCustomerGreeting(null, new Date('2026-11-26T06:00:00.000Z'))).toBe('Good Afternoon')
+    expect(deviceCustomerGreetingParts('Dale', new Date('2026-11-26T01:00:00.000Z'))).toEqual({
+      period: 'Morning',
+      salutation: 'Good Morning',
+      firstName: 'Dale',
+    })
+  })
+
+  it('builds a WIFI join URI for mobile connect', () => {
+    expect(wifiJoinUri('JRY_RENTALS 3', 'JRYRENTAL2026!')).toBe(
+      'WIFI:T:WPA;S:JRY_RENTALS 3;P:JRYRENTAL2026!;;',
+    )
+    expect(wifiJoinUri('Cafe;Guest', 'a:b')).toBe('WIFI:T:WPA;S:Cafe\\;Guest;P:a\\:b;;')
   })
 
   it('validates device create payloads', () => {

@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import type { PublicDeviceLockedPreview, PublicDevicePage } from '~/types/registered-device'
 import { APP_NAME } from '~/utils/constants'
-import { formatBookingDateRange } from '~/utils/datetime'
+import { formatBookingDate, formatBusinessDateTime } from '~/utils/datetime'
 import { formatRentalBookingCodeInput } from '~/utils/rental'
-import { isDevicePublicCode, normalizeDevicePublicCode } from '~/utils/registered-device'
+import {
+  deviceCustomerGreetingParts,
+  isDevicePublicCode,
+  normalizeDevicePublicCode,
+  wifiJoinUri,
+} from '~/utils/registered-device'
 
 definePageMeta({
   layout: 'blank',
@@ -112,6 +117,57 @@ onMounted(() => {
 
 const copyrightYear = new Date().getFullYear()
 const data = computed(() => unlocked.value)
+const greeting = computed(() => {
+  const booking = unlocked.value?.booking
+  if (!booking) {
+    return null
+  }
+  return deviceCustomerGreetingParts(booking.customerFirstName)
+})
+
+const passwordCopied = ref(false)
+const joinHint = ref('')
+let copiedTimer: ReturnType<typeof setTimeout> | null = null
+
+async function copyWifiPassword() {
+  const text = data.value?.wifiPassword?.trim() || ''
+  if (!text || !import.meta.client) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    passwordCopied.value = true
+    if (copiedTimer) {
+      clearTimeout(copiedTimer)
+    }
+    copiedTimer = setTimeout(() => {
+      passwordCopied.value = false
+    }, 1800)
+  }
+  catch {
+    passwordCopied.value = false
+  }
+}
+
+async function joinWifi() {
+  const name = data.value?.wifiName?.trim() || ''
+  const password = data.value?.wifiPassword?.trim() || ''
+  if (!name || !password || !import.meta.client) {
+    return
+  }
+
+  joinHint.value = ''
+  await copyWifiPassword()
+
+  const uri = wifiJoinUri(name, password)
+  const android = /Android/i.test(navigator.userAgent)
+  if (android && uri) {
+    window.location.href = uri
+    return
+  }
+
+  joinHint.value = 'Password copied. Open Wi‑Fi settings and paste it.'
+}
 </script>
 
 <template>
@@ -214,7 +270,20 @@ const data = computed(() => unlocked.value)
       </template>
 
       <template v-else-if="data">
-        <header class="mt-6 w-full text-center sm:mt-8">
+        <p
+          v-if="greeting"
+          class="mt-6 w-full text-center text-xl leading-8 tracking-normal text-stone-300 sm:mt-7 sm:text-2xl"
+        >
+          <template v-if="greeting.firstName">
+            <span>{{ greeting.salutation }},</span>
+            <span class="ml-1.5 font-semibold text-white">{{ greeting.firstName }}</span>
+          </template>
+          <span v-else>{{ greeting.salutation }}</span>
+        </p>
+        <header
+          class="w-full text-center"
+          :class="greeting ? 'mt-3' : 'mt-6 sm:mt-8'"
+        >
           <p class="text-sm text-emerald-100/90 sm:text-base">
             {{ data.productName }}
           </p>
@@ -260,9 +329,44 @@ const data = computed(() => unlocked.value)
               <dt class="text-xs font-medium uppercase tracking-[0.14em] text-stone-400">
                 Wi‑Fi Password
               </dt>
-              <dd class="max-w-full break-all font-mono text-lg font-semibold tracking-wide text-white sm:text-xl">
-                {{ data.wifiPassword }}
+              <dd class="flex max-w-full items-center justify-center gap-2">
+                <span class="min-w-0 break-all font-mono text-lg font-semibold tracking-wide text-white sm:text-xl">
+                  {{ data.wifiPassword }}
+                </span>
+                <button
+                  type="button"
+                  class="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-stone-300 transition hover:bg-white/10 hover:text-white"
+                  :aria-label="passwordCopied ? 'Wi‑Fi password copied' : 'Copy Wi‑Fi password'"
+                  @click="copyWifiPassword"
+                >
+                  <UIcon
+                    :name="passwordCopied ? 'i-lucide-check' : 'i-lucide-copy'"
+                    class="size-4"
+                  />
+                </button>
               </dd>
+              <div
+                v-if="data.wifiName"
+                class="mt-3 w-full md:hidden"
+              >
+                <button
+                  type="button"
+                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400"
+                  @click="joinWifi"
+                >
+                  <UIcon
+                    name="i-lucide-wifi"
+                    class="size-4"
+                  />
+                  Join Wi‑Fi
+                </button>
+                <p
+                  v-if="joinHint"
+                  class="mt-2 text-center text-xs leading-5 text-stone-400"
+                >
+                  {{ joinHint }}
+                </p>
+              </div>
             </div>
           </dl>
         </section>
@@ -296,35 +400,14 @@ const data = computed(() => unlocked.value)
           v-if="data.booking"
           class="mt-4 w-full rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-5 sm:mt-5 sm:px-6 sm:py-6"
         >
-          <h2 class="text-center text-base font-semibold text-amber-50 sm:text-lg">
-            Current booking
+          <h2 class="text-center text-sm font-medium text-amber-100/80 sm:text-base">
+            Return Date and Time
           </h2>
-          <dl class="mt-4 divide-y divide-amber-200/15 text-center">
-            <div class="flex flex-col items-center gap-1 py-3.5 first:pt-0 last:pb-0">
-              <dt class="text-xs font-medium uppercase tracking-[0.14em] text-amber-100/70">
-                Customer
-              </dt>
-              <dd class="text-base font-semibold text-amber-50 sm:text-lg">
-                {{ data.booking.customerName }}
-              </dd>
-            </div>
-            <div class="flex flex-col items-center gap-1 py-3.5 first:pt-0 last:pb-0">
-              <dt class="text-xs font-medium uppercase tracking-[0.14em] text-amber-100/70">
-                Rental
-              </dt>
-              <dd class="font-mono text-sm font-semibold tracking-wide text-amber-50 sm:text-base">
-                {{ data.booking.rentalCode }}
-              </dd>
-            </div>
-            <div class="flex flex-col items-center gap-1 py-3.5 first:pt-0 last:pb-0">
-              <dt class="text-xs font-medium uppercase tracking-[0.14em] text-amber-100/70">
-                Dates
-              </dt>
-              <dd class="text-base font-semibold text-amber-50 sm:text-lg">
-                {{ formatBookingDateRange(data.booking.startsOn, data.booking.endsOn) }}
-              </dd>
-            </div>
-          </dl>
+          <p class="mt-3 text-center text-2xl font-semibold tracking-tight text-amber-50 sm:text-3xl">
+            {{ data.booking.returnAt
+              ? formatBusinessDateTime(data.booking.returnAt)
+              : formatBookingDate(data.booking.endsOn) }}
+          </p>
         </section>
       </template>
 

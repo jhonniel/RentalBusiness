@@ -90,6 +90,22 @@ const selectedToRemove = ref<string[]>([])
 const deviceAssigning = ref(false)
 const deviceReleasing = ref(false)
 const deviceReleasingUuid = ref<string | null>(null)
+const deviceRemoveConfirmOpen = ref(false)
+const deviceRemoveConfirmUuids = ref<string[]>([])
+const deviceRemoveConfirmTitle = computed(() => {
+  const count = deviceRemoveConfirmUuids.value.length
+  if (count <= 1) {
+    return 'Remove this device?'
+  }
+  return `Remove ${count} devices?`
+})
+const deviceRemoveConfirmDescription = computed(() => {
+  const count = deviceRemoveConfirmUuids.value.length
+  if (count <= 1) {
+    return 'This device will be unassigned from the booking. Usage history stays on file.'
+  }
+  return 'These devices will be unassigned from the booking. Usage history stays on file.'
+})
 
 const assignableDevices = computed(() => {
   const assigned = new Set((rentalDevices.value?.items || []).map(item => item.uuid))
@@ -188,6 +204,19 @@ async function assignRentalDevices() {
   }
 }
 
+function askReleaseRentalDevice(deviceUuid: string) {
+  deviceRemoveConfirmUuids.value = [deviceUuid]
+  deviceRemoveConfirmOpen.value = true
+}
+
+function askReleaseSelectedRentalDevices() {
+  if (!selectedToRemove.value.length) {
+    return
+  }
+  deviceRemoveConfirmUuids.value = [...selectedToRemove.value]
+  deviceRemoveConfirmOpen.value = true
+}
+
 async function releaseRentalDevice(deviceUuid: string) {
   deviceReleasingUuid.value = deviceUuid
   try {
@@ -207,12 +236,11 @@ async function releaseRentalDevice(deviceUuid: string) {
   }
 }
 
-async function releaseSelectedRentalDevices() {
-  if (!selectedToRemove.value.length) {
+async function releaseSelectedRentalDevices(uuids: string[]) {
+  if (!uuids.length) {
     return
   }
   deviceReleasing.value = true
-  const uuids = [...selectedToRemove.value]
   let done = 0
   let failed = ''
   try {
@@ -248,6 +276,23 @@ async function releaseSelectedRentalDevices() {
     deviceReleasing.value = false
   }
 }
+
+async function confirmDeviceRemove() {
+  const uuids = [...deviceRemoveConfirmUuids.value]
+  if (!uuids.length) {
+    deviceRemoveConfirmOpen.value = false
+    return
+  }
+  if (uuids.length === 1) {
+    await releaseRentalDevice(uuids[0]!)
+  }
+  else {
+    await releaseSelectedRentalDevices(uuids)
+  }
+  deviceRemoveConfirmOpen.value = false
+  deviceRemoveConfirmUuids.value = []
+}
+
 const waiverSnapshot = computed(() => {
   if (!rental.value?.waiver) {
     return ''
@@ -1048,24 +1093,25 @@ async function removeRental() {
           <section
             v-if="rentalDevices?.ready !== false"
             id="assigned-devices"
-            class="rounded-2xl border border-stone-200 bg-white p-5 text-sm"
+            class="rounded-2xl border border-stone-200 bg-white p-4 text-sm sm:p-5"
           >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <h3 class="flex items-center gap-2 font-medium text-stone-900">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="flex min-w-0 items-center gap-2 font-medium text-stone-900">
                 <UIcon
                   name="i-lucide-qr-code"
-                  class="size-4 text-stone-500"
+                  class="size-4 shrink-0 text-stone-500"
                 />
-                Assigned devices
+                <span class="truncate">Assigned devices</span>
               </h3>
               <UButton
                 :to="`/admin/registered-devices?rental=${encodeURIComponent(rental.code)}`"
                 color="neutral"
                 variant="ghost"
-                size="sm"
+                size="xs"
                 icon="i-lucide-external-link"
+                class="shrink-0"
               >
-                Registered Devices
+                Devices
               </UButton>
             </div>
             <p
@@ -1076,79 +1122,82 @@ async function removeRental() {
             </p>
             <div
               v-else-if="rentalDevices?.items?.length"
-              class="mt-3 space-y-2"
+              class="mt-3 space-y-3"
             >
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <label class="inline-flex items-center gap-2 text-xs text-stone-600">
+              <div class="flex items-center justify-between gap-2">
+                <label class="inline-flex min-w-0 items-center gap-2 text-xs text-stone-600">
                   <input
                     type="checkbox"
-                    class="size-4 rounded border-stone-300"
+                    class="size-4 shrink-0 rounded border-stone-300"
                     :checked="selectedToRemove.length > 0 && selectedToRemove.length === rentalDevices.items.length"
                     :disabled="deviceReleasing || Boolean(deviceReleasingUuid)"
                     @change="toggleRemoveAll(($event.target as HTMLInputElement).checked)"
                   >
-                  Select all assigned
+                  <span class="truncate">Select all</span>
                 </label>
                 <UButton
                   color="error"
                   variant="outline"
-                  size="sm"
+                  size="xs"
                   icon="i-lucide-trash-2"
+                  class="shrink-0"
                   :loading="deviceReleasing"
                   :disabled="!selectedToRemove.length || Boolean(deviceReleasingUuid)"
-                  @click="releaseSelectedRentalDevices"
+                  @click="askReleaseSelectedRentalDevices"
                 >
-                  Remove selected ({{ selectedToRemove.length }})
+                  Remove ({{ selectedToRemove.length }})
                 </UButton>
               </div>
-              <ul class="divide-y divide-stone-100 rounded-xl border border-stone-100">
+              <ul class="overflow-hidden rounded-xl border border-stone-100 divide-y divide-stone-100">
                 <li
                   v-for="device in rentalDevices.items"
                   :key="device.uuid"
-                  class="flex flex-wrap items-center justify-between gap-3 px-3 py-3"
+                  class="px-3 py-2.5"
                 >
-                  <label class="flex min-w-0 flex-1 items-start gap-3">
-                    <input
-                      type="checkbox"
-                      class="mt-1 size-4 rounded border-stone-300"
-                      :checked="selectedToRemove.includes(device.uuid)"
-                      :disabled="deviceReleasing || Boolean(deviceReleasingUuid)"
-                      @change="toggleRemoveSelection(device.uuid, ($event.target as HTMLInputElement).checked)"
-                    >
-                    <span class="min-w-0">
-                      <span class="block font-medium text-stone-900">
-                        {{ device.label || device.assetCode }}
+                  <div class="flex items-center gap-2">
+                    <label class="flex min-w-0 flex-1 items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        class="size-4 shrink-0 rounded border-stone-300"
+                        :checked="selectedToRemove.includes(device.uuid)"
+                        :disabled="deviceReleasing || Boolean(deviceReleasingUuid)"
+                        @change="toggleRemoveSelection(device.uuid, ($event.target as HTMLInputElement).checked)"
+                      >
+                      <span class="min-w-0">
+                        <span class="block truncate text-sm font-medium text-stone-900">
+                          {{ device.label || device.assetCode }}
+                        </span>
+                        <span class="mt-0.5 block truncate text-xs text-stone-500">
+                          {{ device.product.name }} · {{ device.assetCode }}
+                        </span>
                       </span>
-                      <span class="block text-xs text-stone-500">
-                        {{ device.product.name }} · {{ device.assetCode }}
-                      </span>
-                    </span>
-                  </label>
-                  <div class="flex flex-wrap gap-2">
-                    <UButton
-                      :to="`/admin/registered-devices?device=${device.uuid}`"
-                      color="neutral"
-                      variant="ghost"
-                      size="sm"
-                      icon="i-lucide-pencil"
-                    >
-                      Edit
-                    </UButton>
-                    <UButton
-                      color="error"
-                      variant="outline"
-                      size="sm"
-                      icon="i-lucide-x"
-                      :loading="deviceReleasingUuid === device.uuid"
-                      :disabled="deviceReleasing"
-                      @click="releaseRentalDevice(device.uuid)"
-                    >
-                      Remove
-                    </UButton>
+                    </label>
+                    <div class="flex shrink-0 items-center gap-1.5">
+                      <UButton
+                        :to="`/admin/registered-devices?device=${device.uuid}`"
+                        color="neutral"
+                        variant="soft"
+                        size="sm"
+                        icon="i-lucide-pencil"
+                        square
+                        aria-label="Edit device"
+                      />
+                      <UButton
+                        color="error"
+                        variant="soft"
+                        size="sm"
+                        icon="i-lucide-trash-2"
+                        square
+                        aria-label="Remove device"
+                        :loading="deviceReleasingUuid === device.uuid"
+                        :disabled="deviceReleasing"
+                        @click="askReleaseRentalDevice(device.uuid)"
+                      />
+                    </div>
                   </div>
                 </li>
               </ul>
-              <p class="text-xs text-stone-500">
+              <p class="text-xs leading-5 text-stone-500">
                 You can remove devices anytime after saving. Past bookings still keep usage history; once the rental days are over the unit is free for the next booking.
               </p>
             </div>
@@ -1164,7 +1213,7 @@ async function removeRental() {
                 v-if="assignableDevices.length"
                 class="space-y-3"
               >
-                <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p class="text-sm font-medium text-stone-800">
                     Add devices
                   </p>
@@ -1187,16 +1236,16 @@ async function removeRental() {
                     <label class="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-stone-50">
                       <input
                         type="checkbox"
-                        class="mt-1 size-4 rounded border-stone-300"
+                        class="mt-1 size-4 shrink-0 rounded border-stone-300"
                         :checked="selectedToAssign.includes(device.uuid)"
                         :disabled="deviceAssigning"
                         @change="toggleAssignSelection(device.uuid, ($event.target as HTMLInputElement).checked)"
                       >
-                      <span class="min-w-0">
-                        <span class="block text-sm font-medium text-stone-900">
+                      <span class="min-w-0 flex-1">
+                        <span class="block break-words text-sm font-medium text-stone-900">
                           {{ device.label || device.assetCode }}
                         </span>
-                        <span class="block text-xs text-stone-500">
+                        <span class="block break-words text-xs text-stone-500">
                           {{ device.product.name }} · {{ device.assetCode }}
                         </span>
                       </span>
@@ -1205,6 +1254,7 @@ async function removeRental() {
                 </ul>
                 <UButton
                   icon="i-lucide-plus"
+                  class="w-full justify-center sm:w-auto"
                   :loading="deviceAssigning"
                   :disabled="!selectedToAssign.length"
                   @click="assignRentalDevices"
@@ -1234,6 +1284,7 @@ async function removeRental() {
                   :to="`/admin/registered-devices?rental=${encodeURIComponent(rental.code)}`"
                   icon="i-lucide-plus"
                   size="sm"
+                  class="w-full justify-center sm:w-auto"
                 >
                   Register / assign devices
                 </UButton>
@@ -1814,38 +1865,33 @@ async function removeRental() {
             </template>
           </p>
           <UButton
-            v-if="!deleteOpen"
             class="mt-4"
             color="error"
             @click="deleteOpen = true"
           >
             Delete rental
           </UButton>
-          <div
-            v-else
-            class="mt-4 flex flex-wrap items-center gap-2"
-          >
-            <p class="text-sm text-red-800">
-              Delete {{ rental.code }} forever?
-            </p>
-            <UButton
-              color="error"
-              :loading="deletePending"
-              @click="removeRental"
-            >
-              Confirm delete
-            </UButton>
-            <UButton
-              color="neutral"
-              variant="ghost"
-              :disabled="deletePending"
-              @click="deleteOpen = false"
-            >
-              Cancel
-            </UButton>
-          </div>
         </section>
       </div>
     </template>
+
+    <AdminConfirmModal
+      v-model:open="deviceRemoveConfirmOpen"
+      :title="deviceRemoveConfirmTitle"
+      :description="deviceRemoveConfirmDescription"
+      confirm-label="Remove"
+      :loading="deviceReleasing || Boolean(deviceReleasingUuid)"
+      @confirm="confirmDeviceRemove"
+    />
+    <AdminConfirmModal
+      v-model:open="deleteOpen"
+      title="Delete this rental?"
+      :description="rental
+        ? `Permanently delete ${rental.code}? Payments, receipts, waiver, and ID files will be removed.`
+        : 'Permanently delete this rental?'"
+      confirm-label="Delete rental"
+      :loading="deletePending"
+      @confirm="removeRental"
+    />
   </div>
 </template>

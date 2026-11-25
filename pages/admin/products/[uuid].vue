@@ -37,6 +37,14 @@ const imagePending = ref(false)
 const imageError = ref('')
 const archiveOpen = ref(false)
 const archivePending = ref(false)
+const removeImageConfirmOpen = ref(false)
+const pendingRemoveImageUuid = ref('')
+const removingImage = ref(false)
+
+function askRemoveImage(imageUuid: string) {
+  pendingRemoveImageUuid.value = imageUuid
+  removeImageConfirmOpen.value = true
+}
 const deleteOpen = ref(false)
 const deletePending = ref(false)
 
@@ -95,14 +103,24 @@ async function uploadImage() {
   }
 }
 
-async function removeImage(imageUuid: string) {
+async function removeImage() {
+  const imageUuid = pendingRemoveImageUuid.value
+  if (!imageUuid) {
+    return
+  }
+  removingImage.value = true
   try {
     await $fetch(`/api/admin/images/${imageUuid}`, { method: 'DELETE' })
     toast.add({ title: 'Image removed', color: 'success' })
+    removeImageConfirmOpen.value = false
+    pendingRemoveImageUuid.value = ''
     await refresh()
   }
   catch (error) {
     imageError.value = apiErrorMessage(error, 'We could not remove that image.')
+  }
+  finally {
+    removingImage.value = false
   }
 }
 
@@ -337,7 +355,7 @@ async function onSaved() {
                 color="error"
                 variant="ghost"
                 size="xs"
-                @click="removeImage(image.uuid)"
+                @click="askRemoveImage(image.uuid)"
               >
                 Remove
               </UButton>
@@ -550,5 +568,14 @@ async function onSaved() {
         </div>
       </section>
     </template>
+
+    <AdminConfirmModal
+      v-model:open="removeImageConfirmOpen"
+      title="Remove this image?"
+      description="This product photo will be deleted."
+      confirm-label="Remove"
+      :loading="removingImage"
+      @confirm="removeImage"
+    />
   </div>
 </template>

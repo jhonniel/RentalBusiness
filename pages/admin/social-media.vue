@@ -70,6 +70,12 @@ const formError = ref('')
 const saving = ref(false)
 const busyUuid = ref<string | null>(null)
 const rotating = ref(false)
+const deleteLinkConfirmOpen = ref(false)
+const pendingDeleteLink = ref<PublicSocialLink | null>(null)
+const deleteAdConfirmOpen = ref(false)
+const pendingDeleteAd = ref<PublicSocialAd | null>(null)
+const rotateConfirmOpen = ref(false)
+const removeAdImageConfirmOpen = ref(false)
 
 const adForm = reactive({
   title: '',
@@ -332,6 +338,13 @@ async function onAdSubmit() {
   }
 }
 
+function askRemoveAdImage() {
+  if (!editingAdUuid.value) {
+    return
+  }
+  removeAdImageConfirmOpen.value = true
+}
+
 async function removeAdImage() {
   if (!editingAdUuid.value) {
     return
@@ -345,6 +358,7 @@ async function removeAdImage() {
     if (adImageInput.value) {
       adImageInput.value.value = ''
     }
+    removeAdImageConfirmOpen.value = false
     await refresh()
   }
   catch (caught) {
@@ -433,8 +447,14 @@ async function moveAd(index: number, direction: -1 | 1) {
   }
 }
 
-async function removeLink(link: PublicSocialLink) {
-  if (!window.confirm(`Delete "${link.label}"? To keep it for later, hide it instead.`)) {
+function askRemoveLink(link: PublicSocialLink) {
+  pendingDeleteLink.value = link
+  deleteLinkConfirmOpen.value = true
+}
+
+async function removeLink() {
+  const link = pendingDeleteLink.value
+  if (!link) {
     return
   }
 
@@ -445,6 +465,8 @@ async function removeLink(link: PublicSocialLink) {
     if (editingUuid.value === link.uuid) {
       resetForm()
     }
+    deleteLinkConfirmOpen.value = false
+    pendingDeleteLink.value = null
     await refresh()
   }
   catch (caught) {
@@ -455,8 +477,14 @@ async function removeLink(link: PublicSocialLink) {
   }
 }
 
-async function removeAd(ad: PublicSocialAd) {
-  if (!window.confirm(`Delete promotion "${ad.title || 'Untitled'}"?`)) {
+function askRemoveAd(ad: PublicSocialAd) {
+  pendingDeleteAd.value = ad
+  deleteAdConfirmOpen.value = true
+}
+
+async function removeAd() {
+  const ad = pendingDeleteAd.value
+  if (!ad) {
     return
   }
 
@@ -467,6 +495,8 @@ async function removeAd(ad: PublicSocialAd) {
     if (editingAdUuid.value === ad.uuid) {
       resetAdForm()
     }
+    deleteAdConfirmOpen.value = false
+    pendingDeleteAd.value = null
     await refresh()
   }
   catch (caught) {
@@ -490,14 +520,16 @@ async function copyPageUrl() {
   }
 }
 
+function askRotatePageLink() {
+  rotateConfirmOpen.value = true
+}
+
 async function rotatePageLink() {
-  if (!window.confirm('Create a new unique link? The old QR and URL will stop working.')) {
-    return
-  }
   rotating.value = true
   try {
     await $fetch('/api/admin/social-links/rotate', { method: 'POST' })
     toast.add({ title: 'New unique link ready', color: 'success' })
+    rotateConfirmOpen.value = false
     await refresh()
   }
   catch (caught) {
@@ -655,7 +687,7 @@ function printQr() {
               icon="i-lucide-refresh-cw"
               :loading="rotating"
               :disabled="!ready"
-              @click="rotatePageLink"
+              @click="askRotatePageLink"
             >
               New unique link
             </UButton>
@@ -961,7 +993,7 @@ function printQr() {
                   color="error"
                   variant="ghost"
                   :disabled="busyUuid === link.uuid || !ready"
-                  @click="removeLink(link)"
+                  @click="askRemoveLink(link)"
                 >
                   Delete
                 </UButton>
@@ -1072,7 +1104,7 @@ function printQr() {
                     type="button"
                     :loading="busyAdUuid === editingAdUuid"
                     :disabled="savingAd"
-                    @click="removeAdImage"
+                    @click="askRemoveAdImage"
                   >
                     Remove image
                   </UButton>
@@ -1215,7 +1247,7 @@ function printQr() {
                   color="error"
                   variant="ghost"
                   :disabled="busyAdUuid === ad.uuid || !adsReady"
-                  @click="removeAd(ad)"
+                  @click="askRemoveAd(ad)"
                 >
                   Delete
                 </UButton>
@@ -1231,6 +1263,44 @@ function printQr() {
         </section>
       </div>
     </template>
+
+    <AdminConfirmModal
+      v-model:open="deleteLinkConfirmOpen"
+      title="Delete this button?"
+      :description="pendingDeleteLink
+        ? `Delete “${pendingDeleteLink.label}”? To keep it for later, hide it instead.`
+        : 'To keep it for later, hide it instead.'"
+      confirm-label="Delete"
+      :loading="Boolean(busyUuid)"
+      @confirm="removeLink"
+    />
+    <AdminConfirmModal
+      v-model:open="deleteAdConfirmOpen"
+      title="Delete this promotion?"
+      :description="pendingDeleteAd
+        ? `Delete “${pendingDeleteAd.title || 'Untitled'}”?`
+        : 'This promotion will be removed.'"
+      confirm-label="Delete"
+      :loading="Boolean(busyAdUuid)"
+      @confirm="removeAd"
+    />
+    <AdminConfirmModal
+      v-model:open="rotateConfirmOpen"
+      title="Create a new unique link?"
+      description="The old QR and URL will stop working."
+      confirm-label="Rotate link"
+      confirm-color="warning"
+      :loading="rotating"
+      @confirm="rotatePageLink"
+    />
+    <AdminConfirmModal
+      v-model:open="removeAdImageConfirmOpen"
+      title="Remove this promo image?"
+      description="The promotion image will be deleted."
+      confirm-label="Remove"
+      :loading="Boolean(busyAdUuid)"
+      @confirm="removeAdImage"
+    />
   </div>
 </template>
 

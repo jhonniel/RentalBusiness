@@ -32,6 +32,40 @@ const logoInput = ref<HTMLInputElement | null>(null)
 const logoPreviewUrl = ref<string | null>(null)
 const formError = ref('')
 const saving = ref(false)
+const removeAssetConfirmOpen = ref(false)
+const pendingRemoveAsset = ref<{ method: PublicPaymentMethod, kind: 'logo' | 'qr' } | null>(null)
+const removingAsset = ref(false)
+
+function askRemoveLogo(method: PublicPaymentMethod) {
+  pendingRemoveAsset.value = { method, kind: 'logo' }
+  removeAssetConfirmOpen.value = true
+}
+
+function askRemoveQr(method: PublicPaymentMethod) {
+  pendingRemoveAsset.value = { method, kind: 'qr' }
+  removeAssetConfirmOpen.value = true
+}
+
+async function confirmRemoveAsset() {
+  const pending = pendingRemoveAsset.value
+  if (!pending) {
+    return
+  }
+  removingAsset.value = true
+  try {
+    if (pending.kind === 'logo') {
+      await removeLogo(pending.method)
+    }
+    else {
+      await removeQr(pending.method)
+    }
+    removeAssetConfirmOpen.value = false
+    pendingRemoveAsset.value = null
+  }
+  finally {
+    removingAsset.value = false
+  }
+}
 
 function startEdit(method: PublicPaymentMethod) {
   editingUuid.value = method.uuid
@@ -471,7 +505,7 @@ async function removeQr(method: PublicPaymentMethod) {
                   color="neutral"
                   variant="ghost"
                   size="sm"
-                  @click="removeQr(method)"
+                  @click="askRemoveQr(method)"
                 >
                   Remove QR
                 </UButton>
@@ -480,7 +514,7 @@ async function removeQr(method: PublicPaymentMethod) {
                   color="neutral"
                   variant="ghost"
                   size="sm"
-                  @click="removeLogo(method)"
+                  @click="askRemoveLogo(method)"
                 >
                   Remove logo
                 </UButton>
@@ -490,5 +524,16 @@ async function removeQr(method: PublicPaymentMethod) {
         </div>
       </div>
     </template>
+
+    <AdminConfirmModal
+      v-model:open="removeAssetConfirmOpen"
+      :title="pendingRemoveAsset?.kind === 'qr' ? 'Remove this QR image?' : 'Remove this logo?'"
+      :description="pendingRemoveAsset?.kind === 'qr'
+        ? 'This payment method QR image will be deleted.'
+        : 'This payment method logo will be deleted.'"
+      confirm-label="Remove"
+      :loading="removingAsset"
+      @confirm="confirmRemoveAsset"
+    />
   </div>
 </template>

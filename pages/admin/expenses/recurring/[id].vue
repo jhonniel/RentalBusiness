@@ -15,6 +15,8 @@ const identifier = computed(() => String(route.params.id))
 const saving = ref(false)
 const posting = ref(false)
 const formError = ref('')
+const endConfirmOpen = ref(false)
+const actionPending = ref(false)
 
 const { data: item, error, refresh } = await useFetch<PublicRecurringExpense>(
   () => `/api/admin/recurring-expenses/${identifier.value}`,
@@ -66,17 +68,16 @@ async function onSubmit(payload: Record<string, unknown>) {
   }
 }
 
-async function runAction(path: string, title: string, confirmMessage?: string) {
+async function runAction(path: string, title: string) {
   if (!item.value) {
     return
   }
-  if (confirmMessage && !window.confirm(confirmMessage)) {
-    return
-  }
 
+  actionPending.value = true
   try {
     await $fetch(`/api/admin/recurring-expenses/${item.value.uuid}/${path}`, { method: 'POST' })
     toast.add({ title, color: 'success' })
+    endConfirmOpen.value = false
     await refresh()
   }
   catch (error) {
@@ -87,6 +88,9 @@ async function runAction(path: string, title: string, confirmMessage?: string) {
       title: payloadError?.message || 'We could not update that recurring expense.',
       color: 'error',
     })
+  }
+  finally {
+    actionPending.value = false
   }
 }
 
@@ -162,7 +166,7 @@ async function onPost() {
             v-if="item.status !== 'ended'"
             color="neutral"
             variant="outline"
-            @click="runAction('end', 'Recurring expense ended', 'End this recurring expense? Existing occurrences stay on file.')"
+            @click="endConfirmOpen = true"
           >
             End
           </UButton>
@@ -222,6 +226,16 @@ async function onPost() {
           No occurrences posted yet.
         </p>
       </section>
+
+      <AdminConfirmModal
+        v-model:open="endConfirmOpen"
+        title="End this recurring expense?"
+        description="Existing occurrences stay on file."
+        confirm-label="End series"
+        confirm-color="warning"
+        :loading="actionPending"
+        @confirm="runAction('end', 'Recurring expense ended')"
+      />
     </template>
   </div>
 </template>

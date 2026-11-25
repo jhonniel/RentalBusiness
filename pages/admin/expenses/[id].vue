@@ -12,6 +12,7 @@ const toast = useToast()
 const identifier = computed(() => String(route.params.id))
 const saving = ref(false)
 const voiding = ref(false)
+const voidConfirmOpen = ref(false)
 const formError = ref('')
 
 const { data: expense, error, refresh } = await useFetch<PublicExpense>(
@@ -65,7 +66,7 @@ async function onSubmit(payload: Record<string, unknown>) {
 }
 
 async function onVoid() {
-  if (!expense.value || !window.confirm('Void this expense? The row stays on file and is excluded from totals.')) {
+  if (!expense.value) {
     return
   }
 
@@ -73,6 +74,7 @@ async function onVoid() {
   try {
     await $fetch(`/api/admin/expenses/${expense.value.uuid}/void`, { method: 'POST' })
     toast.add({ title: 'Expense voided', color: 'success' })
+    voidConfirmOpen.value = false
     await refresh()
   }
   catch (error) {
@@ -125,7 +127,7 @@ async function onVoid() {
           color="neutral"
           variant="outline"
           :loading="voiding"
-          @click="onVoid"
+          @click="voidConfirmOpen = true"
         >
           Void
         </UButton>
@@ -149,6 +151,15 @@ async function onVoid() {
         :error="formError"
         submit-label="Update expense"
         @submit="onSubmit"
+      />
+
+      <AdminConfirmModal
+        v-model:open="voidConfirmOpen"
+        title="Void this expense?"
+        description="The row stays on file and is excluded from totals."
+        confirm-label="Void expense"
+        :loading="voiding"
+        @confirm="onVoid"
       />
     </template>
   </div>

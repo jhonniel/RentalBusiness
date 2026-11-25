@@ -28,6 +28,13 @@ const editingUuid = ref<string | null>(null)
 const formError = ref('')
 const saving = ref(false)
 const busyUuid = ref<string | null>(null)
+const deleteConfirmOpen = ref(false)
+const pendingDeleteFaq = ref<PublicFaq | null>(null)
+
+function askRemoveFaq(faq: PublicFaq) {
+  pendingDeleteFaq.value = faq
+  deleteConfirmOpen.value = true
+}
 
 function nextSortOrder() {
   return items.value.reduce((max, faq) => Math.max(max, faq.sortOrder), 0) + 10
@@ -140,8 +147,9 @@ async function move(index: number, direction: -1 | 1) {
   }
 }
 
-async function removeFaq(faq: PublicFaq) {
-  if (!window.confirm(`Delete "${faq.question}"? To keep it for later, hide it instead.`)) {
+async function removeFaq() {
+  const faq = pendingDeleteFaq.value
+  if (!faq) {
     return
   }
 
@@ -152,6 +160,8 @@ async function removeFaq(faq: PublicFaq) {
     if (editingUuid.value === faq.uuid) {
       resetForm()
     }
+    deleteConfirmOpen.value = false
+    pendingDeleteFaq.value = null
     await refresh()
   }
   catch (error) {
@@ -401,7 +411,7 @@ async function removeFaq(faq: PublicFaq) {
                   variant="ghost"
                   size="xs"
                   :disabled="Boolean(busyUuid)"
-                  @click="removeFaq(faq)"
+                  @click="askRemoveFaq(faq)"
                 >
                   Delete
                 </UButton>
@@ -411,5 +421,16 @@ async function removeFaq(faq: PublicFaq) {
         </section>
       </div>
     </template>
+
+    <AdminConfirmModal
+      v-model:open="deleteConfirmOpen"
+      title="Delete this FAQ?"
+      :description="pendingDeleteFaq
+        ? `Delete “${pendingDeleteFaq.question}”? To keep it for later, hide it instead.`
+        : 'To keep it for later, hide it instead.'"
+      confirm-label="Delete"
+      :loading="Boolean(busyUuid)"
+      @confirm="removeFaq"
+    />
   </div>
 </template>

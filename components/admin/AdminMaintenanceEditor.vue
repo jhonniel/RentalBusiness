@@ -22,6 +22,14 @@ const imageInput = ref<HTMLInputElement | null>(null)
 const imageFiles = ref<File[]>([])
 const imageError = ref('')
 const imagePending = ref(false)
+const removeImageConfirmOpen = ref(false)
+const pendingRemoveImage = ref<PublicMaintenanceImage | null>(null)
+const removingImage = ref(false)
+
+function askRemoveImage(image: PublicMaintenanceImage) {
+  pendingRemoveImage.value = image
+  removeImageConfirmOpen.value = true
+}
 
 watch(data, (value) => {
   if (!value) {
@@ -109,11 +117,18 @@ async function uploadImages() {
   }
 }
 
-async function removeImage(image: PublicMaintenanceImage) {
+async function removeImage() {
+  const image = pendingRemoveImage.value
+  if (!image) {
+    return
+  }
   imageError.value = ''
+  removingImage.value = true
   try {
     await $fetch(`/api/admin/maintenance/images/${image.uuid}`, { method: 'DELETE' })
     toast.add({ title: 'Image removed', color: 'success' })
+    removeImageConfirmOpen.value = false
+    pendingRemoveImage.value = null
     await refresh()
   }
   catch (error) {
@@ -121,6 +136,9 @@ async function removeImage(image: PublicMaintenanceImage) {
       ? (error as { data?: { message?: string } }).data
       : null
     imageError.value = payload?.message || 'We could not remove that image.'
+  }
+  finally {
+    removingImage.value = false
   }
 }
 </script>
@@ -297,7 +315,7 @@ async function removeImage(image: PublicMaintenanceImage) {
                 color="error"
                 variant="ghost"
                 size="xs"
-                @click="removeImage(image)"
+                @click="askRemoveImage(image)"
               >
                 Remove
               </UButton>
@@ -306,5 +324,14 @@ async function removeImage(image: PublicMaintenanceImage) {
         </div>
       </section>
     </div>
+
+    <AdminConfirmModal
+      v-model:open="removeImageConfirmOpen"
+      title="Remove this image?"
+      description="This maintenance image will be deleted."
+      confirm-label="Remove"
+      :loading="removingImage"
+      @confirm="removeImage"
+    />
   </div>
 </template>
