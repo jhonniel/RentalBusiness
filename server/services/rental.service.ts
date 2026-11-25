@@ -625,6 +625,9 @@ export async function cancelOwnRental(event: H3Event, client: Client, profileId:
   }
 
   const row = await updateRentalStatus(client, rental.uuid, 'cancelled')
+  await import('./registered-device.service').then(({ releaseDevicesForRental }) =>
+    releaseDevicesForRental(admin, identity.id),
+  )
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
     fromStatus: rental.status,

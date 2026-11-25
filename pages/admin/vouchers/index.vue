@@ -40,6 +40,7 @@ const form = reactive({
   startsOn: '',
   endsOn: '',
   status: 'active' as (typeof VOUCHER_STATUSES)[number],
+  firstTimeOnly: false,
 })
 const editingUuid = ref<string | null>(null)
 const formError = ref('')
@@ -56,6 +57,7 @@ function resetForm() {
   form.startsOn = ''
   form.endsOn = ''
   form.status = 'active'
+  form.firstTimeOnly = false
   formError.value = ''
 }
 
@@ -70,6 +72,7 @@ function startEdit(voucher: PublicVoucher) {
   form.startsOn = voucher.startsOn ?? ''
   form.endsOn = voucher.endsOn ?? ''
   form.status = voucher.status
+  form.firstTimeOnly = voucher.firstTimeOnly
 }
 
 function fillCode() {
@@ -141,6 +144,7 @@ async function disableVoucher(voucher: PublicVoucher) {
         startsOn: voucher.startsOn,
         endsOn: voucher.endsOn,
         status: 'disabled',
+        firstTimeOnly: voucher.firstTimeOnly,
       },
     })
     toast.add({ title: 'Voucher disabled', color: 'success' })
@@ -322,6 +326,16 @@ async function disableVoucher(voucher: PublicVoucher) {
                 </option>
               </select>
             </label>
+            <div class="flex items-end pb-2 text-sm sm:col-span-2">
+              <USwitch
+                v-model="form.firstTimeOnly"
+                label="First-time bookers only"
+                :disabled="saving"
+              />
+            </div>
+            <p class="text-xs text-stone-500 sm:col-span-2">
+              When on, the code only works for customers whose account email has no prior booking history on the system.
+            </p>
           </div>
           <div class="mt-5 flex flex-wrap gap-2">
             <UButton
@@ -397,6 +411,7 @@ async function disableVoucher(voucher: PublicVoucher) {
                 </p>
                 <p class="mt-1 text-xs text-stone-500">
                   Used {{ voucher.redeemedCount }}{{ voucher.maxRedemptions ? ` / ${voucher.maxRedemptions}` : '' }}
+                  <span v-if="voucher.firstTimeOnly"> · First-time bookers only</span>
                 </p>
                 <div class="mt-2">
                   <StatusBadge :status="voucher.displayStatus" />

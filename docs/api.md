@@ -385,7 +385,7 @@ Commissioner routes require `role = commissioner`. `GET /api/commissioner/produc
 
 Approve is allowed after payment is `paid`, or when a voucher brings the rental total to ₱0. The customer receives an in-app notification. Sales KPIs sum paid payment amounts in `Asia/Manila`. Inventory value is `quantity × replacement_value` for non-archived products.
 
-**Voucher body:** name, code? (generated when blank), discountType (`percent` \| `fixed`), discountValue, maxRedemptions?, minSubtotal, startsOn?, endsOn?, status (`draft` \| `active` \| `disabled`). Percent values cannot exceed 100. Customers never list vouchers; they submit a code only.
+**Voucher body:** name, code? (generated when blank), discountType (`percent` \| `fixed`), discountValue, maxRedemptions?, minSubtotal, startsOn?, endsOn?, status (`draft` \| `active` \| `disabled`), firstTimeOnly (boolean, default false). Percent values cannot exceed 100. When `firstTimeOnly` is true, `POST /api/rentals/[id]/voucher` rejects customers whose account email already has a prior booking (any rental past draft except cancelled/rejected). Customers never list vouchers; they submit a code only.
 
 ### Rental feedback
 
@@ -422,6 +422,22 @@ Questions are built from the rented equipment when the link is sent (Starlink: s
 | DELETE | `/api/admin/social-ads/[uuid]` | Admin. Removes the ad and its storage image |
 | POST | `/api/admin/social-ads/[uuid]/image` | Admin. Multipart `file` promo image (compressed). Public `social-ad-images` bucket |
 | DELETE | `/api/admin/social-ads/[uuid]/image` | Admin. Removes image; active ads must keep a voucher if image is the only content |
+
+### Registered devices
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/devices/[code]` | Public. Locked preview only (`locked: true`, label, product name). Bag pin / Wi‑Fi / bag contents stay hidden. Uses service role; 404 if code unknown. Never returns database ids. 60 / minute / IP |
+| POST | `/api/devices/[code]/unlock` | Public. Body `{ rentalCode }`. Unlocks bag pin, Wi‑Fi, bag contents, and booking only when that rental is actively assigned to this device and still ongoing. 403 if not assigned / wrong code / not active. 10 / minute / IP |
+| GET | `/api/admin/devices` | Admin. `{ items, page, pageSize, total, ready }`. `ready` false until migration applied. Includes usage count and active assignment |
+| POST | `/api/admin/devices` | Admin. Body `{ productUuid, label?, assetCode, serialNumber?, condition, status, bagPin?, wifiName?, wifiPassword?, bagContents, notes? }`. Creates asset + permanent `public_code` |
+| PATCH | `/api/admin/devices/[uuid]` | Admin. Same body |
+| POST | `/api/admin/devices/[uuid]/rotate` | Admin. Issues a new `public_code` (old QR stops working). Audited |
+| POST | `/api/admin/devices/[uuid]/assign` | Admin. Body `{ rentalCode }`. Product must be on the rental. Past/finished bookings still accept assigns for usage counting, but those rows are released immediately so the unit stays free for upcoming bookings. Active holds only last through the rental window |
+| POST | `/api/admin/devices/[uuid]/release` | Admin. Ends the active assignment |
+| GET | `/api/admin/rentals/[id]/devices` | Admin. Active devices assigned to that rental (`id` = uuid or code) |
+
+Admins manage devices on `/admin/registered-devices` (QR print/copy) and on the rental detail “Assigned devices” block. Completing or cancelling a rental releases assignments automatically. Stock/availability math is unchanged — assignments are ops tracking only.
 
 Admins manage FAQs on `/admin/faqs` (add, edit, hide or show, reorder, delete). Customers read them on `/faq`, which adds FAQPage structured data. The chat also knows the site pages: How it Works and About come from `utils/site-content.ts` (the same copy the pages render), and the Terms & Conditions, Privacy Policy, and Cookie Policy are read from the same versioned files as `/api/*/current`, split into numbered sections, and only the few sections that match the question are sent to the AI (with a short summary of each policy when one is named). Policy, How it Works, and About questions get a `view` button to that page. If a Groq model returns 429 or is retired, the chat tries `qwen/qwen3.8-27b`, then `openai/gpt-oss-120b`, each with its own free-tier limit (8,000 tokens per minute and 1,000 requests per day each), before answering from built-in knowledge. The chat support loads active FAQs with its other live knowledge (60 s cache), answers matching questions from them, does not run a price quote when the question clearly matches an FAQ and names no kit or dates, and suggests FAQ questions the visitor has not asked yet.
 

@@ -418,6 +418,12 @@ export interface Database {
           purchase_date: string | null
           replacement_value: number | null
           notes: string | null
+          public_code: string
+          label: string | null
+          bag_pin: string | null
+          wifi_name: string | null
+          wifi_password: string | null
+          bag_contents: string[] | Json
           created_at: string
           updated_at: string
         }
@@ -432,6 +438,12 @@ export interface Database {
           purchase_date?: string | null
           replacement_value?: number | null
           notes?: string | null
+          public_code?: string
+          label?: string | null
+          bag_pin?: string | null
+          wifi_name?: string | null
+          wifi_password?: string | null
+          bag_contents?: string[] | Json
         }
         Update: {
           asset_code?: string
@@ -442,6 +454,13 @@ export interface Database {
           purchase_date?: string | null
           replacement_value?: number | null
           notes?: string | null
+          public_code?: string
+          label?: string | null
+          bag_pin?: string | null
+          wifi_name?: string | null
+          wifi_password?: string | null
+          bag_contents?: string[] | Json
+          product_id?: number
         }
         Relationships: [
           {
@@ -593,14 +612,21 @@ export interface Database {
           uuid: string
           rental_id: number
           equipment_asset_id: number
+          assigned_at: string
+          released_at: string | null
           created_at: string
         }
         Insert: {
           rental_id: number
           equipment_asset_id: number
           uuid?: string
+          assigned_at?: string
+          released_at?: string | null
         }
-        Update: Record<string, never>
+        Update: {
+          released_at?: string | null
+          assigned_at?: string
+        }
         Relationships: []
       }
       rental_status_history: {
@@ -1273,6 +1299,7 @@ export interface Database {
           starts_on: string | null
           ends_on: string | null
           status: 'draft' | 'active' | 'disabled'
+          first_time_only: boolean
           created_at: string
           updated_at: string
         }
@@ -1288,6 +1315,7 @@ export interface Database {
           starts_on?: string | null
           ends_on?: string | null
           status?: 'draft' | 'active' | 'disabled'
+          first_time_only?: boolean
         }
         Update: {
           code?: string
@@ -1300,6 +1328,7 @@ export interface Database {
           starts_on?: string | null
           ends_on?: string | null
           status?: 'draft' | 'active' | 'disabled'
+          first_time_only?: boolean
         }
         Relationships: []
       }

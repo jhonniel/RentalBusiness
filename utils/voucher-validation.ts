@@ -29,6 +29,7 @@ export const voucherInputSchema = z.object({
   startsOn: optionalDate,
   endsOn: optionalDate,
   status: z.enum(VOUCHER_STATUSES).default('active'),
+  firstTimeOnly: z.boolean().default(false),
 }).strict().refine(data => data.discountType !== 'percent' || data.discountValue <= 100, {
   message: 'Percent discounts cannot be more than 100.',
   path: ['discountValue'],

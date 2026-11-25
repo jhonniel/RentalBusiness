@@ -15,7 +15,15 @@ import {
 import { AppError, ERROR_CODES } from '../utils/errors'
 import { recordAudit } from '../utils/audit'
 import { getSupabaseAdminClient } from '../utils/supabase'
-import { findRentalByUuid, findRentalIdentity, updateRentalDiscount } from '../repositories/rental.repository'
+import {
+  countPriorCustomerBookings,
+  findRentalByUuid,
+  findRentalIdentity,
+  updateRentalDiscount,
+} from '../repositories/rental.repository'
+import { findProfileById } from '../repositories/profile.repository'
+import { accountEmail } from '../utils/account-email'
+import { isPlaceholderBookingEmail } from '../utils/placeholder-booking-email'
 import {
   decrementVoucherRedemption,
   deleteRedemptionByRentalId,
@@ -71,6 +79,7 @@ export async function saveAdminVoucher(event: H3Event, client: Client, input: Vo
     starts_on: input.startsOn,
     ends_on: input.endsOn,
     status: input.status,
+    first_time_only: input.firstTimeOnly,
   }
 
   const previous = uuid ? await findVoucherByUuid(client, uuid) : null
@@ -86,11 +95,46 @@ export async function saveAdminVoucher(event: H3Event, client: Client, input: Vo
     action: uuid ? 'voucher.update' : 'voucher.create',
     entity: 'vouchers',
     entityId: row.uuid,
-    previous: previous ? { uuid: previous.uuid, code: previous.code, status: previous.status } : null,
-    next: { uuid: row.uuid, code: row.code, status: row.status } as unknown as Json,
+    previous: previous
+      ? { uuid: previous.uuid, code: previous.code, status: previous.status, firstTimeOnly: Boolean(previous.first_time_only) }
+      : null,
+    next: {
+      uuid: row.uuid,
+      code: row.code,
+      status: row.status,
+      firstTimeOnly: Boolean(row.first_time_only),
+    } as unknown as Json,
   })
 
   return toPublicVoucher(row)
+}
+
+async function assertFirstTimeBookerEligible(
+  admin: Client,
+  customerId: number,
+  rentalUuid: string,
+) {
+  const profile = await findProfileById(admin, customerId)
+  const email = await accountEmail(profile?.user_id)
+  // Account email identifies the customer. Placeholder guest emails are unique per walk-in.
+  if (!email) {
+    throw new AppError(
+      'We could not verify your account email for this first-time voucher.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
+
+  const priorCount = await countPriorCustomerBookings(admin, customerId, rentalUuid)
+  if (priorCount > 0) {
+    throw new AppError(
+      isPlaceholderBookingEmail(email)
+        ? 'That voucher is only for first-time bookers.'
+        : 'That voucher is only for first-time bookers. This email already has a booking history.',
+      409,
+      ERROR_CODES.CONFLICT,
+    )
+  }
 }
 
 async function syncOpenPaymentAmount(admin: Client, rentalId: number, amount: number) {
@@ -132,6 +176,10 @@ export async function applyOwnRentalVoucher(
   const reason = voucherIsRedeemable(voucher, rental.subtotal, calendarDateInZone())
   if (reason) {
     throw new AppError(reason, 409, ERROR_CODES.CONFLICT)
+  }
+
+  if (voucher.first_time_only) {
+    await assertFirstTimeBookerEligible(admin, identity.customer_id, rental.uuid)
   }
 
   const existing = await findRedemptionByRentalId(admin, identity.id)

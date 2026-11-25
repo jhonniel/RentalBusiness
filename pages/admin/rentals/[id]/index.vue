@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PublicRental } from '~/types/rental'
 import type { AdminSystemUser } from '~/types/notification'
+import type { PublicRegisteredDevice } from '~/types/registered-device'
 import { formatBookingDateRange, formatBusinessDateTime } from '~/utils/datetime'
 import { amountDue, amountToPay, canCancelAdminRental, canCompleteAdminRental, canMarkAdminRentalPaid, rentalSalesBreakdown, SHOP_PAYMENT_METHODS } from '~/utils/rental'
 import { canSendFeedback } from '~/utils/feedback'
@@ -35,9 +36,218 @@ const { data: rental, error, refresh } = await useFetch<PublicRental>(
   () => `/api/admin/rentals/${identifier.value}`,
 )
 const { data: commissioners } = await useFetch<AdminSystemUser[]>('/api/admin/commissioners')
+const {
+  data: rentalDevices,
+  error: rentalDevicesError,
+  refresh: refreshDevices,
+} = await useFetch<{
+  items: PublicRegisteredDevice[]
+  ready: boolean
+}>(() => `/api/admin/rentals/${identifier.value}/devices`)
+
+const rentalProductUuids = computed(() =>
+  [...new Set((rental.value?.items || []).map(item => item.product.uuid))],
+)
+const rentalProductNames = computed(() =>
+  [...new Set((rental.value?.items || []).map(item => item.product.name))],
+)
+
+/** Free registered units for every product on this booking (not only the first catalog page). */
+const {
+  data: assignableCatalog,
+  refresh: refreshAssignableCatalog,
+} = await useAsyncData(
+  () => `rental-assignable-devices-${identifier.value}`,
+  async () => {
+    const uuids = rentalProductUuids.value
+    if (!uuids.length) {
+      return { items: [] as PublicRegisteredDevice[], ready: true }
+    }
+    const pages = await Promise.all(uuids.map(productUuid =>
+      $fetch<{ items: PublicRegisteredDevice[], ready: boolean }>('/api/admin/devices', {
+        query: { productUuid, page: 1, pageSize: 50 },
+      }),
+    ))
+    if (pages.some(page => page.ready === false)) {
+      return { items: [] as PublicRegisteredDevice[], ready: false }
+    }
+    const byUuid = new Map<string, PublicRegisteredDevice>()
+    for (const page of pages) {
+      for (const device of page.items) {
+        byUuid.set(device.uuid, device)
+      }
+    }
+    return { items: [...byUuid.values()], ready: true }
+  },
+  { watch: [rentalProductUuids] },
+)
+
 const commissionerUuid = ref(rental.value?.commissioner?.uuid || '')
 const assigning = ref(false)
 const assignError = ref('')
+const selectedToAssign = ref<string[]>([])
+const selectedToRemove = ref<string[]>([])
+const deviceAssigning = ref(false)
+const deviceReleasing = ref(false)
+const deviceReleasingUuid = ref<string | null>(null)
+
+const assignableDevices = computed(() => {
+  const assigned = new Set((rentalDevices.value?.items || []).map(item => item.uuid))
+  return (assignableCatalog.value?.items || []).filter(device =>
+    !assigned.has(device.uuid) && !device.assignment,
+  )
+})
+
+watch(assignableDevices, (list) => {
+  const allowed = new Set(list.map(device => device.uuid))
+  selectedToAssign.value = selectedToAssign.value.filter(uuid => allowed.has(uuid))
+})
+
+watch(() => rentalDevices.value?.items, (list) => {
+  const allowed = new Set((list || []).map(device => device.uuid))
+  selectedToRemove.value = selectedToRemove.value.filter(uuid => allowed.has(uuid))
+})
+
+function toggleAssignSelection(uuid: string, checked: boolean) {
+  if (checked) {
+    if (!selectedToAssign.value.includes(uuid)) {
+      selectedToAssign.value = [...selectedToAssign.value, uuid]
+    }
+    return
+  }
+  selectedToAssign.value = selectedToAssign.value.filter(item => item !== uuid)
+}
+
+function toggleRemoveSelection(uuid: string, checked: boolean) {
+  if (checked) {
+    if (!selectedToRemove.value.includes(uuid)) {
+      selectedToRemove.value = [...selectedToRemove.value, uuid]
+    }
+    return
+  }
+  selectedToRemove.value = selectedToRemove.value.filter(item => item !== uuid)
+}
+
+function toggleAssignAll(checked: boolean) {
+  selectedToAssign.value = checked ? assignableDevices.value.map(device => device.uuid) : []
+}
+
+function toggleRemoveAll(checked: boolean) {
+  selectedToRemove.value = checked
+    ? (rentalDevices.value?.items || []).map(device => device.uuid)
+    : []
+}
+
+async function refreshRentalDevices() {
+  await Promise.all([refreshDevices(), refreshAssignableCatalog(), refresh()])
+}
+
+async function assignRentalDevices() {
+  if (!selectedToAssign.value.length || !rental.value) {
+    return
+  }
+  deviceAssigning.value = true
+  const rentalCode = rental.value.code
+  const uuids = [...selectedToAssign.value]
+  let done = 0
+  let failed = ''
+  try {
+    for (const uuid of uuids) {
+      try {
+        await $fetch(`/api/admin/devices/${uuid}/assign`, {
+          method: 'POST',
+          body: { rentalCode },
+        })
+        done += 1
+      }
+      catch (err) {
+        const payload = typeof err === 'object' && err && 'data' in err
+          ? (err as { data?: { message?: string } }).data
+          : null
+        failed = payload?.message || 'Could not assign a device.'
+        break
+      }
+    }
+    selectedToAssign.value = []
+    await refreshRentalDevices()
+    if (done && !failed) {
+      toast.add({
+        title: done === 1 ? 'Device assigned' : `${done} devices assigned`,
+        color: 'success',
+      })
+    }
+    else if (done && failed) {
+      toast.add({ title: `${done} assigned, then stopped: ${failed}`, color: 'warning' })
+    }
+    else {
+      toast.add({ title: failed || 'Could not assign devices', color: 'error' })
+    }
+  }
+  finally {
+    deviceAssigning.value = false
+  }
+}
+
+async function releaseRentalDevice(deviceUuid: string) {
+  deviceReleasingUuid.value = deviceUuid
+  try {
+    await $fetch(`/api/admin/devices/${deviceUuid}/release`, { method: 'POST' })
+    selectedToRemove.value = selectedToRemove.value.filter(uuid => uuid !== deviceUuid)
+    toast.add({ title: 'Device removed', color: 'success' })
+    await refreshRentalDevices()
+  }
+  catch (err) {
+    const payload = typeof err === 'object' && err && 'data' in err
+      ? (err as { data?: { message?: string } }).data
+      : null
+    toast.add({ title: payload?.message || 'Could not remove device', color: 'error' })
+  }
+  finally {
+    deviceReleasingUuid.value = null
+  }
+}
+
+async function releaseSelectedRentalDevices() {
+  if (!selectedToRemove.value.length) {
+    return
+  }
+  deviceReleasing.value = true
+  const uuids = [...selectedToRemove.value]
+  let done = 0
+  let failed = ''
+  try {
+    for (const uuid of uuids) {
+      try {
+        await $fetch(`/api/admin/devices/${uuid}/release`, { method: 'POST' })
+        done += 1
+      }
+      catch (err) {
+        const payload = typeof err === 'object' && err && 'data' in err
+          ? (err as { data?: { message?: string } }).data
+          : null
+        failed = payload?.message || 'Could not remove a device.'
+        break
+      }
+    }
+    selectedToRemove.value = []
+    await refreshRentalDevices()
+    if (done && !failed) {
+      toast.add({
+        title: done === 1 ? 'Device removed' : `${done} devices removed`,
+        color: 'success',
+      })
+    }
+    else if (done && failed) {
+      toast.add({ title: `${done} removed, then stopped: ${failed}`, color: 'warning' })
+    }
+    else {
+      toast.add({ title: failed || 'Could not remove devices', color: 'error' })
+    }
+  }
+  finally {
+    deviceReleasing.value = false
+  }
+}
 const waiverSnapshot = computed(() => {
   if (!rental.value?.waiver) {
     return ''
@@ -445,6 +655,16 @@ async function removeRental() {
           </div>
           <div class="flex flex-wrap items-center gap-2 lg:justify-end">
             <UButton
+              to="#assigned-devices"
+              color="neutral"
+              :variant="(rental.assignedDeviceCount || rentalDevices?.items?.length) ? 'soft' : 'outline'"
+              icon="i-lucide-qr-code"
+            >
+              {{ (rentalDevices?.items?.length || rental.assignedDeviceCount || 0) > 0
+                ? `${rentalDevices?.items?.length || rental.assignedDeviceCount} device${(rentalDevices?.items?.length || rental.assignedDeviceCount) === 1 ? '' : 's'}`
+                : 'Devices' }}
+            </UButton>
+            <UButton
               v-if="rental.receipts[0]"
               :to="`/receipts/${rental.receipts[0].receiptNumber}`"
               color="neutral"
@@ -721,8 +941,8 @@ async function removeRental() {
         @changed="refresh"
       />
 
-      <div class="grid gap-6 xl:grid-cols-2 xl:items-start">
-        <div class="space-y-6">
+      <div class="flex flex-col gap-6 xl:grid xl:grid-cols-2 xl:items-start">
+        <div class="contents xl:flex xl:flex-col xl:gap-6">
           <section class="rounded-2xl border border-stone-200 bg-white p-5 text-sm">
             <h3 class="flex items-center gap-2 font-medium text-stone-900">
               <UIcon
@@ -825,6 +1045,202 @@ async function removeRental() {
             @changed="refresh"
           />
 
+          <section
+            v-if="rentalDevices?.ready !== false"
+            id="assigned-devices"
+            class="rounded-2xl border border-stone-200 bg-white p-5 text-sm"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h3 class="flex items-center gap-2 font-medium text-stone-900">
+                <UIcon
+                  name="i-lucide-qr-code"
+                  class="size-4 text-stone-500"
+                />
+                Assigned devices
+              </h3>
+              <UButton
+                :to="`/admin/registered-devices?rental=${encodeURIComponent(rental.code)}`"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-external-link"
+              >
+                Registered Devices
+              </UButton>
+            </div>
+            <p
+              v-if="rentalDevicesError"
+              class="mt-3 text-sm text-red-700"
+            >
+              Assigned devices could not be loaded. Refresh the page, then try again.
+            </p>
+            <div
+              v-else-if="rentalDevices?.items?.length"
+              class="mt-3 space-y-2"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label class="inline-flex items-center gap-2 text-xs text-stone-600">
+                  <input
+                    type="checkbox"
+                    class="size-4 rounded border-stone-300"
+                    :checked="selectedToRemove.length > 0 && selectedToRemove.length === rentalDevices.items.length"
+                    :disabled="deviceReleasing || Boolean(deviceReleasingUuid)"
+                    @change="toggleRemoveAll(($event.target as HTMLInputElement).checked)"
+                  >
+                  Select all assigned
+                </label>
+                <UButton
+                  color="error"
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-trash-2"
+                  :loading="deviceReleasing"
+                  :disabled="!selectedToRemove.length || Boolean(deviceReleasingUuid)"
+                  @click="releaseSelectedRentalDevices"
+                >
+                  Remove selected ({{ selectedToRemove.length }})
+                </UButton>
+              </div>
+              <ul class="divide-y divide-stone-100 rounded-xl border border-stone-100">
+                <li
+                  v-for="device in rentalDevices.items"
+                  :key="device.uuid"
+                  class="flex flex-wrap items-center justify-between gap-3 px-3 py-3"
+                >
+                  <label class="flex min-w-0 flex-1 items-start gap-3">
+                    <input
+                      type="checkbox"
+                      class="mt-1 size-4 rounded border-stone-300"
+                      :checked="selectedToRemove.includes(device.uuid)"
+                      :disabled="deviceReleasing || Boolean(deviceReleasingUuid)"
+                      @change="toggleRemoveSelection(device.uuid, ($event.target as HTMLInputElement).checked)"
+                    >
+                    <span class="min-w-0">
+                      <span class="block font-medium text-stone-900">
+                        {{ device.label || device.assetCode }}
+                      </span>
+                      <span class="block text-xs text-stone-500">
+                        {{ device.product.name }} · {{ device.assetCode }}
+                      </span>
+                    </span>
+                  </label>
+                  <div class="flex flex-wrap gap-2">
+                    <UButton
+                      :to="`/admin/registered-devices?device=${device.uuid}`"
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      icon="i-lucide-pencil"
+                    >
+                      Edit
+                    </UButton>
+                    <UButton
+                      color="error"
+                      variant="outline"
+                      size="sm"
+                      icon="i-lucide-x"
+                      :loading="deviceReleasingUuid === device.uuid"
+                      :disabled="deviceReleasing"
+                      @click="releaseRentalDevice(device.uuid)"
+                    >
+                      Remove
+                    </UButton>
+                  </div>
+                </li>
+              </ul>
+              <p class="text-xs text-stone-500">
+                You can remove devices anytime after saving. Past bookings still keep usage history; once the rental days are over the unit is free for the next booking.
+              </p>
+            </div>
+            <p
+              v-else-if="!rentalDevicesError"
+              class="mt-3 text-stone-600"
+            >
+              No devices on this booking yet. Select one or more free units below.
+            </p>
+
+            <div class="mt-4 space-y-3 border-t border-stone-100 pt-4">
+              <div
+                v-if="assignableDevices.length"
+                class="space-y-3"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <p class="text-sm font-medium text-stone-800">
+                    Add devices
+                  </p>
+                  <label class="inline-flex items-center gap-2 text-xs text-stone-600">
+                    <input
+                      type="checkbox"
+                      class="size-4 rounded border-stone-300"
+                      :checked="selectedToAssign.length > 0 && selectedToAssign.length === assignableDevices.length"
+                      :disabled="deviceAssigning"
+                      @change="toggleAssignAll(($event.target as HTMLInputElement).checked)"
+                    >
+                    Select all free
+                  </label>
+                </div>
+                <ul class="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-stone-100 p-2">
+                  <li
+                    v-for="device in assignableDevices"
+                    :key="device.uuid"
+                  >
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-stone-50">
+                      <input
+                        type="checkbox"
+                        class="mt-1 size-4 rounded border-stone-300"
+                        :checked="selectedToAssign.includes(device.uuid)"
+                        :disabled="deviceAssigning"
+                        @change="toggleAssignSelection(device.uuid, ($event.target as HTMLInputElement).checked)"
+                      >
+                      <span class="min-w-0">
+                        <span class="block text-sm font-medium text-stone-900">
+                          {{ device.label || device.assetCode }}
+                        </span>
+                        <span class="block text-xs text-stone-500">
+                          {{ device.product.name }} · {{ device.assetCode }}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+                <UButton
+                  icon="i-lucide-plus"
+                  :loading="deviceAssigning"
+                  :disabled="!selectedToAssign.length"
+                  @click="assignRentalDevices"
+                >
+                  Assign selected ({{ selectedToAssign.length }})
+                </UButton>
+              </div>
+
+              <div
+                v-else
+                class="space-y-2"
+              >
+                <p class="text-sm text-stone-600">
+                  <template v-if="assignableCatalog?.ready === false">
+                    Paste the registered devices SQL in Supabase, then refresh.
+                  </template>
+                  <template v-else-if="rentalProductNames.length">
+                    No free registered units for
+                    {{ rentalProductNames.join(', ') }}.
+                    Register a device for that product first, then assign it here.
+                  </template>
+                  <template v-else>
+                    This booking has no products to match devices against.
+                  </template>
+                </p>
+                <UButton
+                  :to="`/admin/registered-devices?rental=${encodeURIComponent(rental.code)}`"
+                  icon="i-lucide-plus"
+                  size="sm"
+                >
+                  Register / assign devices
+                </UButton>
+              </div>
+            </div>
+          </section>
+
           <AdminRentalExtensions
             :rental="rental"
             @extended="refresh"
@@ -832,8 +1248,252 @@ async function removeRental() {
 
           <AdminRentalFeedback
             v-if="showFeedback"
+            class="order-last xl:order-none"
             :rental="rental"
           />
+        </div>
+
+        <div class="contents xl:flex xl:flex-col xl:gap-6">
+          <section
+            id="waiver"
+            class="rounded-2xl border border-stone-200 bg-white p-5 text-sm"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="flex items-center gap-2 font-medium text-stone-900">
+                <UIcon
+                  name="i-lucide-file-signature"
+                  class="size-4 text-stone-500"
+                />
+                Rental agreement
+              </h3>
+              <span
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="rental.waiver ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+              >
+                <UIcon
+                  :name="rental.waiver ? 'i-lucide-check' : 'i-lucide-clock'"
+                  class="size-3"
+                />
+                {{ rental.waiver ? 'Signed' : 'Not signed' }}
+              </span>
+            </div>
+            <p
+              v-if="sendWaiver && canInvite"
+              class="mt-2 text-stone-600"
+            >
+              This booking is saved. Copy the waiver link from the confirmation, or create one here. The customer fills any missing name, email, phone, and ID photos before they can sign.
+            </p>
+            <template v-if="rental.waiver">
+              <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt class="text-stone-500">
+                    Agreement
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.version.version }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Status
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    Accepted
+                  </dd>
+                  <div
+                    v-if="canResetWaiver"
+                    class="mt-3 flex flex-wrap items-center gap-2"
+                  >
+                    <template v-if="!resetOpen">
+                      <UButton
+                        color="neutral"
+                        variant="outline"
+                        size="sm"
+                        :disabled="resetting"
+                        @click="resetOpen = true"
+                      >
+                        Change status to unsigned
+                      </UButton>
+                    </template>
+                    <template v-else>
+                      <p class="text-sm text-stone-600">
+                        Remove this signature so they can agree and sign again?
+                      </p>
+                      <UButton
+                        color="error"
+                        size="sm"
+                        :loading="resetting"
+                        @click="resetWaiver"
+                      >
+                        Confirm unsigned
+                      </UButton>
+                      <UButton
+                        color="neutral"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="resetting"
+                        @click="resetOpen = false"
+                      >
+                        Cancel
+                      </UButton>
+                    </template>
+                  </div>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Accepted by
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.signerName }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Email
+                  </dt>
+                  <dd class="mt-0.5 break-all text-stone-800">
+                    {{ rental.waiver.signerEmail || 'Not recorded' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Mobile
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.signerPhone || rental.customer?.phone || 'Not recorded' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Accepted
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ formatBusinessDateTime(rental.waiver.acceptedAt) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Privacy Policy
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.privacyPolicyVersion || 'Not recorded' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-stone-500">
+                    Terms & Conditions
+                  </dt>
+                  <dd class="mt-0.5 text-stone-800">
+                    {{ rental.waiver.termsVersion || 'Not recorded' }}
+                  </dd>
+                </div>
+              </dl>
+              <details class="mt-4">
+                <summary class="cursor-pointer text-sm font-medium text-lumen-700">
+                  View agreement snapshot
+                </summary>
+                <WaiverAgreementText
+                  class="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs leading-5 text-stone-700"
+                  :text="waiverSnapshot"
+                />
+              </details>
+              <AdminSignedWaiverLink
+                class="mt-4"
+                :rental-uuid="rental.uuid"
+              />
+            </template>
+            <div
+              v-else
+              class="mt-2"
+            >
+              <p class="text-stone-600">
+                No waiver has been accepted on this rental yet.
+              </p>
+              <AdminWaiverLink
+                v-if="canInvite"
+                class="mt-4"
+                plain
+                :rental-uuid="rental.uuid"
+                :can-invite="canInvite"
+                :waiver="rental.waiver"
+              />
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-stone-200 bg-white p-5 text-sm">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="flex items-center gap-2 font-medium text-stone-900">
+                <UIcon
+                  name="i-lucide-id-card"
+                  class="size-4 text-stone-500"
+                />
+                Identity documents
+              </h3>
+              <span
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="rental.identity ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+              >
+                <UIcon
+                  :name="rental.identity ? 'i-lucide-check' : 'i-lucide-clock'"
+                  class="size-3"
+                />
+                {{ rental.identity ? 'Submitted' : 'Missing' }}
+              </span>
+            </div>
+            <template v-if="rental.identity">
+              <p class="mt-2 text-stone-600">
+                Submitted for this rental.
+              </p>
+              <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <figure>
+                  <figcaption class="mb-2 text-stone-500">
+                    Government ID
+                  </figcaption>
+                  <img
+                    v-if="rental.identity.governmentIdUrl"
+                    :src="rental.identity.governmentIdUrl"
+                    alt="Government ID"
+                    class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
+                  >
+                  <p
+                    v-else
+                    class="text-stone-500"
+                  >
+                    Image is not available.
+                  </p>
+                </figure>
+                <figure>
+                  <figcaption class="mb-2 text-stone-500">
+                    Selfie with ID
+                  </figcaption>
+                  <img
+                    v-if="rental.identity.selfieUrl"
+                    :src="rental.identity.selfieUrl"
+                    alt="Selfie holding government ID"
+                    class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
+                  >
+                  <p
+                    v-else
+                    class="text-stone-500"
+                  >
+                    Image is not available.
+                  </p>
+                </figure>
+              </div>
+            </template>
+            <p
+              v-else
+              class="mt-2 text-stone-600"
+            >
+              No government ID or selfie has been submitted yet.
+            </p>
+            <AdminIdentityUpload
+              class="mt-4"
+              plain
+              :rental="rental"
+              @uploaded="refresh"
+            />
+          </section>
 
           <section class="rounded-2xl border border-stone-200 bg-white p-5">
             <h3 class="flex items-center gap-2 text-sm font-medium text-stone-900">
@@ -1081,249 +1741,6 @@ async function removeRental() {
                 <dd>{{ formatMoney(rental.paymentBalance!.balanceDue) }}</dd>
               </div>
             </dl>
-          </section>
-        </div>
-
-        <div class="space-y-6">
-          <section
-            id="waiver"
-            class="rounded-2xl border border-stone-200 bg-white p-5 text-sm"
-          >
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="flex items-center gap-2 font-medium text-stone-900">
-                <UIcon
-                  name="i-lucide-file-signature"
-                  class="size-4 text-stone-500"
-                />
-                Rental agreement
-              </h3>
-              <span
-                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="rental.waiver ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
-              >
-                <UIcon
-                  :name="rental.waiver ? 'i-lucide-check' : 'i-lucide-clock'"
-                  class="size-3"
-                />
-                {{ rental.waiver ? 'Signed' : 'Not signed' }}
-              </span>
-            </div>
-            <p
-              v-if="sendWaiver && canInvite"
-              class="mt-2 text-stone-600"
-            >
-              This booking is saved. Copy the waiver link from the confirmation, or create one here. The customer fills any missing name, email, phone, and ID photos before they can sign.
-            </p>
-            <template v-if="rental.waiver">
-              <dl class="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <dt class="text-stone-500">
-                    Agreement
-                  </dt>
-                  <dd class="mt-0.5 text-stone-800">
-                    {{ rental.waiver.version.version }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-stone-500">
-                    Status
-                  </dt>
-                  <dd class="mt-0.5 text-stone-800">
-                    Accepted
-                  </dd>
-                  <div
-                    v-if="canResetWaiver"
-                    class="mt-3 flex flex-wrap items-center gap-2"
-                  >
-                    <template v-if="!resetOpen">
-                      <UButton
-                        color="neutral"
-                        variant="outline"
-                        size="sm"
-                        :disabled="resetting"
-                        @click="resetOpen = true"
-                      >
-                        Change status to unsigned
-                      </UButton>
-                    </template>
-                    <template v-else>
-                      <p class="text-sm text-stone-600">
-                        Remove this signature so they can agree and sign again?
-                      </p>
-                      <UButton
-                        color="error"
-                        size="sm"
-                        :loading="resetting"
-                        @click="resetWaiver"
-                      >
-                        Confirm unsigned
-                      </UButton>
-                      <UButton
-                        color="neutral"
-                        variant="ghost"
-                        size="sm"
-                        :disabled="resetting"
-                        @click="resetOpen = false"
-                      >
-                        Cancel
-                      </UButton>
-                    </template>
-                  </div>
-                </div>
-                <div>
-                  <dt class="text-stone-500">
-                    Accepted by
-                  </dt>
-                  <dd class="mt-0.5 text-stone-800">
-                    {{ rental.waiver.signerName }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-stone-500">
-                    Email
-                  </dt>
-                  <dd class="mt-0.5 break-all text-stone-800">
-                    {{ rental.waiver.signerEmail || 'Not recorded' }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-stone-500">
-                    Mobile
-                  </dt>
-                  <dd class="mt-0.5 text-stone-800">
-                    {{ rental.waiver.signerPhone || rental.customer?.phone || 'Not recorded' }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-stone-500">
-                    Accepted
-                  </dt>
-                  <dd class="mt-0.5 text-stone-800">
-                    {{ formatBusinessDateTime(rental.waiver.acceptedAt) }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-stone-500">
-                    Privacy Policy
-                  </dt>
-                  <dd class="mt-0.5 text-stone-800">
-                    {{ rental.waiver.privacyPolicyVersion || 'Not recorded' }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-stone-500">
-                    Terms & Conditions
-                  </dt>
-                  <dd class="mt-0.5 text-stone-800">
-                    {{ rental.waiver.termsVersion || 'Not recorded' }}
-                  </dd>
-                </div>
-              </dl>
-              <details class="mt-4">
-                <summary class="cursor-pointer text-sm font-medium text-lumen-700">
-                  View agreement snapshot
-                </summary>
-                <WaiverAgreementText
-                  class="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs leading-5 text-stone-700"
-                  :text="waiverSnapshot"
-                />
-              </details>
-              <AdminSignedWaiverLink
-                class="mt-4"
-                :rental-uuid="rental.uuid"
-              />
-            </template>
-            <div
-              v-else
-              class="mt-2"
-            >
-              <p class="text-stone-600">
-                No waiver has been accepted on this rental yet.
-              </p>
-              <AdminWaiverLink
-                v-if="canInvite"
-                class="mt-4"
-                plain
-                :rental-uuid="rental.uuid"
-                :can-invite="canInvite"
-                :waiver="rental.waiver"
-              />
-            </div>
-          </section>
-
-          <section class="rounded-2xl border border-stone-200 bg-white p-5 text-sm">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="flex items-center gap-2 font-medium text-stone-900">
-                <UIcon
-                  name="i-lucide-id-card"
-                  class="size-4 text-stone-500"
-                />
-                Identity documents
-              </h3>
-              <span
-                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="rental.identity ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
-              >
-                <UIcon
-                  :name="rental.identity ? 'i-lucide-check' : 'i-lucide-clock'"
-                  class="size-3"
-                />
-                {{ rental.identity ? 'Submitted' : 'Missing' }}
-              </span>
-            </div>
-            <template v-if="rental.identity">
-              <p class="mt-2 text-stone-600">
-                Submitted for this rental.
-              </p>
-              <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                <figure>
-                  <figcaption class="mb-2 text-stone-500">
-                    Government ID
-                  </figcaption>
-                  <img
-                    v-if="rental.identity.governmentIdUrl"
-                    :src="rental.identity.governmentIdUrl"
-                    alt="Government ID"
-                    class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
-                  >
-                  <p
-                    v-else
-                    class="text-stone-500"
-                  >
-                    Image is not available.
-                  </p>
-                </figure>
-                <figure>
-                  <figcaption class="mb-2 text-stone-500">
-                    Selfie with ID
-                  </figcaption>
-                  <img
-                    v-if="rental.identity.selfieUrl"
-                    :src="rental.identity.selfieUrl"
-                    alt="Selfie holding government ID"
-                    class="max-h-72 w-full rounded-lg border border-stone-100 object-contain bg-stone-50"
-                  >
-                  <p
-                    v-else
-                    class="text-stone-500"
-                  >
-                    Image is not available.
-                  </p>
-                </figure>
-              </div>
-            </template>
-            <p
-              v-else
-              class="mt-2 text-stone-600"
-            >
-              No government ID or selfie has been submitted yet.
-            </p>
-            <AdminIdentityUpload
-              class="mt-4"
-              plain
-              :rental="rental"
-              @uploaded="refresh"
-            />
           </section>
         </div>
       </div>

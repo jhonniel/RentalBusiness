@@ -211,6 +211,43 @@ export function isRentalCode(value: string): boolean {
   return /^(JRY|LUM)-\d{8}-\d+$/.test(value)
 }
 
+/**
+ * Prefills JRY and inserts dashes while typing: JRY-YYYYMMDD-NNNNN.
+ * Accepts pasted full codes and LUM aliases.
+ */
+export function formatRentalBookingCodeInput(value: string) {
+  const cleaned = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  let prefix: 'JRY' | 'LUM' = 'JRY'
+  let body = cleaned
+
+  if (cleaned.startsWith('LUM')) {
+    prefix = 'LUM'
+    body = cleaned.slice(3)
+  }
+  else if (cleaned.startsWith('JRY')) {
+    body = cleaned.slice(3)
+  }
+  else if (/^[A-Z]/.test(cleaned)) {
+    // Partial brand prefix while typing — keep digits only after letters fall away.
+    body = cleaned.replace(/^[A-Z]+/, '')
+  }
+
+  const digits = body.replace(/\D/g, '').slice(0, 18)
+  const date = digits.slice(0, 8)
+  const sequence = digits.slice(8)
+
+  if (!date) {
+    return `${prefix}-`
+  }
+  if (date.length < 8) {
+    return `${prefix}-${date}`
+  }
+  if (!sequence) {
+    return `${prefix}-${date}-`
+  }
+  return `${prefix}-${date}-${sequence}`
+}
+
 export function rentalCodeCandidates(value: string) {
   const codes = [value]
   if (value.startsWith('LUM-')) {

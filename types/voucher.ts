@@ -13,6 +13,8 @@ export interface PublicVoucher {
   endsOn: string | null
   status: VoucherStatus
   displayStatus: string
+  /** When true, only customers with no prior booking history may use this code. */
+  firstTimeOnly: boolean
   createdAt: string
 }
 

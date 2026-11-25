@@ -158,6 +158,14 @@ Each Social Media button can override the page default color. Below the buttons,
 
 Each Social Media button can show an optional Lucide icon beside the label. Admins pick from a curated list. Paste `supabase/migrations/20261124180000_social_link_icons.sql`.
 
+## Phase 28 — First-time booker vouchers (completed)
+
+Admins can mark a voucher **First-time bookers only**. Apply rejects customers whose account email already has booking history. Paste `supabase/migrations/20261125090000_voucher_first_time_only.sql`.
+
+## Phase 29 — Registered Devices (completed)
+
+Admin **Registered Devices** extends `equipment_assets` with permanent public QR codes (`/devices/[code]`), bag pin / Wi‑Fi / bag contents, and rental assignment via `rental_asset_assignments`. Assign from the devices page or rental detail. Public scan shows a locked preview; bag/Wi‑Fi unlock only after the customer enters the rental booking code that is actively assigned to that device. Bag contents override product accessories when present. Paste `supabase/migrations/20261125100000_registered_devices.sql`.
+
 ## Phase report template
 
 After each phase:

@@ -81,6 +81,8 @@ export interface PublicRental {
   /** Admin list only: upcoming, active, done, or cancelled right now. */
   group?: AdminRentalGroup | null
   feedback?: RentalFeedbackSummary | null
+  /** Admin: count of active registered-device assignments on this booking. */
+  assignedDeviceCount?: number
   createdAt: string
 }
 

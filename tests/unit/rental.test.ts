@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canTransitionRentalStatus } from '../../utils/rental-status'
-import { customerRentalGroup, amountDue, amountToPay, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
+import { customerRentalGroup, amountDue, amountToPay, canCancelAdminRental, canCompleteAdminRental, canCustomerPayRental, canSubmitRentalRequest, rentalSalesBreakdown, canMarkAdminRentalPaid, customerRentalNextLabel, customerRentalNextPath, formatRentalBookingCodeInput, isRentalCode, paidPaymentChange, paymentAmountAfterDepositReturn, paymentChangeNote, paymentCollectedDeposit, rentalCodeCandidates, toPublicRental, toPublicRentalHistoryEntry } from '../../utils/rental'
 import { addCalendarDays } from '../../utils/expense'
 import { calendarDateInZone } from '../../utils/datetime'
 import { fieldErrorSummary, fieldErrors } from '../../utils/auth-validation'
@@ -194,6 +194,11 @@ describe('rental mapper', () => {
       'LUM-20261005-00011',
       'JRY-20261005-00011',
     ])
+    expect(formatRentalBookingCodeInput('')).toBe('JRY-')
+    expect(formatRentalBookingCodeInput('20261120')).toBe('JRY-20261120-')
+    expect(formatRentalBookingCodeInput('2026112000001')).toBe('JRY-20261120-00001')
+    expect(formatRentalBookingCodeInput('jry2026112000001')).toBe('JRY-20261120-00001')
+    expect(formatRentalBookingCodeInput('lum-20261120-9')).toBe('LUM-20261120-9')
   })
 })
 

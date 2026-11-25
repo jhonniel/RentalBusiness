@@ -603,6 +603,30 @@ export async function listRentalsOverlapping(client: Client, filters: {
   return data ?? []
 }
 
+/**
+ * Prior bookings for first-time voucher checks.
+ * Counts rentals for the same customer account that already progressed past a draft
+ * (excluding cancelled/rejected and the rental currently applying the voucher).
+ */
+export async function countPriorCustomerBookings(
+  client: Client,
+  customerId: number,
+  excludeRentalUuid: string,
+) {
+  const { count, error } = await client
+    .from('rental_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('customer_id', customerId)
+    .neq('uuid', excludeRentalUuid)
+    .not('status', 'in', '(draft,cancelled,rejected)')
+
+  if (error) {
+    throw new AppError('We could not check booking history for that voucher.', 500, ERROR_CODES.INTERNAL_ERROR, { cause: error })
+  }
+
+  return count ?? 0
+}
+
 export async function findCalendarRentalsByCode(client: Client, search: string) {
   const codes = rentalCodeCandidates(search)
   const { data, error } = await client

@@ -72,6 +72,8 @@ import { findOpenCommissionExpenseByRentalId, voidCommissionExpenses } from '../
 import { listAdminBlockedDatesOverlapping } from './blocked-date.service'
 import { attachAdminIdentityUrls } from './identity.service'
 import { issueReceiptForPayment } from './receipt.service'
+import { releaseDevicesForRental } from './registered-device.service'
+import { countActiveAssignmentsByRentalIds } from '../repositories/registered-device.repository'
 
 type Client = SupabaseClient<Database>
 
@@ -192,10 +194,12 @@ export async function listAdminRentals(client: Client, query: {
   })
 
   const now = new Date()
+  const rentalIds = rows.map(row => row.id)
   const doneIds = rows.filter(row => canSendFeedback(row.status as RentalStatus)).map(row => row.id)
-  const [extensions, feedback] = await Promise.all([
-    listExtensionAmountsByRentalIds(client, rows.map(row => row.id)).catch(() => []),
+  const [extensions, feedback, deviceCounts] = await Promise.all([
+    listExtensionAmountsByRentalIds(client, rentalIds).catch(() => []),
     listLatestFeedbackByRentalIds(client, doneIds).catch(() => new Map<number, FeedbackRequestRow>()),
+    countActiveAssignmentsByRentalIds(client, rentalIds).catch(() => new Map<number, number>()),
   ])
   return {
     items: rows.map((row) => {
@@ -212,6 +216,7 @@ export async function listAdminRentals(client: Client, query: {
       return {
         ...rental,
         paymentBalance,
+        assignedDeviceCount: deviceCounts.get(row.id) || 0,
         group: adminRentalGroupOf({
           status: rental.status,
           starts_on: row.starts_on,
@@ -321,12 +326,13 @@ function toCalendarEvent(row: Awaited<ReturnType<typeof listRentalsOverlapping>>
 export async function getAdminRental(client: Client, identifier: string) {
   const loaded = await loadAdminRentalRow(client, identifier)
   const rentalId = loaded.row.id
-  const [rental, rows, commissionExpense, paymentContext, lateFee] = await Promise.all([
+  const [rental, rows, commissionExpense, paymentContext, lateFee, deviceCounts] = await Promise.all([
     enrichAdminRental(client, loaded.rental, loaded.row),
     loadExtensionsSafely(client, rentalId),
     loaded.rental.commissioner ? findOpenCommissionExpenseByRentalId(client, rentalId) : Promise.resolve(null),
     extensionPaymentContext(client, rentalId).catch(() => null),
     rentalLateFee(client, loaded.rental, rentalId),
+    countActiveAssignmentsByRentalIds(client, [rentalId]).catch(() => new Map<number, number>()),
   ])
   const payments = rows.length ? paymentContext : null
   const confirmed = confirmedEndFrom(rental, rows, payments)
@@ -354,7 +360,15 @@ export async function getAdminRental(client: Client, identifier: string) {
     payments: Array.isArray(rowPayments) ? rowPayments : rowPayments ? [rowPayments] : [],
     extensions: rows,
   })
-  return { ...rental, pendingExtensionAmount: confirmed.pendingAmount, extensionLines, commissionStatus, lateFee, paymentBalance }
+  return {
+    ...rental,
+    pendingExtensionAmount: confirmed.pendingAmount,
+    extensionLines,
+    commissionStatus,
+    lateFee,
+    paymentBalance,
+    assignedDeviceCount: deviceCounts.get(rentalId) || 0,
+  }
 }
 
 export async function createAdminRental(
@@ -2027,6 +2041,7 @@ export async function cancelAdminRental(
 
   await voidCommissionExpenses(client, identity.id)
   const row = await updateRentalStatus(client, rental.uuid, 'cancelled')
+  await releaseDevicesForRental(client, identity.id)
   const reason = input.reason?.trim() || ''
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
@@ -2107,6 +2122,7 @@ export async function completeAdminRental(event: H3Event, client: Client, profil
   }
 
   const row = await updateRentalStatus(client, rental.uuid, 'completed')
+  await releaseDevicesForRental(client, identity.id)
   await insertRentalStatusHistory(client, {
     rentalId: identity.id,
     fromStatus: rental.status,

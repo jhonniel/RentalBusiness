@@ -2,7 +2,7 @@
 
 JRY Rentals is a production rental management and booking platform.
 
-**Current phase:** 27 — social button icons.
+**Current phase:** 29 — registered devices.
 
 ## Stack
 
@@ -16,6 +16,7 @@ JRY Rentals is a production rental management and booking platform.
 | Email | Gmail SMTP | Signup confirmation, booking confirmation, return thank-you with feedback link, receipt, reminder, and waiver-invite templates. Signup confirmations are sent by the API, not by Supabase Auth. Sends are logged in `email_logs`. |
 | Payments | Provider-agnostic module (`server/services/payments`) plus admin QR methods | Sandbox adapter in Phase 8. Webhooks verify HMAC before any status change. Admins upload QR images in Phase 16. Admin voucher codes reduce the rental total at checkout. |
 | Social links | `social_links` + `social_ads` + `/links/[code]` + admin QR (`uqr`) | Admins manage buttons (optional icon + per-button color), promo carousel ads (image and/or voucher), and a unique page `code` for the QR/share link. |
+| Registered devices | `equipment_assets` + `rental_asset_assignments` + `/devices/[code]` | Permanent per-unit QR; bag/Wi‑Fi unlock via matching active rental booking code; assign to rentals; usage = assignment history count. |
 | System health | `GET /api/admin/system-health` + `admin_database_health()` | Admin page for app/Supabase/DB size/storage/SMTP/Vercel status. No secrets in the payload. |
 | Hosting | Vercel | Cron at 16:00 UTC (midnight Asia/Manila) |
 

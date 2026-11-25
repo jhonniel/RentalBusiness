@@ -17,6 +17,7 @@ const VOUCHER_SELECT = `
   starts_on,
   ends_on,
   status,
+  first_time_only,
   created_at
 `
 

@@ -81,12 +81,14 @@ Default timezone for business dates: `Asia/Manila`. Timestamps are stored in UTC
 - `serial_number`, `condition`, `status`
 - statuses: `available` \| `reserved` \| `rented` \| `maintenance` \| `damaged` \| `lost` \| `retired`
 - `purchase_cost`, `purchase_date`, `replacement_value`
+- Registered-device fields (`20261125100000_registered_devices.sql`): `public_code` (unique `jry-dev-…` QR token, auto-generated), optional `label`, `bag_pin`, `wifi_name`, `wifi_password`, `bag_contents` (jsonb string array). Empty `bag_contents` falls back to product `included_accessories` on the public scan page.
 
 **rental_asset_assignments**
 
 - `rental_id` → rental_requests
 - `equipment_asset_id` → equipment_assets
 - Unique `(rental_id, equipment_asset_id)`
+- `assigned_at`, `released_at` (null while active). Partial unique index: one active assignment per asset. Completing or cancelling a rental releases assignments. Lifetime assignment count is “most used.”
 
 **Relationships**
 
@@ -206,13 +208,14 @@ Status changes are server-side only. Clients cannot write status columns. Custom
 
 ### Vouchers
 
-**vouchers**
+**vouchers** (`first_time_only` in `20261125090000_voucher_first_time_only.sql`)
 
 - `id`, `uuid`, `code` (unique, public identifier)
 - `name`, `discount_type` (`percent` \| `fixed`), `discount_value`
 - `max_redemptions` (null = unlimited), `redeemed_count`
 - `min_subtotal`, `starts_on`, `ends_on`
 - `status` (`draft` \| `active` \| `disabled`)
+- `first_time_only` (default false): when true, only customers with no prior booking history on their account email may redeem
 - Admin-only select/write. Customers never list this table.
 
 **voucher_redemptions**

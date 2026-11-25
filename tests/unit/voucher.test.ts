@@ -38,6 +38,7 @@ describe('voucher redeemability', () => {
     starts_on: '2026-09-01',
     ends_on: '2026-09-30',
     status: 'active' as const,
+    first_time_only: false,
     created_at: '2026-09-01T00:00:00.000Z',
   }
 
@@ -72,6 +73,14 @@ describe('voucher validation', () => {
     }).success).toBe(false)
 
     expect(applyVoucherSchema.parse({ code: ' jry-ab12 ' })).toMatchObject({ code: 'jry-ab12' })
+    expect(voucherInputSchema.parse({
+      name: 'First booking',
+      code: 'JRY-NEW',
+      discountType: 'percent',
+      discountValue: 5,
+      status: 'active',
+      firstTimeOnly: true,
+    }).firstTimeOnly).toBe(true)
   })
 })
 

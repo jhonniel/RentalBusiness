@@ -16,6 +16,7 @@ export interface VoucherRow {
   starts_on: string | null
   ends_on: string | null
   status: VoucherStatus
+  first_time_only?: boolean
   created_at: string
 }
 
@@ -105,6 +106,7 @@ export function toPublicVoucher(row: VoucherRow) {
     endsOn: row.ends_on,
     status: row.status,
     displayStatus: voucherDisplayStatus(row),
+    firstTimeOnly: Boolean(row.first_time_only),
     createdAt: row.created_at,
   }
 }
