@@ -107,7 +107,7 @@ const editingAdImageUrl = computed(() => {
   return ads.value.find(ad => ad.uuid === editingAdUuid.value)?.imageUrl ?? null
 })
 
-const qrMarkup = computed(() => pageUrl.value ? qrSvg(pageUrl.value) : '')
+const qrMarkup = computed(() => pageUrl.value ? qrSvg(pageUrl.value, { withLogo: true }) : '')
 
 function nextSortOrder() {
   return items.value.reduce((max, link) => Math.max(max, link.sortOrder), 0) + 10

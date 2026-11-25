@@ -21,12 +21,12 @@ function withCenterLogo(svg: string, logoHref: string) {
   }
 
   const size = Math.min(box.width, box.height)
-  const logoSize = Math.round(size * 0.22)
-  const pad = Math.round(logoSize * 0.18)
+  const logoSize = Math.round(size * 0.18)
+  const pad = Math.round(logoSize * 0.08)
   const outer = logoSize + pad * 2
   const x = (box.width - outer) / 2
   const y = (box.height - outer) / 2
-  const rx = Math.round(outer * 0.16)
+  const rx = Math.round(outer * 0.12)
 
   const overlay = [
     `<rect x="${x}" y="${y}" width="${outer}" height="${outer}" rx="${rx}" ry="${rx}" fill="#ffffff"/>`,
