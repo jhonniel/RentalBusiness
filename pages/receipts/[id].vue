@@ -2,7 +2,7 @@
 import type { PublicReceipt } from '~/types/receipt'
 import { formatBusinessDate, formatBusinessDateTime } from '~/utils/datetime'
 import { APP_NAME, BUSINESS_ADDRESS, BUSINESS_EMAIL, BUSINESS_PHONE, FACEBOOK_URL, RECEIPT_RECEIVED_BY } from '~/utils/constants'
-import { RECEIPT_58MM_PRINT_CSS, RECEIPT_PURPOSE_LABELS, receiptAddonItems, receiptKitItems } from '~/utils/receipt'
+import { RECEIPT_58MM_PRINT_CSS, RECEIPT_A4_PRINT_CSS, RECEIPT_PURPOSE_LABELS, receiptAddonItems, receiptKitItems } from '~/utils/receipt'
 
 definePageMeta({
   layout: 'blank',
@@ -76,14 +76,34 @@ watch(receipt, (value) => {
   emailTo.value = value?.snapshot.customer.email?.trim() || ''
 }, { immediate: true })
 
+const PRINT_STYLE_ID = 'receipt-print-css'
+
+/** Keep default 58 mm CSS for Ctrl/Cmd+P; button clicks swap sync before print. */
 useHead({
   style: [{
-    key: 'receipt-58mm',
+    key: 'receipt-print',
+    id: PRINT_STYLE_ID,
     innerHTML: RECEIPT_58MM_PRINT_CSS,
   }],
 })
 
-function printReceipt() {
+function applyPrintCss(size: '58mm' | 'a4') {
+  const css = size === 'a4' ? RECEIPT_A4_PRINT_CSS : RECEIPT_58MM_PRINT_CSS
+  if (!import.meta.client) {
+    return
+  }
+  let el = document.getElementById(PRINT_STYLE_ID) as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = PRINT_STYLE_ID
+    document.head.appendChild(el)
+  }
+  el.textContent = css
+}
+
+function printReceipt(size: '58mm' | 'a4') {
+  // Must stay sync with the click — awaiting nextTick drops user activation and blocks window.print().
+  applyPrintCss(size)
   window.print()
 }
 
@@ -149,9 +169,18 @@ async function sendInvoice() {
           variant="outline"
           icon="i-lucide-printer"
           class="w-full justify-center whitespace-nowrap [word-spacing:normal] sm:w-auto"
-          @click="printReceipt"
+          @click="printReceipt('58mm')"
         >
           Print (58 mm)
+        </UButton>
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-file-text"
+          class="w-full justify-center whitespace-nowrap [word-spacing:normal] sm:w-auto"
+          @click="printReceipt('a4')"
+        >
+          Print (A4)
         </UButton>
         <UButton
           v-if="snapshot"

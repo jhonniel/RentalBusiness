@@ -60,6 +60,37 @@ export const RECEIPT_58MM_PRINT_CSS = `
 }
 `
 
+/** Same receipt content, laid out for standard A4 office paper. */
+export const RECEIPT_A4_PRINT_CSS = `
+@page { size: A4; margin: 14mm 16mm; }
+@media print {
+  html, body { width: auto; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  .receipt-paper { width: 100% !important; max-width: 178mm !important; margin: 0 auto !important; padding: 0 !important; font-size: 10.5pt !important; line-height: 1.45 !important; color: #111 !important; }
+  .receipt-paper * { color: #111 !important; box-shadow: none !important; }
+  .receipt-paper > section { margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; }
+  .receipt-paper h1 { font-size: 16pt !important; letter-spacing: 0.04em !important; margin-top: 4mm !important; }
+  .receipt-paper h2 { font-size: 11pt !important; }
+  .receipt-paper p, .receipt-paper dt, .receipt-paper dd, .receipt-paper li, .receipt-paper span, .receipt-paper a { font-size: 10.5pt !important; }
+  .receipt-paper .text-xs { font-size: 9pt !important; }
+  .receipt-paper dl.grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 3mm 8mm !important; margin-top: 6mm !important; }
+  .receipt-paper dl.grid > div { display: block !important; }
+  .receipt-paper dl.grid > div dt { font-size: 9pt !important; color: #555 !important; margin-bottom: 0.5mm !important; }
+  .receipt-paper dl.grid > div dd { text-align: left !important; font-weight: 600 !important; }
+  .receipt-paper ul, .receipt-paper div.border-y { margin-top: 5mm !important; border-color: #ccc !important; }
+  .receipt-paper li { padding: 2.5mm 0 !important; border-color: #e5e5e5 !important; }
+  .receipt-paper .rounded-full { display: inline-block !important; padding: 1mm 3mm !important; border: 1px solid #ccc !important; border-radius: 999px !important; background: transparent !important; }
+  .receipt-paper .rounded-xl { border: 1px solid #ddd !important; border-radius: 0 !important; background: transparent !important; padding: 4mm !important; }
+  .receipt-paper img, .receipt-paper svg { max-width: 48mm !important; height: auto !important; }
+  .receipt-paper .receipt-header img { display: block; margin: 0 auto !important; max-width: 52mm !important; }
+  .receipt-paper .receipt-header { padding-bottom: 5mm !important; border-bottom: 1px solid #ccc !important; text-align: center !important; }
+  .receipt-paper .receipt-footer { margin-top: 8mm !important; padding-top: 5mm !important; border-top: 1px solid #ccc !important; text-align: center !important; }
+  .receipt-paper .receipt-footer a { text-decoration: none !important; }
+  .receipt-paper .receipt-qr { margin-top: 6mm !important; }
+  .receipt-paper .receipt-qr img { width: 32mm !important; height: 32mm !important; max-width: 32mm !important; }
+  .receipt-paper .receipt-received-by { font-weight: 600 !important; }
+}
+`
+
 export const RECEIPT_PURPOSE_LABELS: Record<ReceiptPurpose, string> = {
   booking: 'Booking payment',
   extension: 'Booking extension',
